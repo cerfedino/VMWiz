@@ -1,0 +1,128 @@
+<html>
+
+<head>
+    <title>VM Application</title>
+</head>
+
+<body>
+    <div class="content">
+
+        <h1>VM Request Form</h1>
+        <form method="POST">
+
+            <form-block>
+                <label>ETH E-Mail address</label>
+                <input type="email" placeholder="example@ethz.ch" name="ethz_email" required>
+            </form-block>
+
+            <form-block>
+                <label>Non-ETH E-Mail address</label>
+                <input type="email" placeholder="example@gmail.com" name="external_email" required>
+            </form-block>
+
+            <form-block>
+                <label>Operating System</label>
+                <select name="os" required>
+                    <option value="debian">Debian</option>
+                    <option value="ubuntu">Ubuntu</option>
+                </select>
+            </form-block>
+
+            <form-block>
+                <label>SSH Public Key</label>
+                <textarea rows="2" cols="50" name="ssh_keys" minlength="10"></textarea>
+            </form-block>
+
+            <form-block>
+                <label>Hostname</label>
+                <input type="text" name="hostname" placeholder="example.vsos.ethz.ch" required>
+            </form-block>
+
+            <form-block>
+                <label>CPU Cores</label>
+                <input type="number" name="cores" value="2" required>
+            </form-block>
+
+            <form-block>
+                <label>RAM (GB)</label>
+                <input type="number" name="ram" value="2" required>
+            </form-block>
+
+            <form-block>
+                <label>Disk Size (GB)</label>
+                <input type="number" name="disk" value="15" required>
+            </form-block>
+
+            <form-block>
+                <label>Do you have any special wishes or requirements?</label>
+                <textarea rows="4" cols="50" name="wishes"></textarea>
+            </form-block>
+
+            <form-block>
+                <div>
+                    <label>
+                        <input type="checkbox" name="bot" required>
+                        I have read and understood the
+                        <a href="https://rechtssammlung.sp.ethz.ch/Dokumente/203.21.pdf">Benutzungsordnung für
+                            Informations-
+                            und Kommunikationstechnologie an der ETH Zürich (BOT)</a>
+                    </label>
+                </div>
+            </form-block>
+
+            <script>
+                function onCaptcha(e) {
+                    document.getElementById("submit").disabled = false;
+                }
+            </script>
+
+            <div class="h-captcha" data-sitekey="{{captcha_sitekey}}" data-callback="onCaptcha"></div>
+            <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
+
+            <form-block>
+                <input type="submit" value="Request VM" id="submit" disabled>
+            </form-block>
+
+        </form>
+    </div>
+
+    <style>
+        html {
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        div.content {
+            margin: auto;
+            width: 30em;
+        }
+
+        form {
+            display: grid;
+            box-sizing: border-box;
+        }
+
+        form-block * {
+            box-sizing: border-box;
+        }
+
+        form-block input:not([type="checkbox"]),
+        form-block textarea,
+        form-block select {
+            width: 100%;
+        }
+
+        form-block {
+            margin: 0.4em;
+        }
+
+        form-block>label {
+            display: block;
+        }
+    </style>
+</body>
+
+</html>
