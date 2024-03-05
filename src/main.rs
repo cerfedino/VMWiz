@@ -1,6 +1,9 @@
 use ::serde::{Deserialize, Serialize};
-use rocket::{form::Form, response::Redirect, *};
+use rocket::{
+    form::Form, get, http::Status, launch, post, response::Redirect, routes, FromForm, State,
+};
 use rocket_dyn_templates::{context, Template};
+use serde_json::json;
 
 #[derive(Serialize, Deserialize, FromForm, Debug)]
 struct VmRequest {
@@ -31,16 +34,11 @@ struct Environment {
 
 #[get("/apply")]
 fn get_apply(env: &State<Environment>) -> Template {
-    Template::render(
-        "apply",
-        context! {
-            captcha_sitekey: env.hcaptcha.sitekey.as_str()
-        },
-    )
+    Template::render("apply", json!({"captcha_sitekey": &env.hcaptcha.sitekey}))
 }
 
 #[post("/apply", data = "<data>")]
-async fn post_apply(data: Form<VmRequest>, env: &State<Environment>) -> Option<Redirect> {
+async fn post_apply(data: Form<VmRequest>, env: &State<Environment>) -> Result<Redirect, Status> {
     let captcha = reqwest::Client::new()
         .post("https://hcaptcha.com/siteverify")
         .query(&[
@@ -49,13 +47,17 @@ async fn post_apply(data: Form<VmRequest>, env: &State<Environment>) -> Option<R
         ])
         .send()
         .await
-        .ok()?;
+        .map_err(|e| {
+            log::warn!("error while verifying hcaptcha response: {e:?}");
+            Status::InternalServerError
+        })?;
 
     if !captcha.status().is_success() {
-        return None;
+        log::warn!("captcha response failed verification: {captcha:?}");
+        return Err(Status::Forbidden);
     }
 
-    Some(Redirect::to("/success"))
+    Ok(Redirect::to("/success"))
 }
 
 #[get("/success")]
