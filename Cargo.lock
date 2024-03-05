@@ -75,6 +75,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.80"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ad32ce52e4161730f7098c077cd2ed6229b5804ccf99e5366be1ab72a98b4e1"
+
+[[package]]
 name = "async-stream"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1534,6 +1540,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-env"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c68119a0846249fd6f4b38561b4b4727dbc4fd9fea074f1253bca7d50440ce58"
+dependencies = [
+ "anyhow",
+ "log",
+ "serde",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.197"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2055,6 +2072,7 @@ dependencies = [
  "rocket",
  "rocket_dyn_templates",
  "serde",
+ "serde-env",
  "serde_json",
  "tokio",
 ]

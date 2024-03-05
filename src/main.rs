@@ -1,5 +1,3 @@
-use std::env;
-
 use ::serde::{Deserialize, Serialize};
 use rocket::{form::Form, response::Redirect, *};
 use rocket_dyn_templates::{context, Template};
@@ -20,36 +18,33 @@ struct VmRequest {
     h_captcha_response: String,
 }
 
-struct HCaptchaParams {
+#[derive(Deserialize, Serialize, Debug)]
+struct HCaptcha {
     sitekey: String,
     secret: String,
 }
 
-impl HCaptchaParams {
-    fn from_env() -> Self {
-        Self {
-            sitekey: env::var("HCAPTCHA_SITEKEY").unwrap(),
-            secret: env::var("HCAPTCHA_SECRET").unwrap(),
-        }
-    }
+#[derive(Deserialize, Serialize, Debug)]
+struct Environment {
+    hcaptcha: HCaptcha,
 }
 
 #[get("/apply")]
-fn get_apply(hc: &State<HCaptchaParams>) -> Template {
+fn get_apply(env: &State<Environment>) -> Template {
     Template::render(
         "apply",
         context! {
-            captcha_sitekey: hc.sitekey.as_str()
+            captcha_sitekey: env.hcaptcha.sitekey.as_str()
         },
     )
 }
 
 #[post("/apply", data = "<data>")]
-async fn post_apply(data: Form<VmRequest>, hc: &State<HCaptchaParams>) -> Option<Redirect> {
+async fn post_apply(data: Form<VmRequest>, env: &State<Environment>) -> Option<Redirect> {
     let captcha = reqwest::Client::new()
         .post("https://hcaptcha.com/siteverify")
         .query(&[
-            ("secret", &hc.secret),
+            ("secret", &env.hcaptcha.secret),
             ("response", &data.h_captcha_response),
         ])
         .send()
@@ -73,10 +68,10 @@ fn rocket() -> _ {
     dotenv::dotenv().ok();
     env_logger::init();
 
-    let captcha = HCaptchaParams::from_env();
+    let env: Environment = serde_env::from_env().expect("failed to deserialize environment");
 
     rocket::build()
         .attach(Template::fairing())
-        .manage(captcha)
+        .manage(env)
         .mount("/", routes![get_apply, post_apply, get_success])
 }
