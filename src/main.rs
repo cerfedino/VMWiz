@@ -138,7 +138,7 @@ async fn sendmail(
     Ok(())
 }
 
-fn format_mail(req: VmRequest) -> String {
+fn format_mail(req: &VmRequest) -> String {
     let mut buf = String::new();
 
     buf += "This is a generated E-Mail to confirm your VM Request.\n";
@@ -154,7 +154,7 @@ fn format_mail(req: VmRequest) -> String {
     buf += &format!("External E-Mail: {}\n", req.external_email);
     buf += &format!("Cores: {}\n", req.cores);
 
-    if let Some(w) = req.wishes {
+    if let Some(w) = &req.wishes {
         buf += &format!("requests: {w}\n");
     }
 
