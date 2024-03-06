@@ -2,7 +2,7 @@ FROM rust:latest
 RUN mkdir /app
 WORKDIR /app
 ENV ROCKET_PORT=8000
-EXPOSE $ROCKET_PORT
+EXPOSE 8000
 
 COPY ./ /app
 RUN cargo build --release

@@ -1,13 +1,48 @@
+version: "3"
+
+volumes:
+  certbot_challenge:
+  certificates:
+
+networks:
+  backend:
+    driver: bridge
+
 services:
-  cert-renewal:
-    build: ../certbot
+  proxy:
+    build: ../proxy
+    depends_on: 
+      - app
     ports:
       - 80:80
+      - 443:443
+    networks:
+      - backend
     volumes:
-      - ./certs:/etc/letsencrypt/live
+      - certbot_challenge:/var/www/certbot
+      - ../proxy/templates:/etc/nginx/templates
+      - certificates:/etc/letsencrypt
+    env_file:
+      - .env
+    environment:
+      - BACKEND_HOST=app
+      - BACKEND_PORT=8000
+  cert-renewal:
+    build: ../certbot
+    depends_on:
+      - proxy
+    volumes:
+      - certificates:/etc/letsencrypt
+      - certbot_challenge:/var/www/letsencrypt
+    env_file:
+      - .env
   app:
     build: ../server
-    ports: 
-      - 443:443
-    volumes:
-      - ./certs:/certs
+    ports:
+      - 8000:8000
+    networks:
+      - backend
+    env_file:
+      - .env
+    environment:
+      - ROCKET_ADDRESS=0.0.0.0
