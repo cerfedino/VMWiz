@@ -1,0 +1,13 @@
+services:
+  cert-renewal:
+    build: ../certbot
+    ports:
+      - 80:80
+    volumes:
+      - ./certs:/etc/letsencrypt/live
+  app:
+    build: ../server
+    ports: 
+      - 443:443
+    volumes:
+      - ./certs:/certs
