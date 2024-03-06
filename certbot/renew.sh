@@ -2,9 +2,9 @@
 
 certbot certonly \
 --text \
---email 'jmaier@sos.ethz.ch' \
+--email "$CERTBOT_EMAIL" \
 --agree-tos \
 --non-interactive \
 --server https://acme-v02.api.letsencrypt.org/directory \
 --standalone \
---cert-name app.vsos.ethz.ch -d app.vsos.ethz.ch
+--cert-name "$CERTBOT_DOMAIN" -d "$CERTBOT_DOMAIN"
