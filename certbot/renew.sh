@@ -1,5 +1,7 @@
 #! /bin/sh
 
+source /renew/.env
+
 certbot certonly \
 --text \
 --email "$CERTBOT_EMAIL" \
