@@ -166,6 +166,11 @@ fn get_success() -> Template {
     Template::render("success", ())
 }
 
+#[get("/")]
+fn index() -> Redirect {
+    Redirect::to("/apply")
+}
+
 #[launch]
 fn rocket() -> _ {
     dotenv::dotenv().ok();
@@ -176,5 +181,5 @@ fn rocket() -> _ {
     rocket::build()
         .attach(Template::fairing())
         .manage(env)
-        .mount("/", routes![get_apply, post_apply, get_success])
+        .mount("/", routes![index, get_apply, post_apply, get_success])
 }
