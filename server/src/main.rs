@@ -1,7 +1,6 @@
 use ::serde::{Deserialize, Serialize};
 use rocket::{
-    config::TlsConfig, form::Form, get, http::Status, launch, post, response::Redirect, routes,
-    Config, FromForm, State,
+    form::Form, get, http::Status, launch, post, response::Redirect, routes, FromForm, State,
 };
 use rocket_dyn_templates::Template;
 use serde_json::json;
@@ -84,7 +83,7 @@ async fn post_apply(data: Form<VmRequest>, env: &State<Environment>) -> Result<R
         return Err(Status::Forbidden);
     }
 
-    match sendmail(data.into_inner(), &**env).await {
+    match sendmail(data.into_inner(), env).await {
         Ok(..) => Ok(Redirect::to("/success")),
         Err(e) => {
             log::error!("failed to send e-mail ({e:?})");
