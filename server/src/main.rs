@@ -5,6 +5,10 @@ use rocket::{
 use rocket_dyn_templates::Template;
 use serde_json::json;
 
+mod admin;
+mod error;
+mod netcenter;
+
 #[derive(Serialize, Deserialize, FromForm, Debug)]
 struct VmRequest {
     pub ethz_email: String,
@@ -25,6 +29,12 @@ struct VmRequest {
 struct HCaptcha {
     sitekey: String,
     secret: String,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+struct NetCenter {
+    user: String,
+    pass: String,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -56,6 +66,7 @@ struct Environment {
     hcaptcha: HCaptcha,
     mail: Mail,
     deployment: Deployment,
+    netcenter: NetCenter,
 }
 
 #[get("/apply")]
@@ -178,8 +189,9 @@ fn rocket() -> _ {
 
     let env: Environment = serde_env::from_env().expect("failed to deserialize environment");
 
-    rocket::build()
+    let mut rkt = rocket::build()
         .attach(Template::fairing())
-        .manage(env)
-        .mount("/", routes![index, get_apply, post_apply, get_success])
+        .mount("/", routes![index, get_apply, post_apply, get_success]);
+    rkt = admin::mount(rkt, &env);
+    rkt.manage(env)
 }
