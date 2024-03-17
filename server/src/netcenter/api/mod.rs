@@ -36,12 +36,7 @@ pub async fn free_ipv4(cfg: &NetCenter, subnet: &str) -> anyhow::Result<Vec<IpAd
         .send()
         .await?;
 
-    log::info!("{res:?}");
-
     let res = res.text().await?;
-
-    log::info!("{res:?}");
-
     let ips: FreeIps = serde_xml_rs::from_str(&res)?;
     let ips = ips.entries.into_iter().map(|entry| entry.ip).collect();
 
