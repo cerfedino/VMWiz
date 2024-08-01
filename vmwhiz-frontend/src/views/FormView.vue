@@ -57,7 +57,23 @@
         density="compact"
         :items="form_values.allowed.image"
         v-model="form_values.current.image"
-      />
+      >
+        <template v-slot:item="{ props }">
+          <v-list-item v-bind="props">
+            <template v-slot:prepend>
+              <v-list-item-icon>
+                <v-icon class="mr-2" :icon="mdiPenguin" />
+              </v-list-item-icon>
+            </template>
+          </v-list-item>
+        </template>
+        <template v-slot:selection="{ item }">
+          <v-list-item-icon>
+            <v-icon class="mr-2" :icon="mdiPenguin" />
+          </v-list-item-icon>
+          {{ item.title }}
+        </template>
+      </v-select>
 
       <h1 class="text-subtitle-1">CPU Cores</h1>
       <v-slider
@@ -189,7 +205,7 @@
       </v-checkbox>
 
       <div class="d-flex flex-column">
-        <v-btn class="mt-4" color="success" block @click="submit">
+        <v-btn class="mt-4" color="primary" block @click="submit">
           <b>Submit request</b>
         </v-btn>
       </div>
@@ -206,6 +222,7 @@ import {
   mdiMinusBoxOutline,
   mdiLink,
   mdiOfficeBuildingOutline,
+  mdiPenguin,
 } from "@mdi/js";
 // @ is an alias to /src
 export default {
@@ -218,6 +235,7 @@ export default {
       mdiPlusBoxOutline,
       mdiMinusBoxOutline,
       mdiOfficeBuildingOutline,
+      mdiPenguin,
 
       form_values: {
         current: {
