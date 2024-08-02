@@ -12,6 +12,7 @@
         variant="outlined"
         density="compact"
         v-model="form_values.current.email"
+        :rules="[() => form_values.validation_errors.email || true]"
       />
       <v-text-field
         :prepend-inner-icon="mdiEmailOutline"
@@ -20,6 +21,7 @@
         variant="outlined"
         density="compact"
         v-model="form_values.current.personal_email"
+        :rules="[() => form_values.validation_errors.personal_email || true]"
       />
 
       <v-checkbox
@@ -50,6 +52,7 @@
         variant="outlined"
         density="compact"
         v-model="form_values.current.hostname"
+        :rules="[() => form_values.validation_errors.hostname || true]"
       />
       <h1 class="text-subtitle-1">OS Image</h1>
       <v-select
@@ -57,6 +60,7 @@
         density="compact"
         :items="form_values.allowed.image"
         v-model="form_values.current.image"
+        :rules="[() => form_values.validation_errors.image || true]"
       >
         <template v-slot:item="{ props }">
           <v-list-item v-bind="props">
@@ -88,6 +92,7 @@
         v-model="form_values.current.cores"
         :max="form_values.allowed.cores.max"
         :min="form_values.allowed.cores.min"
+        :rules="[() => form_values.validation_errors.cores || true]"
       >
         <template v-slot:prepend>
           <v-text-field
@@ -113,6 +118,7 @@
         v-model="form_values.current.ram_gb"
         :max="form_values.allowed.ram_gb.max"
         :min="form_values.allowed.ram_gb.min"
+        :rules="[() => form_values.validation_errors.ram_gb || true]"
       >
         <template v-slot:prepend>
           <v-text-field
@@ -139,6 +145,7 @@
         v-model="form_values.current.disk_gb"
         :max="form_values.allowed.disk_gb.max"
         :min="form_values.allowed.disk_gb.min"
+        :rules="[() => form_values.validation_errors.disk_gb || true]"
       >
         <template v-slot:prepend>
           <v-text-field
@@ -164,6 +171,13 @@
           :icon="mdiPlusBoxOutline"
           @click="form_values.current.ssh_pubkey.push('')"
         />
+        <p class="text-caption text-error">
+          {{
+            form_values.current.ssh_pubkey.lenght == 0
+              ? form_values.validation_errors.ssh_pubkey[0]
+              : ""
+          }}
+        </p>
       </h1>
       <div v-for="(key, index) in form_values.current.ssh_pubkey" :key="index">
         <v-text-field
@@ -172,12 +186,20 @@
           density="compact"
           persistent-placeholder
           placeholder="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCq..."
+          :rules="[
+            () => form_values.validation_errors.ssh_pubkey[index] || true,
+          ]"
         >
           <template v-slot:prepend>
             <v-icon
               :icon="mdiMinusBoxOutline"
               :disabled="form_values.current.ssh_pubkey.length === 1"
-              @click="form_values.current.ssh_pubkey.splice(index, 1)"
+              @click="
+                () => {
+                  form_values.current.ssh_pubkey.splice(index, 1);
+                  form_values.validation_errors.ssh_pubkey.splice(index, 1);
+                }
+              "
             />
           </template>
         </v-text-field>
@@ -192,7 +214,10 @@
         placeholder="Do you have any special wishes or requirements?"
       />
 
-      <v-checkbox v-model="form_values.current.accept_terms">
+      <v-checkbox
+        v-model="form_values.current.accept_terms"
+        :rules="[() => form_values.validation_errors.accept_terms || true]"
+      >
         <template v-slot:label>
           <p>
             I have read and understood the
@@ -205,7 +230,13 @@
       </v-checkbox>
 
       <div class="d-flex flex-column">
-        <v-btn class="mt-4" color="primary" block @click="submit">
+        <v-btn
+          class="mt-4"
+          :color="submit_color"
+          block
+          :disabled="submit_disable"
+          @click="submit"
+        >
           <b>Submit request</b>
         </v-btn>
       </div>
@@ -237,6 +268,9 @@ export default {
       mdiOfficeBuildingOutline,
       mdiPenguin,
 
+      submit_color: "primary",
+      submit_disable: false,
+
       form_values: {
         current: {
           email: "",
@@ -255,6 +289,7 @@ export default {
           comments: "",
           accept_terms: false,
         },
+        // These values are fetched from the backend on beforeMount
         allowed: {
           image: ["Ubuntu", "Debian"],
           cores: { min: 1, max: 8 },
@@ -264,8 +299,65 @@ export default {
         tooltips: {
           ssh_pubkey: "Please provide your SSH public key",
         },
+        // These values are received from the backend after submitting the form
+        validation_errors: {
+          email: "",
+          personal_email: "",
+          hostname: "",
+          image: "",
+          cores: "",
+          ram_gb: "",
+          disk_gb: "",
+          ssh_pubkey: "",
+          accept_terms: "",
+        },
       },
     };
+  },
+  methods: {
+    async submit() {
+      let response = await fetch("http://localhost:8081/vmrequest", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(this.form_values.current),
+      });
+      if (response.status >= 200 && response.status < 300) {
+        this.submit_color = "success";
+        this.submit_disable = true;
+        setTimeout(() => {
+          this.submit_color = "primary";
+          this.submit_disable = false;
+        }, 2500);
+        return;
+      }
+
+      this.submit_color = "error";
+      this.submit_disable = true;
+      setTimeout(() => {
+        this.submit_color = "primary";
+        this.submit_disable = false;
+      }, 2500);
+      response.json().then((data) => {
+        console.log(data);
+        for (const [key, value] of Object.entries(data)) {
+          this.form_values.validation_errors[key] = value;
+        }
+        this.$refs.form.validate();
+      });
+    },
+  },
+  beforeMount() {
+    // Fetches allowed slider ranges and select options from the backend
+    fetch("http://localhost:8081/formconfig")
+      .then((response) => response.json())
+      .then((data) => {
+        console.log(data);
+        for (const [key, value] of Object.entries(data)) {
+          this.form_values.allowed[key] = value;
+        }
+      });
   },
   components: {},
 };
