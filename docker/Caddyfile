@@ -1,0 +1,21 @@
+{
+  email cerfeda.albert@crfda.com
+}
+
+
+{$VMWHIZ_SCHEME}://{$VMWHIZ_HOSTNAME} {$VMWHIZ_SCHEME}://www.{$VMWHIZ_HOSTNAME} {
+	log {
+    output file /var/log/caddy/caddy.log
+    level DEBUG
+  }
+
+  reverse_proxy /api/* http://vmwhiz-backend:8081
+
+  reverse_proxy {$VMWHIZ_SCHEME}://vmwhiz-frontend:8080 {
+		# Comment out if you are NOT setting VMWHIZ_SCHEME to https
+		transport http {
+			tls
+			tls_insecure_skip_verify
+		}
+	}
+}

@@ -1,0 +1,68 @@
+name: "vmwhiz"
+
+networks:
+  vmwhiz-internal:
+    external: false
+
+services:
+  vmwhiz-caddy:
+    container_name: vmwhiz-caddy
+    image: caddy:2.8.4
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    networks:
+      - vmwhiz-internal
+    env_file:
+      - ../.env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./data/Caddy/caddy_data:/data
+      - ./data/Caddy/caddy_config:/config
+
+  vmwhiz-backend:
+    container_name: vmwhiz-backend
+    build: 
+      context: ../vmwhiz-backend
+      dockerfile: Dockerfile.dev
+    expose:
+      - 8081:8081
+    env_file:
+      - ../.db.env
+    command: ["air"]
+    networks:
+      - vmwhiz-internal
+    volumes:
+      - ../vmwhiz-backend:/app
+    depends_on:
+      - vmwhiz-db
+  
+  vmwhiz-db:
+    container_name: vmwhiz-db
+    image: postgres:latest
+    restart: unless-stopped
+    env_file:
+      - ../.db.env
+    networks:
+      - vmwhiz-internal
+    volumes:
+      - ./data/postgres/:/var/lib/postgresql/data
+
+  vmwhiz-frontend:
+    container_name: vmwhiz-frontend
+    build: 
+      context: ../vmwhiz-frontend
+      dockerfile: Dockerfile.dev
+    expose:
+      - "8080:8080"
+      - "443:443"
+    volumes:
+      - ../vmwhiz-frontend:/app
+    networks:
+      - vmwhiz-internal
+    env_file:
+      - ../.env

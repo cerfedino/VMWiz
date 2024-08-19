@@ -1,0 +1,6 @@
+FROM node:16.10.0-alpine3.13 as build-stage
+
+WORKDIR /app
+
+RUN yarn install
+CMD ["yarn", "run", "serve"]

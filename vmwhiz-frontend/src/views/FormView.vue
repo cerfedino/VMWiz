@@ -296,9 +296,6 @@ export default {
           ram_gb: { min: 2, max: 16 },
           disk_gb: { min: 15, max: 500 },
         },
-        tooltips: {
-          ssh_pubkey: "Please provide your SSH public key",
-        },
         // These values are received from the backend after submitting the form
         validation_errors: {
           email: "",
@@ -316,13 +313,9 @@ export default {
   },
   methods: {
     async submit() {
-      let response = await fetch("http://localhost:8081/vmrequest", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(this.form_values.current),
-      });
+      let response = await this.$store.getters.fetchSendVMRequest(
+        this.form_values.current
+      );
       if (response.status >= 200 && response.status < 300) {
         this.submit_color = "success";
         this.submit_disable = true;
@@ -348,9 +341,11 @@ export default {
       });
     },
   },
-  beforeMount() {
+  mounted() {
     // Fetches allowed slider ranges and select options from the backend
-    fetch("http://localhost:8081/formconfig")
+
+    this.$store.getters
+      .fetchVMOptions()
       .then((response) => response.json())
       .then((data) => {
         console.log(data);

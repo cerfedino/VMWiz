@@ -1,6 +1,7 @@
 import { createApp } from "vue";
 import App from "./App.vue";
 import router from "./router";
+import Vuex from "vuex";
 
 // Vuetify
 import "vuetify/styles";
@@ -24,4 +25,24 @@ const vuetify = createVuetify({
   },
 });
 
-app.use(vuetify).use(router).mount("#app");
+const store = new Vuex.Store({
+  state: {
+    baseUrl: `${process.env.VUE_APP_VMWHIZ_SCHEME}://${process.env.VUE_APP_VMWHIZ_HOSTNAME}:${process.env.VUE_APP_VMWHIZ_PORT}`,
+  },
+  getters: {
+    fetchVMOptions: (state) => () => {
+      return fetch(`${state.baseUrl}/api/vmoptions`);
+    },
+    fetchSendVMRequest: (state) => (formData) => {
+      return fetch(`${state.baseUrl}/api/vmrequest`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+    },
+  },
+});
+
+app.use(store).use(vuetify).use(router).mount("#app");

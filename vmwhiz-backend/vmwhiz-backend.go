@@ -16,7 +16,7 @@ func main() {
 
 	cors := cors.New(cors.Options{
 		// Allowing the Vue frontend to access the API
-		AllowedOrigins:   []string{"http://localhost:8080"},
+		AllowedOrigins:   []string{"vmwhiz-frontend"},
 		AllowCredentials: true,
 	})
 
@@ -29,11 +29,8 @@ func main() {
 
 	// Run our server in a goroutine so that it doesn't block.
 	go func() {
-		if err := srv.ListenAndServe(); err != nil {
-			log.Println(err)
-		} else {
-			log.Printf("Listening on %s ...\n", srv.Addr)
-		}
+		log.Printf("Listening on %s ...\n", srv.Addr)
+		srv.ListenAndServe()
 	}()
 
 	// Wait for interrupt signal to gracefully shutdown the server

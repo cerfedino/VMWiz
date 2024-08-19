@@ -19,7 +19,7 @@ func Router() *mux.Router {
 		})
 	})
 
-	r.Methods("POST").Path("/vmrequest").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/vmrequest").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var f Form
 		err := json.NewDecoder(r.Body).Decode(&f)
 		if err != nil {
@@ -43,7 +43,7 @@ func Router() *mux.Router {
 
 	}))
 
-	r.Methods("GET").Path("/formconfig").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("GET").Path("/api/vmoptions").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp, _ := json.Marshal(ALLOWED_VALUES)
 		w.Write(resp)
 	}))
