@@ -2,6 +2,15 @@
   <!-- <div class="h-screen d-flex flex-column justify-center"> -->
   <div class="w-75 pa-6 ma-auto border-t-sm" style="max-width: 700px">
     <h1 class="text-h4 text-center font-weight-bold mb-3">VM Request Form</h1>
+    <p class="text-center">
+      <v-icon
+        :class="isFormModified() ? 'opacity-100' : 'opacity-0'"
+        color="error"
+        :icon="mdiBackspace"
+        @click="resetForm"
+      />
+    </p>
+
     <v-form ref="form">
       <h1 class="text-h6 font-weight-bold mb-3">General Information</h1>
       <v-text-field
@@ -14,6 +23,7 @@
         v-model="form_values.current.email"
         :rules="[() => form_values.validation_errors.email || true]"
       />
+
       <v-text-field
         :prepend-inner-icon="mdiEmailOutline"
         label="Non-ETH E-Mail address"
@@ -33,7 +43,7 @@
       />
 
       <v-text-field
-        v-if="form_values.current.isOrganization"
+        v-show="form_values.current.isOrganization"
         :prepend-inner-icon="mdiOfficeBuildingOutline"
         label="Organization Name"
         variant="outlined"
@@ -65,16 +75,12 @@
         <template v-slot:item="{ props }">
           <v-list-item v-bind="props">
             <template v-slot:prepend>
-              <v-list-item-icon>
-                <v-icon class="mr-2" :icon="mdiPenguin" />
-              </v-list-item-icon>
+              <v-icon class="mr-2" :icon="mdiPenguin" />
             </template>
           </v-list-item>
         </template>
         <template v-slot:selection="{ item }">
-          <v-list-item-icon>
-            <v-icon class="mr-2" :icon="mdiPenguin" />
-          </v-list-item-icon>
+          <v-icon class="mr-2" :icon="mdiPenguin" />
           {{ item.title }}
         </template>
       </v-select>
@@ -173,8 +179,10 @@
         />
         <p class="text-caption text-error">
           {{
-            form_values.current.ssh_pubkey.lenght == 0
-              ? form_values.validation_errors.ssh_pubkey[0]
+            form_values.current.ssh_pubkey.length != 0
+              ? Array.isArray(form_values.validation_errors.ssh_pubkey)
+                ? form_values.validation_errors.ssh_pubkey.join("\n")
+                : form_values.validation_errors.ssh_pubkey
               : ""
           }}
         </p>
@@ -197,7 +205,8 @@
               @click="
                 () => {
                   form_values.current.ssh_pubkey.splice(index, 1);
-                  form_values.validation_errors.ssh_pubkey.splice(index, 1);
+                  if (form_values.validation_errors.ssh_pubkey.length > index)
+                    form_values.validation_errors.ssh_pubkey.splice(index, 1);
                 }
               "
             />
@@ -254,10 +263,19 @@ import {
   mdiLink,
   mdiOfficeBuildingOutline,
   mdiPenguin,
+  mdiBackspace,
 } from "@mdi/js";
 // @ is an alias to /src
 export default {
   name: "HomeView",
+  watch: {
+    "form_values.current": {
+      handler() {
+        this.storeFormState();
+      },
+      deep: true,
+    },
+  },
   data() {
     return {
       mdiEmailOutline,
@@ -267,11 +285,13 @@ export default {
       mdiMinusBoxOutline,
       mdiOfficeBuildingOutline,
       mdiPenguin,
+      mdiBackspace,
 
       submit_color: "primary",
       submit_disable: false,
 
       form_values: {
+        initial: {},
         current: {
           email: "",
           personal_email: "",
@@ -312,6 +332,74 @@ export default {
     };
   },
   methods: {
+    resetForm() {
+      for (const [key, value] of Object.entries(this.form_values.initial)) {
+        if (Array.isArray(value)) this.form_values.current[key] = [...value];
+        else this.form_values.current[key] = value;
+      }
+      this.storeFormState();
+    },
+    isFormModified() {
+      return Object.keys(this.form_values.current).some((key) => {
+        if (Array.isArray(this.form_values.current[key]))
+          return this.form_values.current[key].some(
+            (x, i) => x != this.form_values.initial[key][i]
+          );
+        else
+          return this.form_values.current[key] != this.form_values.initial[key];
+      });
+    },
+    // Stores the form state in the current URL
+    storeFormState() {
+      let newquery = {};
+
+      Object.keys(this.form_values.current).forEach((key) => {
+        let currVal = this.form_values.current[key];
+        let initVal = this.form_values.initial[key];
+
+        // Remove query params that are the same as the initial values
+
+        // If the current field is an array, check if any of the values are different
+        if (Array.isArray(currVal)) {
+          currVal = Object.values(this.form_values.current[key]);
+          initVal = Object.values(this.form_values.initial[key]);
+          // console.log(currVal, initVal);
+          if (
+            currVal.filter((x) => x != "" && !initVal.includes(x)).length == 0
+          ) {
+            return;
+          } else {
+            // Serialize the array to a comma separated string
+            newquery[key] = currVal
+              .filter((x) => x != "" && !initVal.includes(x))
+              .join(",");
+          }
+        } else {
+          if (currVal == initVal) return;
+          newquery[key] = currVal;
+        }
+      });
+
+      this.$router.replace({ query: newquery });
+    },
+
+    // Restores the form state from the current URL
+    restoreFormState() {
+      // Read query params
+      let query = this.$route.query;
+      for (const [key, value] of Object.entries(query)) {
+        if (!Object.keys(this.form_values.current).includes(key)) continue;
+
+        if (value == "true") this.form_values.current[key] = true;
+        else if (value == "false") this.form_values.current[key] = false;
+        else if (key == "ssh_pubkey")
+          this.form_values.current[key] = value.split(",").some((x) => x != "")
+            ? value.split(",").filter((x) => x != "")
+            : [""];
+        else this.form_values.current[key] = value;
+      }
+    },
+
     async submit() {
       let response = await this.$store.getters.fetchSendVMRequest(
         this.form_values.current
@@ -332,8 +420,9 @@ export default {
         this.submit_color = "primary";
         this.submit_disable = false;
       }, 2500);
+
       response.json().then((data) => {
-        console.log(data);
+        // console.log(data);
         for (const [key, value] of Object.entries(data)) {
           this.form_values.validation_errors[key] = value;
         }
@@ -343,7 +432,6 @@ export default {
   },
   mounted() {
     // Fetches allowed slider ranges and select options from the backend
-
     this.$store.getters
       .fetchVMOptions()
       .then((response) => response.json())
@@ -353,6 +441,14 @@ export default {
           this.form_values.allowed[key] = value;
         }
       });
+
+    // Saves initial form values aside
+    for (const [key, value] of Object.entries(this.form_values.current)) {
+      if (Array.isArray(value)) this.form_values.initial[key] = [...value];
+      else this.form_values.initial[key] = value;
+    }
+
+    this.restoreFormState();
   },
   components: {},
 };

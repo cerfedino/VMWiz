@@ -45,4 +45,4 @@ const store = new Vuex.Store({
   },
 });
 
-app.use(store).use(vuetify).use(router).mount("#app");
+app.use(router).use(store).use(vuetify).mount("#app");
