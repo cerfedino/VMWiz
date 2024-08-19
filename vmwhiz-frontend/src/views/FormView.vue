@@ -161,12 +161,12 @@
 
       <h1 class="text-subtitle-1 pb-3">
         SSH Public Key(s)
-        <v-tooltip text="Tooltip">
+        <!-- <v-tooltip text="Tooltip">
           <template v-slot:activator="{ props }">
             <v-icon v-bind="props" :icon="mdiInformationOutline" />
           </template>
           {{ form_values.tooltips.ssh_pubkey }}
-        </v-tooltip>
+        </v-tooltip> -->
         <v-icon
           :icon="mdiPlusBoxOutline"
           @click="form_values.current.ssh_pubkey.push('')"
