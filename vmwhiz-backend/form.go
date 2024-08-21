@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"regexp"
 
 	"golang.org/x/exp/slices"
@@ -57,6 +58,10 @@ var ALLOWED_VALUES form_allowed_values = form_allowed_values{
 	Cores:   minmax{Min: 1, Max: 8},
 	Ram_gb:  minmax{Min: 1, Max: 16},
 	Disk_gb: minmax{Min: 1, Max: 100},
+}
+
+func (f *Form) toString() string {
+	return fmt.Sprintf("\n  **Email**: %v\n **Personal Email**: %v\n **IsOrganization**: %v\n **OrgName**: %v\n **Hostname**: %v\n **Image**: %v\n **Cores**: %v\n **Ram**: %v\n **Disk**: %v\n **SSH Pubkey**: %v\n **Comments**: %v\n", f.Email, f.Personal_email, f.IsOrganization, f.OrgName, f.Hostname, f.Image, f.Cores, f.Ram_gb, f.Disk_gb, f.Ssh_pubkey, f.Comments)
 }
 
 func (f *Form) Validate() (Form_validation, bool) {

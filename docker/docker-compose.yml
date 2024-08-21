@@ -9,60 +9,76 @@ services:
     container_name: vmwhiz-caddy
     image: caddy:2.8.4
     restart: unless-stopped
-    cap_add:
-      - NET_ADMIN
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp"
     networks:
       - vmwhiz-internal
-    env_file:
-      - ../.env
+    cap_add:
+      - NET_ADMIN
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - ./data/Caddy/caddy_data:/data
       - ./data/Caddy/caddy_config:/config
+    env_file:
+      - ../.env
 
   vmwhiz-backend:
     container_name: vmwhiz-backend
     build: 
       context: ../vmwhiz-backend
       dockerfile: Dockerfile.dev
+    restart: unless-stopped
     expose:
       - 8081:8081
+    networks:
+      - vmwhiz-internal
+    command: ["air"]
+    volumes:
+      - ../vmwhiz-backend:/app
     env_file:
       - ../.db.env
-    command: ["air"]
+    depends_on:
+      - vmwhiz-db
+  
+  vmwhiz-notifier:
+    container_name: vmwhiz-notifier
+    image: caronc/apprise:1.1.5
+    restart: unless-stopped
     networks:
       - vmwhiz-internal
     volumes:
-      - ../vmwhiz-backend:/app
-    depends_on:
-      - vmwhiz-db
+      - ${PWD}/notifier_config.yml:/config/default.yml
+    ports:
+      - "8000:8000" 
+    environment:
+      - APPRISE_STATEFUL_MODE=simple
+      - APPRISE_DEFAULT_CONFIG_ID=default	
   
   vmwhiz-db:
     container_name: vmwhiz-db
     image: postgres:latest
     restart: unless-stopped
-    env_file:
-      - ../.db.env
     networks:
       - vmwhiz-internal
     volumes:
       - ./data/postgres/:/var/lib/postgresql/data
+    env_file:
+      - ../.db.env
 
   vmwhiz-frontend:
     container_name: vmwhiz-frontend
     build: 
       context: ../vmwhiz-frontend
       dockerfile: Dockerfile.dev
+    restart: unless-stopped
     expose:
       - "8080:8080"
       - "443:443"
-    volumes:
-      - ../vmwhiz-frontend:/app
     networks:
       - vmwhiz-internal
+    volumes:
+      - ../vmwhiz-frontend:/app
     env_file:
       - ../.env

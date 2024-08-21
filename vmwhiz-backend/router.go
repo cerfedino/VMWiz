@@ -39,7 +39,12 @@ func Router() *mux.Router {
 
 		w.WriteHeader(http.StatusOK)
 
-		// TODO: Process request
+		err = NotifyVMRequest(f)
+		if err != nil {
+			log.Printf("Failed to notify VM request: %v", err)
+		}
+
+		// TODO: Log request into DB
 
 	}))
 

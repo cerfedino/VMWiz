@@ -11,12 +11,14 @@
 | **vmwhiz-frontend** | Vue3 frontend application |
 | **vmwhiz-backend** | Go backend. Handles all requests matching `/api/*`. Note: in development the backend uses the [Air](https://github.com/air-verse/air) utility for hot-reloading the backend when there are changes to the source code. |
 | **vmwhiz-db** | Postgres database for the backend |
+| **vmwhiz-notifier** | [caronc/Apprise](https://github.com/caronc/apprise) container allowing us to easily send notifications to a moltitude of services.
 
 
 ## Using dev environment
 1. Change `POSTGRES_PASSWORD` in [.db.env](/.db.env)
 2. (Optional) Modify values inside [.env](.env)
-3. Bring up the stack\
+3. (Optional) Add a notification endpoint into [notifier_config.yml](/docker/notifier_config.yml) such that you also get the notifications.
+4. Bring up the stack\
 `cd docker && docker compose up`\
 You should now be able to navigate to https://localhost and access the frontend UI.
 
