@@ -3,16 +3,16 @@
 }
 
 
-{$VMWHIZ_SCHEME}://{$VMWHIZ_HOSTNAME} {$VMWHIZ_SCHEME}://www.{$VMWHIZ_HOSTNAME} {
+{$VMWIZ_SCHEME}://{$VMWIZ_HOSTNAME} {$VMWIZ_SCHEME}://www.{$VMWIZ_HOSTNAME} {
 	log {
     output file /var/log/caddy/caddy.log
     level DEBUG
   }
 
-  reverse_proxy /api/* http://vmwhiz-backend:8081
+  reverse_proxy /api/* http://vmwiz-backend:8081
 
-  reverse_proxy {$VMWHIZ_SCHEME}://vmwhiz-frontend:8080 {
-		# Comment out if you are NOT setting VMWHIZ_SCHEME to https
+  reverse_proxy {$VMWIZ_SCHEME}://vmwiz-frontend:8080 {
+		# Comment out if you are NOT setting VMWIZ_SCHEME to https
 		transport http {
 			tls
 			tls_insecure_skip_verify

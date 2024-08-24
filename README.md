@@ -7,11 +7,11 @@
 ## Application components
 | Container | Description |
 | --- | ----------- |
-| **vmwhiz-caddy** | Entry point of the application. Proxies all requests matching `/api/*` to `vmwhiz-backend` and the rest to `vmwhiz-frontend`. Employs HTTPS by default. |
-| **vmwhiz-frontend** | Vue3 frontend application |
-| **vmwhiz-backend** | Go backend. Handles all requests matching `/api/*`. Note: in development the backend uses the [Air](https://github.com/air-verse/air) utility for hot-reloading the backend when there are changes to the source code. |
-| **vmwhiz-db** | Postgres database for the backend |
-| **vmwhiz-notifier** | [caronc/Apprise](https://github.com/caronc/apprise) container allowing us to easily send notifications to a moltitude of services.
+| **vmwiz-caddy** | Entry point of the application. Proxies all requests matching `/api/*` to `vmwiz-backend` and the rest to `vmwiz-frontend`. Employs HTTPS by default. |
+| **vmwiz-frontend** | Vue3 frontend application |
+| **vmwiz-backend** | Go backend. Handles all requests matching `/api/*`. Note: in development the backend uses the [Air](https://github.com/air-verse/air) utility for hot-reloading the backend when there are changes to the source code. |
+| **vmwiz-db** | Postgres database for the backend |
+| **vmwiz-notifier** | [caronc/Apprise](https://github.com/caronc/apprise) container allowing us to easily send notifications to a moltitude of services.
 
 
 ## Using dev environment
@@ -28,12 +28,12 @@ Backend and database containers read from the same file
 2. [.env](.env) - General purpose environment variables\
 The file should look something like this:
 ```env
-VMWHIZ_SCHEME=https
-VMWHIZ_HOSTNAME=localhost
-VMWHIZ_PORT=443
+VMWIZ_SCHEME=https
+VMWIZ_HOSTNAME=localhost
+VMWIZ_PORT=443
 ```
-- `VMHIZ_SCHEME`: Enables/disables HTTPS. If, for some reason, you want to disable https, you have to also comment out a server directive in the [Caddyfile](/docker/Caddyfile) aswell.
-- `VMWHIZ_HOSTNAME`: The hostname of the machine. Caddy will automatically provision SSL certificates for the specified hostname (unless https is disabled).
-- `VMWHIZ_PORT`: The port on which Caddy listens for incoming requests.
+- `VMWIZ_SCHEME`: Enables/disables HTTPS. If, for some reason, you want to disable https, you have to also comment out a server directive in the [Caddyfile](/docker/Caddyfile) aswell.
+- `VMWIZ_HOSTNAME`: The hostname of the machine. Caddy will automatically provision SSL certificates for the specified hostname (unless https is disabled).
+- `VMWIZ_PORT`: The port on which Caddy listens for incoming requests.
 
 All the above variables are read both by Caddy and by the frontend for generating the base URL of the instance.

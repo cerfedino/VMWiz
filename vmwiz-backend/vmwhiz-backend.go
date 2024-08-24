@@ -16,7 +16,7 @@ func main() {
 
 	cors := cors.New(cors.Options{
 		// Allowing the Vue frontend to access the API
-		AllowedOrigins:   []string{"vmwhiz-frontend"},
+		AllowedOrigins:   []string{"vmwiz-frontend"},
 		AllowCredentials: true,
 	})
 

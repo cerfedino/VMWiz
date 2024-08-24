@@ -1,12 +1,12 @@
-name: "vmwhiz"
+name: "vmwiz"
 
 networks:
-  vmwhiz-internal:
+  vmwiz-internal:
     external: false
 
 services:
-  vmwhiz-caddy:
-    container_name: vmwhiz-caddy
+  vmwiz-caddy:
+    container_name: vmwiz-caddy
     image: caddy:2.8.4
     restart: unless-stopped
     ports:
@@ -14,7 +14,7 @@ services:
       - "443:443"
       - "443:443/udp"
     networks:
-      - vmwhiz-internal
+      - vmwiz-internal
     cap_add:
       - NET_ADMIN
     volumes:
@@ -24,30 +24,30 @@ services:
     env_file:
       - ../.env
 
-  vmwhiz-backend:
-    container_name: vmwhiz-backend
+  vmwiz-backend:
+    container_name: vmwiz-backend
     build: 
-      context: ../vmwhiz-backend
+      context: ../vmwiz-backend
       dockerfile: Dockerfile.dev
     restart: unless-stopped
     expose:
       - 8081:8081
     networks:
-      - vmwhiz-internal
+      - vmwiz-internal
     command: ["air"]
     volumes:
-      - ../vmwhiz-backend:/app
+      - ../vmwiz-backend:/app
     env_file:
       - ../.db.env
     depends_on:
-      - vmwhiz-db
+      - vmwiz-db
   
-  vmwhiz-notifier:
-    container_name: vmwhiz-notifier
+  vmwiz-notifier:
+    container_name: vmwiz-notifier
     image: caronc/apprise:1.1.5
     restart: unless-stopped
     networks:
-      - vmwhiz-internal
+      - vmwiz-internal
     volumes:
       - ${PWD}/notifier_config.yml:/config/default.yml
     ports:
@@ -56,29 +56,29 @@ services:
       - APPRISE_STATEFUL_MODE=simple
       - APPRISE_DEFAULT_CONFIG_ID=default	
   
-  vmwhiz-db:
-    container_name: vmwhiz-db
+  vmwiz-db:
+    container_name: vmwiz-db
     image: postgres:latest
     restart: unless-stopped
     networks:
-      - vmwhiz-internal
+      - vmwiz-internal
     volumes:
       - ./data/postgres/:/var/lib/postgresql/data
     env_file:
       - ../.db.env
 
-  vmwhiz-frontend:
-    container_name: vmwhiz-frontend
+  vmwiz-frontend:
+    container_name: vmwiz-frontend
     build: 
-      context: ../vmwhiz-frontend
+      context: ../vmwiz-frontend
       dockerfile: Dockerfile.dev
     restart: unless-stopped
     expose:
       - "8080:8080"
       - "443:443"
     networks:
-      - vmwhiz-internal
+      - vmwiz-internal
     volumes:
-      - ../vmwhiz-frontend:/app
+      - ../vmwiz-frontend:/app
     env_file:
       - ../.env

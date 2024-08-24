@@ -27,7 +27,7 @@ const vuetify = createVuetify({
 
 const store = new Vuex.Store({
   state: {
-    baseUrl: `${process.env.VUE_APP_VMWHIZ_SCHEME}://${process.env.VUE_APP_VMWHIZ_HOSTNAME}:${process.env.VUE_APP_VMWHIZ_PORT}`,
+    baseUrl: `${process.env.VUE_APP_VMWIZ_SCHEME}://${process.env.VUE_APP_VMWIZ_HOSTNAME}:${process.env.VUE_APP_VMWIZ_PORT}`,
   },
   getters: {
     fetchVMOptions: (state) => () => {

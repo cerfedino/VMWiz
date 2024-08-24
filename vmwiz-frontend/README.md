@@ -1,4 +1,4 @@
-# vmwhiz-frontend
+# vmwiz-frontend
 
 ## Project setup
 ```

@@ -8,7 +8,7 @@
     style="height: 14vh"
   >
     <img style="height: 75%; max-width: 75%" src="@/assets/SOSETH_Logo.svg" />
-    <h1 class="text-h5 h-auto">VMWhiz</h1>
+    <h1 class="text-h5 h-auto">VMWiz</h1>
   </div>
   <div style="min-height: 86vh">
     <router-view />
