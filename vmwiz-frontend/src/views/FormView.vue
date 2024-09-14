@@ -48,8 +48,8 @@
         label="Organization Name"
         variant="outlined"
         density="compact"
-        hide-details="true"
         v-model="form_values.current.orgName"
+        :rules="[() => form_values.validation_errors.orgName || true]"
       />
 
       <h1 class="text-h6 font-weight-bold mt-4">VM specification</h1>
@@ -396,7 +396,8 @@ export default {
           this.form_values.current[key] = value.split(",").some((x) => x != "")
             ? value.split(",").filter((x) => x != "")
             : [""];
-        else this.form_values.current[key] = value;
+        else 
+          this.form_values.current[key] = Number(value) !== NaN ? Number(value) : value;
       }
     },
 

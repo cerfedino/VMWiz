@@ -30,6 +30,7 @@ type Form struct {
 type Form_validation struct {
 	Email_err          string `json:"email"`
 	Personal_email_err string `json:"personal_email"`
+	OrgName_err        string `json:"orgName"`
 	Hostname_err       string `json:"hostname"`
 	Image_err          string `json:"image"`
 	Cores_err          string `json:"cores"`
@@ -77,6 +78,11 @@ func (f *Form) Validate() (Form_validation, bool) {
 	personal_email_regexp, _ := regexp.Compile("^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,}$")
 	if !personal_email_regexp.Match([]byte(f.Personal_email)) {
 		validation.Personal_email_err = "Must be a valid email address"
+		err = true
+	}
+
+	if f.IsOrganization && f.OrgName == "" {
+		validation.OrgName_err = "Must be a valid organization name"
 		err = true
 	}
 
