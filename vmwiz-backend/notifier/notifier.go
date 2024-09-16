@@ -1,9 +1,11 @@
-package main
+package notifier
 
 import (
 	"fmt"
 	"net/http"
 	"net/url"
+
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/form"
 )
 
 func useNotifier(tags string, title string, body string) error {
@@ -21,8 +23,8 @@ func useNotifier(tags string, title string, body string) error {
 	return nil
 }
 
-func NotifyVMRequest(f Form) error {
-	return useNotifier("new_vmrequest", fmt.Sprintf("[VMWIZ] %v", f.Email), f.toString())
+func NotifyVMRequest(f form.Form) error {
+	return useNotifier("new_vmrequest", fmt.Sprintf("[VMWIZ] %v", f.Email), f.ToString())
 }
 
 func SendTestNotification(body string) error {

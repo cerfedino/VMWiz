@@ -30,8 +30,8 @@
         type="email"
         variant="outlined"
         density="compact"
-        v-model="form_values.current.personal_email"
-        :rules="[() => form_values.validation_errors.personal_email || true]"
+        v-model="form_values.current.personalEmail"
+        :rules="[() => form_values.validation_errors.personalEmail || true]"
       />
 
       <v-checkbox
@@ -121,10 +121,10 @@
         variant="outlined"
         density="compact"
         color="warning"
-        v-model="form_values.current.ram_gb"
-        :max="form_values.allowed.ram_gb.max"
-        :min="form_values.allowed.ram_gb.min"
-        :rules="[() => form_values.validation_errors.ram_gb || true]"
+        v-model="form_values.current.ramGB"
+        :max="form_values.allowed.ramGB.max"
+        :min="form_values.allowed.ramGB.min"
+        :rules="[() => form_values.validation_errors.ramGB || true]"
       >
         <template v-slot:prepend>
           <v-text-field
@@ -134,7 +134,7 @@
             single-line
             variant="outlined"
             density="compact"
-            v-model="form_values.current.ram_gb"
+            v-model="form_values.current.ramGB"
           />
         </template>
       </v-slider>
@@ -148,10 +148,10 @@
         variant="outlined"
         density="compact"
         color="success"
-        v-model="form_values.current.disk_gb"
-        :max="form_values.allowed.disk_gb.max"
-        :min="form_values.allowed.disk_gb.min"
-        :rules="[() => form_values.validation_errors.disk_gb || true]"
+        v-model="form_values.current.diskGB"
+        :max="form_values.allowed.diskGB.max"
+        :min="form_values.allowed.diskGB.min"
+        :rules="[() => form_values.validation_errors.diskGB || true]"
       >
         <template v-slot:prepend>
           <v-text-field
@@ -160,7 +160,7 @@
             hide-details
             variant="outlined"
             density="compact"
-            v-model="form_values.current.disk_gb"
+            v-model="form_values.current.diskGB"
           />
         </template>
       </v-slider>
@@ -171,42 +171,42 @@
           <template v-slot:activator="{ props }">
             <v-icon v-bind="props" :icon="mdiInformationOutline" />
           </template>
-          {{ form_values.tooltips.ssh_pubkey }}
+          {{ form_values.tooltips.sshPubkey }}
         </v-tooltip> -->
         <v-icon
           :icon="mdiPlusBoxOutline"
-          @click="form_values.current.ssh_pubkey.push('')"
+          @click="form_values.current.sshPubkey.push('')"
         />
         <p class="text-caption text-error">
           {{
-            form_values.current.ssh_pubkey.length != 0
-              ? Array.isArray(form_values.validation_errors.ssh_pubkey)
-                ? form_values.validation_errors.ssh_pubkey.join("\n")
-                : form_values.validation_errors.ssh_pubkey
+            form_values.current.sshPubkey.length != 0
+              ? Array.isArray(form_values.validation_errors.sshPubkey)
+                ? form_values.validation_errors.sshPubkey.join("\n")
+                : form_values.validation_errors.sshPubkey
               : ""
           }}
         </p>
       </h1>
-      <div v-for="(key, index) in form_values.current.ssh_pubkey" :key="index">
+      <div v-for="(key, index) in form_values.current.sshPubkey" :key="index">
         <v-text-field
-          v-model="form_values.current.ssh_pubkey[index]"
+          v-model="form_values.current.sshPubkey[index]"
           variant="outlined"
           density="compact"
           persistent-placeholder
           placeholder="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCq..."
           :rules="[
-            () => form_values.validation_errors.ssh_pubkey[index] || true,
+            () => form_values.validation_errors.sshPubkey[index] || true,
           ]"
         >
           <template v-slot:prepend>
             <v-icon
               :icon="mdiMinusBoxOutline"
-              :disabled="form_values.current.ssh_pubkey.length === 1"
+              :disabled="form_values.current.sshPubkey.length === 1"
               @click="
                 () => {
-                  form_values.current.ssh_pubkey.splice(index, 1);
-                  if (form_values.validation_errors.ssh_pubkey.length > index)
-                    form_values.validation_errors.ssh_pubkey.splice(index, 1);
+                  form_values.current.sshPubkey.splice(index, 1);
+                  if (form_values.validation_errors.sshPubkey.length > index)
+                    form_values.validation_errors.sshPubkey.splice(index, 1);
                 }
               "
             />
@@ -294,17 +294,17 @@ export default {
         initial: {},
         current: {
           email: "",
-          personal_email: "",
+          personalEmail: "",
           isOrganization: false,
           orgName: "",
 
           hostname: "",
           image: "Debian",
           cores: 2,
-          ram_gb: 2,
-          disk_gb: 15,
+          ramGB: 2,
+          diskGB: 15,
 
-          ssh_pubkey: [""],
+          sshPubkey: [""],
 
           comments: "",
           accept_terms: false,
@@ -313,19 +313,19 @@ export default {
         allowed: {
           image: ["Ubuntu", "Debian"],
           cores: { min: 1, max: 8 },
-          ram_gb: { min: 2, max: 16 },
-          disk_gb: { min: 15, max: 500 },
+          ramGB: { min: 2, max: 16 },
+          diskGB: { min: 15, max: 500 },
         },
         // These values are received from the backend after submitting the form
         validation_errors: {
           email: "",
-          personal_email: "",
+          personalEmail: "",
           hostname: "",
           image: "",
           cores: "",
-          ram_gb: "",
-          disk_gb: "",
-          ssh_pubkey: "",
+          ramGB: "",
+          diskGB: "",
+          sshPubkey: "",
           accept_terms: "",
         },
       },
@@ -392,12 +392,15 @@ export default {
 
         if (value == "true") this.form_values.current[key] = true;
         else if (value == "false") this.form_values.current[key] = false;
-        else if (key == "ssh_pubkey")
+        else if (key == "sshPubkey")
           this.form_values.current[key] = value.split(",").some((x) => x != "")
             ? value.split(",").filter((x) => x != "")
             : [""];
-        else 
-          this.form_values.current[key] = Number(value) !== NaN ? Number(value) : value;
+        else {
+          this.form_values.current[key] = !isNaN(Number(value))
+            ? Number(value)
+            : value;
+        }
       }
     },
 

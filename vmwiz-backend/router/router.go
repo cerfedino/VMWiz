@@ -1,10 +1,13 @@
-package main
+package router
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/form"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/notifier"
 	"github.com/gorilla/mux"
 )
 
@@ -20,10 +23,11 @@ func Router() *mux.Router {
 	})
 
 	r.Methods("POST").Path("/api/vmrequest").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var f Form
+		var f form.Form
 		err := json.NewDecoder(r.Body).Decode(&f)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			fmt.Println(err.Error())
+			http.Error(w, "Form body parsing error", http.StatusInternalServerError)
 			return
 		}
 
@@ -39,7 +43,7 @@ func Router() *mux.Router {
 
 		w.WriteHeader(http.StatusOK)
 
-		err = NotifyVMRequest(f)
+		err = notifier.NotifyVMRequest(f)
 		if err != nil {
 			log.Printf("Failed to notify VM request: %v", err)
 		}
@@ -49,7 +53,7 @@ func Router() *mux.Router {
 	}))
 
 	r.Methods("GET").Path("/api/vmoptions").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp, _ := json.Marshal(ALLOWED_VALUES)
+		resp, _ := json.Marshal(form.ALLOWED_VALUES)
 		w.Write(resp)
 	}))
 
