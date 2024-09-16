@@ -8,6 +8,7 @@ import (
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/form"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/notifier"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 	"github.com/gorilla/mux"
 )
 
@@ -48,8 +49,7 @@ func Router() *mux.Router {
 			log.Printf("Failed to notify VM request: %v", err)
 		}
 
-		// TODO: Log request into DB
-
+		storage.DB.StoreVMRequest(&f)
 	}))
 
 	r.Methods("GET").Path("/api/vmoptions").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -11,6 +11,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
 
@@ -23,7 +24,7 @@ func If(condition bool, trueVal any, falseVal any) any {
 }
 
 type SQLRequest struct {
-	ID             int       `db:"id"`
+	ID             int64     `db:"id"`
 	CreatedAt      time.Time `db:"created"`
 	Email          string    `db:"email"`
 	PersonalEmail  string    `db:"personalEmail"`
@@ -40,6 +41,7 @@ type SQLRequest struct {
 
 type Storage interface {
 	Init(dataSourceName string)
+	StoreVMRequest(req *form.Form) error
 }
 
 type sqlstorage struct {
@@ -72,4 +74,28 @@ func (s *postgresstorage) Init(dataSourceName string) {
 		log.Fatal(err)
 	}
 	m.Up()
+}
+
+func (s *postgresstorage) StoreVMRequest(req *form.Form) error {
+
+	_, err := DB.db.Exec(`INSERT INTO request
+		(email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, req.Hostname, req.Image, req.Cores, req.RamGB, req.DiskGB, pq.Array(req.SshPubkeys), req.Comments)
+	if err != nil {
+		log.Printf("Error inserting into SQL: \n%s", err)
+	}
+	return nil
+}
+
+func (s *postgresstorage) GetVMRequest(id int64) (*SQLRequest, error) {
+	var req SQLRequest
+	err := DB.db.QueryRow(`SELECT 
+	ID, created, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments
+	FROM request WHERE id=$1`, id).Scan(&req.ID, &req.CreatedAt, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
+	if err != nil {
+		log.Printf("Error getting from SQL: \n%s", err)
+		return nil, err
+	}
+	return &req, nil
 }
