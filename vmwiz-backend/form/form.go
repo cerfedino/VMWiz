@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/proxmox"
+
 	"golang.org/x/exp/slices"
 )
 
@@ -57,8 +59,8 @@ type form_allowed_values struct {
 var ALLOWED_VALUES form_allowed_values = form_allowed_values{
 	Images: []string{"Ubuntu", "Debian"},
 	Cores:  minmax{Min: 1, Max: 8},
-	RamGB:  minmax{Min: 1, Max: 16},
-	DiskGB: minmax{Min: 1, Max: 100},
+	RamGB:  minmax{Min: 2, Max: 16},
+	DiskGB: minmax{Min: 15, Max: 100},
 }
 
 func (f *Form) ToString() string {
@@ -94,7 +96,18 @@ func (f *Form) Validate() (Form_validation, bool) {
 	hostname_regexp, _ := regexp.Compile("^[a-zA-Z0-9-]+$")
 	if !hostname_regexp.Match([]byte(f.Hostname)) {
 		validation.Hostname_err = "Must be a valid hostname"
-		// TODO: Check if hostname is already taken
+		err = true
+	}
+
+	taken, e := proxmox.IsHostnameTaken(fmt.Sprintf("%v.vsos.ethz.ch", f.Hostname))
+	if e != nil {
+		fmt.Printf("ERROR: %v", e)
+		validation.Hostname_err = "Hostname cannot be validated"
+		err = true
+	}
+
+	if taken {
+		validation.Hostname_err = "Hostname is already taken"
 		err = true
 	}
 

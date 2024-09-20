@@ -43,6 +43,7 @@ services:
       - /etc/localtime:/etc/localtime
     env_file:
       - ../.db.env
+      - ../.pve.env
     depends_on:
       - vmwiz-db
   

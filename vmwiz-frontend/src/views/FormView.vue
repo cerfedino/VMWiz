@@ -409,6 +409,11 @@ export default {
         this.form_values.current
       );
       if (response.status >= 200 && response.status < 300) {
+        Object.keys(this.form_values.validation_errors).forEach((key) => {
+          this.form_values.validation_errors[key] = "";
+        });
+        this.$refs.form.validate();
+
         this.submit_color = "success";
         this.submit_disable = true;
         setTimeout(() => {
