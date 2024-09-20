@@ -6,6 +6,7 @@ import (
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/proxmox"
 
+	"golang.org/x/crypto/ssh"
 	"golang.org/x/exp/slices"
 )
 
@@ -140,10 +141,10 @@ func (f *Form) Validate() (Form_validation, bool) {
 		validation.SshPubkeys_err = []string{"Please provide at least one valid SSH public key"}
 		err = true
 	} else {
-		sshPubkey_regexp, _ := regexp.Compile("^ssh-rsa [A-Za-z0-9+/=]+ [A-Za-z0-9+/.=]+")
 		for _, key := range f.SshPubkeys {
-			if !sshPubkey_regexp.Match([]byte(key)) {
-				validation.SshPubkeys_err = append(validation.SshPubkeys_err, "Invalid SSH public key")
+			_, _, _, _, e := ssh.ParseAuthorizedKey([]byte(key))
+			if e != nil {
+				validation.SshPubkeys_err = append(validation.SshPubkeys_err, fmt.Sprintf("Invalid SSH public key [ERR: %v]", e))
 				err = true
 			} else {
 				validation.SshPubkeys_err = append(validation.SshPubkeys_err, "")
