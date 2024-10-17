@@ -29,6 +29,20 @@ func proxmoxRequest(method string, path string, body []byte) (*http.Request, err
 	return req, nil
 }
 
+// /api2/json/nodes
+type PVENodes struct {
+	Data []struct {
+		Status  string  `json:"status"`
+		Disk    int     `json:"disk"`
+		Maxdisk int     `json:"maxdisk"`
+		Mem     int     `json:"mem"`
+		Maxmem  int     `json:"maxmem"`
+		Cpu     float32 `json:"cpu"`
+		Type    string  `json:"type"`
+		Id      string  `json:"id"`
+		Node    string  `json:"node"`
+	} `json:"data"`
+}
 
 type PVEVMs struct {
 	Data []struct {
@@ -54,6 +68,36 @@ type PVEVMs struct {
 	} `json:"data"`
 }
 
+func GetAllNodes() (*PVENodes, error) {
+	req, err := proxmoxRequest(http.MethodGet, "/api2/json/nodes", []byte{})
+	if err != nil {
+		fmt.Println("ERROR: %v", err.Error())
+		return nil, err
+	}
+	q := req.URL.Query()
+	// q.Set("type", "node")
+	req.URL.RawQuery = q.Encode()
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("ERROR: %v", err.Error())
+		return nil, err
+	}
+
+	var nodes PVENodes
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println("ERROR: %v", err.Error())
+		return nil, err
+	}
+	err = json.Unmarshal(body, &nodes)
+	if err != nil {
+		fmt.Println("ERROR: %v", err.Error())
+		return nil, err
+	}
+
+	return &nodes, nil
+}
 
 func GetAllVMs() (*PVEVMs, error) {
 	req, err := proxmoxRequest(http.MethodGet, "/api2/json/cluster/resources", []byte{})
@@ -238,7 +282,7 @@ Reinstall: %v
 
 	if !options.Reinstall {
 		fmt.Printf("[-] Registering \"FQDN\" %v in net \"%v\"\n", options.FQDN, net)
-		result, retcode := sosregisterhost(options.nethz_user, options.nethz_pass, net, options.FQDN)
+		// result, retcode := sosregisterhost(options.nethz_user, options.nethz_pass, net, options.FQDN)
 	}
 	_ = comp_node
 	_ = example_fqdn

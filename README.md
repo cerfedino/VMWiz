@@ -22,7 +22,9 @@
 5. **Modify SSH values inside of [.pve.env](.pve.env) and setup SSH**\
 The backend connects via SSH to the cluster management node (e.g `cm-lee.sos.ethz.ch`). To that end, you need to put your private key inside of [docker/ssh/pkey.key](docker/ssh/pkey.key). Make sure that your public key is in the `authorized_keys` file on the CM machine.
 Add the CM host's fingerprint to the [docker/ssh/known_hosts](docker/ssh/known_hosts) file. Finally, adjust the environment variables inside of [.pve.env](.pve.env).
-6. **Bring up the stack**\
+6. **Modify Netcenter values inside of [.pve.env](.pve.env)**\
+The backend uses the Netcenter HTTP API, whcih requires the backend to authenticate. To that end, insert the credentials of a valid user. 
+7. **Bring up the stack**\
 `cd docker && docker compose up`\
 You should now be able to navigate to https://localhost and access the frontend UI.
 
@@ -53,8 +55,12 @@ PVE_UUID=
 # Cluster manager SSH
 SSH_CM_HOST=cm-lee.sos.ethz.ch 
 SSH_CM_USER=
-# Leave empty if the private key has no passphrase
+# Leave empty if your private key has no passphrase
 SSH_CM_PKEY_PASSPHRASE=
+
+NETCENTER_HOST=https://netcenter.ethz.ch
+NETCENTER_USER=
+NETCENTER_PWD=
 ```
 
 The PVE variables should be set according to a valid API key of the form `{PVE_USER}!{PVE_TOKENID}={PVE_UUID}`

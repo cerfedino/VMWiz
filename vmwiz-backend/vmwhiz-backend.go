@@ -9,13 +9,53 @@ import (
 	"syscall"
 	"time"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/router"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 	"github.com/rs/cors"
 )
 
+// type StartupChecks struct {
+// 	Name   string
+// 	Errors []any
+// }
+
+// func (s *StartupChecks) String() string {
+// 	ret := "[-] Checks for " + s.Name + ":\n"
+// 	for _, err := range s.Errors {
+// 		if reflect.TypeOf(err) {
+// 			ret += fmt.Sprintf("\t[ERROR] %v\n", err)
+// 		} else {
+// 			ret += fmt.Sprintf("\t[OK] %v\n", err)
+// 		}
+
+// 	}
+// 	return ret
+// }
+
+// func DoChecks() []error {
+// 	return []error{}
+// }
+
 func main() {
 	storage.DB.Init("")
+
+	// TODO: Remove. testing purposes only
+	netcenter.GetFreeIPsInSubnet("129.132.16.48")
+	// fmt.Println(proxmox.IsHostnameTaken(""))
+	// err := proxmox.CreateVM(proxmox.PVEVMOptions{
+	// 	Template:     "noble",
+	// 	FQDN:         "cerfedinoo.vsos.ethz.ch",
+	// 	Reinstall:    false,
+	// 	RAM_MB:       1024,
+	// 	Disk_GB:      10,
+	// 	UseQemuAgent: true,
+	// 	Description:  "Test VM",
+	// 	SSHKeys:      []string{"ecdsa-sha2-nistp521 AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBAAjFvUZr/m8zoXKW5wjNBXehNO9u7oiS+VchueNGA7Fa05aeI7KaP5iEDRUJ9fvfqOprV3z7OAv11lrJ0IKcsLOFQErfl1IrmErot0UJ6sDbAAmnKbr9gjqA0qQcDSNNKRjj7BkKd7zQGvOEjy179q9mvcNNMINFrPXjk2qvIBFHg1hnQ== cerfe@student-net-nw-0407.intern.ethz.ch"},
+	// })
+	// if err != nil {
+	// 	log.Println(err)
+	// }
 
 	cors := cors.New(cors.Options{
 		// Allowing the Vue frontend to access the API
