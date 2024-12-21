@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/router"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 	"github.com/rs/cors"
@@ -41,7 +40,7 @@ func main() {
 	storage.DB.Init("")
 
 	// TODO: Remove. testing purposes only
-	netcenter.GetFreeIPsInSubnet("129.132.16.48")
+	// netcenter.GetFreeIPsInSubnet("129.132.16.48")
 	// fmt.Println(proxmox.IsHostnameTaken(""))
 	// err := proxmox.CreateVM(proxmox.PVEVMOptions{
 	// 	Template:     "noble",
