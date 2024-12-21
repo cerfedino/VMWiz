@@ -46,7 +46,8 @@ services:
       - ../.db.env
       - ../.pve.env
     depends_on:
-      - vmwiz-db
+      vmwiz-db:
+        condition: service_healthy
   
   vmwiz-notifier:
     container_name: vmwiz-notifier
@@ -56,6 +57,8 @@ services:
       - vmwiz-internal
     volumes:
       - ${PWD}/notifier_config.yml:/config/default.yml
+      - /etc/timezone:/etc/timezone
+      - /etc/localtime:/etc/localtime
     ports:
       - "8000:8000" 
     environment:
@@ -75,11 +78,16 @@ services:
     env_file:
       - ../.db.env
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready", "-d", "vmwiz-dev"]
-      interval: 30s
-      timeout: 60s
-      retries: 5
-      start_period: 80s  
+      test: [
+        "CMD-SHELL", 
+        "psql -U $$POSTGRES_USER -d $$POSTGRES_DB -c 'SELECT 1' || exit 1"
+      ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+
 
   vmwiz-frontend:
     container_name: vmwiz-frontend
@@ -94,5 +102,9 @@ services:
       - vmwiz-internal
     volumes:
       - ../vmwiz-frontend:/app
+      - /etc/timezone:/etc/timezone
+      - /etc/localtime:/etc/localtime
+    working_dir: /app
+    command: /bin/sh -c "yarn install && yarn run serve"
     env_file:
       - ../.env
