@@ -73,7 +73,7 @@ services:
       - vmwiz-internal
     volumes:
       - ./data/postgres/:/var/lib/postgresql/data
-- /etc/timezone:/etc/timezone
+      - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
     env_file:
       - ../.db.env
