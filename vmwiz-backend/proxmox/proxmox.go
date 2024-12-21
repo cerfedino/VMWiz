@@ -14,7 +14,9 @@ import (
 	"regexp"
 	"strings"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"github.com/melbahja/goph"
+	"github.com/seancfoley/ipaddress-go/ipaddr"
 	"golang.org/x/exp/rand"
 )
 
@@ -30,45 +32,48 @@ func proxmoxRequest(method string, path string, body []byte) (*http.Request, err
 }
 
 // /api2/json/nodes
-type PVENodes struct {
-	Data []struct {
-		Status  string  `json:"status"`
-		Disk    int     `json:"disk"`
-		Maxdisk int     `json:"maxdisk"`
-		Mem     int     `json:"mem"`
-		Maxmem  int     `json:"maxmem"`
-		Cpu     float32 `json:"cpu"`
-		Type    string  `json:"type"`
-		Id      string  `json:"id"`
-		Node    string  `json:"node"`
-	} `json:"data"`
+type PVENode struct {
+  Status  string  `json:"status"`
+  Disk    int     `json:"disk"`
+  Maxdisk int     `json:"maxdisk"`
+  Mem     int     `json:"mem"`
+  Maxmem  int     `json:"maxmem"`
+  Cpu     float32 `json:"cpu"`
+  Type    string  `json:"type"`
+  Id      string  `json:"id"`
+  Node    string  `json:"node"`
+}
+type pveNodeList struct {
+	Data []PVENode `json:"data"`
 }
 
-type PVEVMs struct {
-	Data []struct {
-		Node      string  `json:"node"`
-		Diskwrite int     `json:"diskwrite"`
-		Status    string  `json:"status"`
-		Maxmem    int     `json:"maxmem"`
-		Uptime    int     `json:"uptime"`
-		Mem       int     `json:"mem"`
-		Netout    int     `json:"netout"`
-		Diskread  int     `json:"diskread"`
-		Maxcpu    int     `json:"maxcpu"`
-		Pool      string  `json:"pool"`
-		Netin     int     `json:"netin"`
-		Cpu       float64 `json:"cpu"`
-		Template  int     `json:"template"`
-		Type      string  `json:"type"`
-		Vmid      int     `json:"vmid"`
-		Maxdisk   int     `json:"maxdisk"`
-		Disk      int     `json:"disk"`
-		Id        string  `json:"id"`
-		Name      string  `json:"name"`
-	} `json:"data"`
+// /api2/json/cluster/resources?type=vm
+type PVEVM struct {
+  Node      string  `json:"node"`
+  Diskwrite int     `json:"diskwrite"`
+  Status    string  `json:"status"`
+  Maxmem    int     `json:"maxmem"`
+  Uptime    int     `json:"uptime"`
+  Mem       int     `json:"mem"`
+  Netout    int     `json:"netout"`
+  Diskread  int     `json:"diskread"`
+  Maxcpu    int     `json:"maxcpu"`
+  Pool      string  `json:"pool"`
+  Netin     int     `json:"netin"`
+  Cpu       float64 `json:"cpu"`
+  Template  int     `json:"template"`
+  Type      string  `json:"type"`
+  Vmid      int     `json:"vmid"`
+  Maxdisk   int     `json:"maxdisk"`
+  Disk      int     `json:"disk"`
+  Id        string  `json:"id"`
+  Name      string  `json:"name"`
+}
+type pveVMlist struct {
+	Data []PVEVM `json:"data"`
 }
 
-func GetAllNodes() (*PVENodes, error) {
+func GetAllNodes() (*[]PVENode, error) {
 	req, err := proxmoxRequest(http.MethodGet, "/api2/json/nodes", []byte{})
 	if err != nil {
 		fmt.Println("ERROR: %v", err.Error())
@@ -84,7 +89,7 @@ func GetAllNodes() (*PVENodes, error) {
 		return nil, err
 	}
 
-	var nodes PVENodes
+	var nodes pveNodeList
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		fmt.Println("ERROR: %v", err.Error())
@@ -96,10 +101,10 @@ func GetAllNodes() (*PVENodes, error) {
 		return nil, err
 	}
 
-	return &nodes, nil
+	return &nodes.Data, nil
 }
 
-func GetAllVMs() (*PVEVMs, error) {
+func GetAllVMs() (*[]PVEVM, error) {
 	req, err := proxmoxRequest(http.MethodGet, "/api2/json/cluster/resources", []byte{})
 	if err != nil {
 		fmt.Println("ERROR: %v", err.Error())
@@ -115,7 +120,7 @@ func GetAllVMs() (*PVEVMs, error) {
 		return nil, err
 	}
 
-	var vms PVEVMs
+	var vms pveVMlist
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		fmt.Println("ERROR: %v", err.Error())
@@ -127,7 +132,7 @@ func GetAllVMs() (*PVEVMs, error) {
 		return nil, err
 	}
 
-	return &vms, nil
+	return &(vms.Data), nil
 }
 
 type PVEVMOptions struct {
@@ -320,7 +325,7 @@ func IsHostnameTaken(hostname string) (bool, error) {
 		return false, err
 	}
 
-	for _, m := range vms.Data {
+	for _, m := range *vms {
 		if m.Name == hostname {
 			return true, nil
 		}
