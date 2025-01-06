@@ -31,9 +31,10 @@ func netcenterMakeRequest(method string, path string, body []byte) (*http.Reques
 	// fmt.Println("Requesting URL: '" + url.String() + "'")
 	req, err := http.NewRequest(method, url.String(), bytes.NewReader(body))
 	if err != nil {
-		fmt.Printf("ERROR Creating request: %v", err.Error())
-		return nil, nil, err
-	}
+		return nil, nil, fmt.Errorf("Creating request: %v", err.Error())
+			}
+
+	req.Header.Set("Content-Type", "text/xml")
 
 	addAuthHeaders(req, nil)
 	req.Host = url.Host
@@ -43,12 +44,11 @@ func netcenterMakeRequest(method string, path string, body []byte) (*http.Reques
 func netcenterDoRequest(req *http.Request, client *http.Client) ([]byte, error) {
 	res, err := client.Do(req)
 	if err != nil {
-		fmt.Println("ERROR Making request: ", err.Error())
-		return nil, err
-	}
+return nil, fmt.Errorf("Making request: %v", err.Error())
+			}
 	body, _ := io.ReadAll(res.Body)
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return nil, fmt.Errorf("ERROR Making Request: Status %v\nBody: %v", res.Status, body)
+		return nil, fmt.Errorf("Making request: Status %v\nBody: %v", res.Status, string(body))
 	}
 
 	// TODO: Netcenter adds error xml tags in body sometimes, parse those aswell if they are present
@@ -82,17 +82,56 @@ func GetFreeIPsInSubnet(ipv4 *ipaddr.IPAddress) (*[]NetcenterFreeIP, error) {
 
 	return &(freeIps.FreeIps), nil
 }
-func DeleteHost(ip string) error {
+
+var SUBNET_NAME_TO_ADDR = map[string]string{
+	"vm": "192.33.91.255/24",
+}
+
+const ISG_GROUP string = "adm-soseth"
+
+func DeleteDNSEntryByIP(ip string) error {
 	req, client, err := netcenterMakeRequest("DELETE", fmt.Sprintf("/netcenter/rest/nameToIP/%s", ip), nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("Deleting DNS entry: %v", err.Error())
 	}
 
-	body, err := netcenterDoRequest(req, client)
+	_, err = netcenterDoRequest(req, client)
 	if err != nil {
-		return err
+		return fmt.Errorf("Deleting DNS entry: %v", err.Error())
 	}
 
-	fmt.Println(string(body))
 	return nil
+}
+
+func CreateDNSEntry(ip string, fqdn string) error {
+	bodyStruct := netcenterCreateDNSRequest{
+		Ip:       ip,
+		Reverse:  "Y",
+		ISGGroup: ISG_GROUP,
+		FqName:   fqdn,
+	}
+	body, err := xml.Marshal(bodyStruct)
+	if err != nil {
+		return fmt.Errorf("Creating DNS entry: Marshalling: %v", err.Error())
+	}
+	fmt.Println(string(body))
+
+	req, client, err := netcenterMakeRequest("POST", "/netcenter/rest/nameToIP", body)
+	if err != nil {
+		return fmt.Errorf("Creating DNS entry: Creating Request: %v", err.Error())
+	}
+	body, err = netcenterDoRequest(req, client)
+	if err != nil {
+		return fmt.Errorf("Creating DNS entry: %v", err.Error())
+	}
+	fmt.Println("DNS created ! Body: ", string(body))
+	return nil
+}
+
+type netcenterCreateDNSRequest struct {
+	XMLName  xml.Name `xml:"insert"`
+	Ip       string   `xml:"nameToIP>ip,omitempty"`
+	Reverse  string   `xml:"nameToIP>reverse,omitempty"`
+	ISGGroup string   `xml:"nameToIP>isgGroup,omitempty"`
+	FqName   string   `xml:"nameToIP>fqName,omitempty"`
 }
