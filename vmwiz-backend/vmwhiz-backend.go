@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -9,6 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	// "git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
+
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/router"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 	"github.com/rs/cors"
@@ -40,7 +44,19 @@ func main() {
 	storage.DB.Init("")
 
 	// TODO: Remove. testing purposes only
-	// netcenter.GetFreeIPsInSubnet("129.132.16.48")
+	chosenIP, err := netcenter.Registerhost("vm", "vmwiz-test.vsos.ethz.ch")
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	// ? Deleting the DNS entry
+	err = netcenter.DeleteDNSEntryByIP(chosenIP)
+	if err != nil {
+		fmt.Println("ERROR: ", err.Error())
+	}
+	fmt.Println("Host deleted !")
+
 	// fmt.Println(proxmox.IsHostnameTaken(""))
 	// err := proxmox.CreateVM(proxmox.PVEVMOptions{
 	// 	Template:     "noble",

@@ -32,7 +32,7 @@ func netcenterMakeRequest(method string, path string, body []byte) (*http.Reques
 	req, err := http.NewRequest(method, url.String(), bytes.NewReader(body))
 	if err != nil {
 		return nil, nil, fmt.Errorf("Creating request: %v", err.Error())
-			}
+	}
 
 	req.Header.Set("Content-Type", "text/xml")
 
@@ -44,8 +44,8 @@ func netcenterMakeRequest(method string, path string, body []byte) (*http.Reques
 func netcenterDoRequest(req *http.Request, client *http.Client) ([]byte, error) {
 	res, err := client.Do(req)
 	if err != nil {
-return nil, fmt.Errorf("Making request: %v", err.Error())
-			}
+		return nil, fmt.Errorf("Making request: %v", err.Error())
+	}
 	body, _ := io.ReadAll(res.Body)
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		return nil, fmt.Errorf("Making request: Status %v\nBody: %v", res.Status, string(body))
@@ -134,4 +134,30 @@ type netcenterCreateDNSRequest struct {
 	Reverse  string   `xml:"nameToIP>reverse,omitempty"`
 	ISGGroup string   `xml:"nameToIP>isgGroup,omitempty"`
 	FqName   string   `xml:"nameToIP>fqName,omitempty"`
+}
+
+func Registerhost(net string, fqdn string) (string, error) {
+	vm_subnet, _ := ipaddr.NewIPAddressString(SUBNET_NAME_TO_ADDR[net]).GetAddress().ToZeroHost()
+
+	freeIps, err := GetFreeIPsInSubnet(vm_subnet.WithoutPrefixLen())
+	if err != nil {
+		return "", fmt.Errorf("Registering host with FQDN '%v': %v", fqdn, err.Error())
+	}
+
+	if len(*freeIps) == 0 {
+		return "", fmt.Errorf("Registering host with FQDN '%v': No free IPs in subnet %v", fqdn, vm_subnet)
+	}
+
+	fmt.Printf("There are %d free available IPs in the subnet %v\n", len(*freeIps), vm_subnet)
+
+	chosenIP := (*freeIps)[0].IP
+	fmt.Printf("Choosing first available IP: %v\n", chosenIP)
+
+	// ? Adding DNS entry for chosen IP and FQDN through Netcenter
+	err = CreateDNSEntry(chosenIP, fqdn)
+	if err != nil {
+		return "", fmt.Errorf("Registering host %v with FQDN '%v': %v", chosenIP, fqdn, err.Error())
+	}
+
+	return chosenIP, nil
 }

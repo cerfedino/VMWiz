@@ -14,9 +14,7 @@ import (
 	"regexp"
 	"strings"
 
-	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"github.com/melbahja/goph"
-	"github.com/seancfoley/ipaddress-go/ipaddr"
 	"golang.org/x/exp/rand"
 )
 
@@ -33,15 +31,15 @@ func proxmoxRequest(method string, path string, body []byte) (*http.Request, err
 
 // /api2/json/nodes
 type PVENode struct {
-  Status  string  `json:"status"`
-  Disk    int     `json:"disk"`
-  Maxdisk int     `json:"maxdisk"`
-  Mem     int     `json:"mem"`
-  Maxmem  int     `json:"maxmem"`
-  Cpu     float32 `json:"cpu"`
-  Type    string  `json:"type"`
-  Id      string  `json:"id"`
-  Node    string  `json:"node"`
+	Status  string  `json:"status"`
+	Disk    int     `json:"disk"`
+	Maxdisk int     `json:"maxdisk"`
+	Mem     int     `json:"mem"`
+	Maxmem  int     `json:"maxmem"`
+	Cpu     float32 `json:"cpu"`
+	Type    string  `json:"type"`
+	Id      string  `json:"id"`
+	Node    string  `json:"node"`
 }
 type pveNodeList struct {
 	Data []PVENode `json:"data"`
@@ -49,25 +47,25 @@ type pveNodeList struct {
 
 // /api2/json/cluster/resources?type=vm
 type PVEVM struct {
-  Node      string  `json:"node"`
-  Diskwrite int     `json:"diskwrite"`
-  Status    string  `json:"status"`
-  Maxmem    int     `json:"maxmem"`
-  Uptime    int     `json:"uptime"`
-  Mem       int     `json:"mem"`
-  Netout    int     `json:"netout"`
-  Diskread  int     `json:"diskread"`
-  Maxcpu    int     `json:"maxcpu"`
-  Pool      string  `json:"pool"`
-  Netin     int     `json:"netin"`
-  Cpu       float64 `json:"cpu"`
-  Template  int     `json:"template"`
-  Type      string  `json:"type"`
-  Vmid      int     `json:"vmid"`
-  Maxdisk   int     `json:"maxdisk"`
-  Disk      int     `json:"disk"`
-  Id        string  `json:"id"`
-  Name      string  `json:"name"`
+	Node      string  `json:"node"`
+	Diskwrite int     `json:"diskwrite"`
+	Status    string  `json:"status"`
+	Maxmem    int     `json:"maxmem"`
+	Uptime    int     `json:"uptime"`
+	Mem       int     `json:"mem"`
+	Netout    int     `json:"netout"`
+	Diskread  int     `json:"diskread"`
+	Maxcpu    int     `json:"maxcpu"`
+	Pool      string  `json:"pool"`
+	Netin     int     `json:"netin"`
+	Cpu       float64 `json:"cpu"`
+	Template  int     `json:"template"`
+	Type      string  `json:"type"`
+	Vmid      int     `json:"vmid"`
+	Maxdisk   int     `json:"maxdisk"`
+	Disk      int     `json:"disk"`
+	Id        string  `json:"id"`
+	Name      string  `json:"name"`
 }
 type pveVMlist struct {
 	Data []PVEVM `json:"data"`
@@ -220,7 +218,8 @@ func CreateVM(options PVEVMOptions) error {
 	}
 	if !options.Reinstall && (string(ipv4) != "" || string(ipv6) != "") {
 		fmt.Println("\t[!] FQDN still has DNS entries with IP addresses:")
-		// You sure you want to continue?
+		// TODO: You sure you want to continue?
+		return nil
 	}
 
 	// Add email to descriptions
@@ -311,11 +310,6 @@ Reinstall: %v
 	_ = SOURCES_LIST
 	_ = VM_ID
 	return nil
-}
-
-func registerhost(SANS_USERNAME string, SANS_PASSWORD string, net string, fqdn string) (string, int) {
-
-	return "", 0
 }
 
 func IsHostnameTaken(hostname string) (bool, error) {
