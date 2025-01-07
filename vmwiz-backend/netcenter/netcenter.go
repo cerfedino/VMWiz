@@ -31,7 +31,7 @@ func netcenterMakeRequest(method string, path string, body []byte) (*http.Reques
 	// fmt.Println("Requesting URL: '" + url.String() + "'")
 	req, err := http.NewRequest(method, url.String(), bytes.NewReader(body))
 	if err != nil {
-		return nil, nil, fmt.Errorf("Creating request: %v", err.Error())
+		return nil, nil, fmt.Errorf("Creating request %v %v: %v", method, url.String(), err.Error())
 	}
 
 	req.Header.Set("Content-Type", "text/xml")
@@ -44,15 +44,18 @@ func netcenterMakeRequest(method string, path string, body []byte) (*http.Reques
 func netcenterDoRequest(req *http.Request, client *http.Client) ([]byte, error) {
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("Making request: %v", err.Error())
+		return nil, fmt.Errorf("Making request %v %v: %v", req.Method, req.URL, err.Error())
 	}
-	body, _ := io.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("Making request: Cannot read body: %v", err.Error())
+	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return nil, fmt.Errorf("Making request: Status %v\nBody: %v", res.Status, string(body))
+		return nil, fmt.Errorf("Making request %v %v: Status %v\nBody: %v", req.Method, req.URL, res.Status, string(body))
 	}
 
 	// TODO: Netcenter adds error xml tags in body sometimes, parse those aswell if they are present
-	// Check function get_tree_or_raise_error in netcenter.py
+	// Check function get_tree_or_raise_error in netcenter.py in sans api
 
 	return body, nil
 }

@@ -10,8 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	// "git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
-
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/router"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
@@ -43,17 +41,17 @@ import (
 func main() {
 	storage.DB.Init("")
 
-	// TODO: Remove. testing purposes only
+	// TODO: Remove
 	chosenIP, err := netcenter.Registerhost("vm", "vmwiz-test.vsos.ethz.ch")
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		return
 	}
 
 	// ? Deleting the DNS entry
 	err = netcenter.DeleteDNSEntryByIP(chosenIP)
 	if err != nil {
-		fmt.Println("ERROR: ", err.Error())
+		fmt.Println(err)
 	}
 	fmt.Println("Host deleted !")
 
@@ -94,10 +92,9 @@ func main() {
 	// Wait for interrupt signal to gracefully shutdown the server
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	signal.Notify(c, os.Interrupt, syscall.SIGKILL)
 	<-c
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5000)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	srv.Shutdown(ctx)
 	log.Println("Shutting down ...")

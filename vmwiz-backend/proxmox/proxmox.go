@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -18,15 +19,33 @@ import (
 	"golang.org/x/exp/rand"
 )
 
-func proxmoxRequest(method string, path string, body []byte) (*http.Request, error) {
-	req, err := http.NewRequest(method, fmt.Sprintf("%v%v", os.Getenv("PVE_HOST"), path), bytes.NewReader(body))
+func proxmoxMakeRequest(method string, path string, body []byte) (*http.Request, *http.Client, error) {
+	url, _ := url.Parse(fmt.Sprintf("%v%v", os.Getenv("PVE_HOST"), path))
+	// fmt.Println("Requesting URL: '" + url.String() + "'")
+	req, err := http.NewRequest(method, url.String(), bytes.NewReader(body))
 	if err != nil {
-		fmt.Println("ERROR: %v", err.Error())
-		return nil, err
+		return nil, nil, fmt.Errorf("Creating request %v %v: %v", method, url, err.Error())
 	}
 
 	req.Header.Add("Authorization", fmt.Sprintf("PVEAPIToken=%v!%v=%v", os.Getenv("PVE_USER"), os.Getenv("PVE_TOKENID"), os.Getenv("PVE_UUID")))
-	return req, nil
+
+	return req, http.DefaultClient, nil
+}
+
+func proxmoxDoRequest(req *http.Request, client *http.Client) ([]byte, error) {
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("Making request %v %v: %v", req.Method, req.URL, err.Error())
+	}
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("Making request: Cannot read body: %v", err.Error())
+	}
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return nil, fmt.Errorf("Making request: Status %v\nBody: %v", res.Status, string(body))
+	}
+
+	return body, nil
 }
 
 // /api2/json/nodes
@@ -72,7 +91,7 @@ type pveVMlist struct {
 }
 
 func GetAllNodes() (*[]PVENode, error) {
-	req, err := proxmoxRequest(http.MethodGet, "/api2/json/nodes", []byte{})
+	req, client, err := proxmoxMakeRequest(http.MethodGet, "/api2/json/nodes", []byte{})
 	if err != nil {
 		fmt.Println("ERROR: %v", err.Error())
 		return nil, err
@@ -81,53 +100,38 @@ func GetAllNodes() (*[]PVENode, error) {
 	// q.Set("type", "node")
 	req.URL.RawQuery = q.Encode()
 
-	res, err := http.DefaultClient.Do(req)
+	body, err := proxmoxDoRequest(req, client)
 	if err != nil {
-		fmt.Println("ERROR: %v", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("Failed to retrieve all Proxmox nodes: %v", err.Error())
 	}
 
 	var nodes pveNodeList
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println("ERROR: %v", err.Error())
-		return nil, err
-	}
 	err = json.Unmarshal(body, &nodes)
 	if err != nil {
-		fmt.Println("ERROR: %v", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("Failed to retrieve all Proxmox nodes: Unmarshal error: %v", err.Error())
 	}
 
 	return &nodes.Data, nil
 }
 
 func GetAllVMs() (*[]PVEVM, error) {
-	req, err := proxmoxRequest(http.MethodGet, "/api2/json/cluster/resources", []byte{})
+	req, client, err := proxmoxMakeRequest(http.MethodGet, "/api2/json/cluster/resources", []byte{})
 	if err != nil {
-		fmt.Println("ERROR: %v", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("Failed to retrieve all Proxmox VMs: %v", err.Error())
 	}
 	q := req.URL.Query()
 	q.Set("type", "vm")
 	req.URL.RawQuery = q.Encode()
 
-	res, err := http.DefaultClient.Do(req)
+	body, err := proxmoxDoRequest(req, client)
 	if err != nil {
-		fmt.Println("ERROR: %v", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("Failed to retrieve all Proxmox VMs: %v", err.Error())
 	}
 
 	var vms pveVMlist
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println("ERROR: %v", err.Error())
-		return nil, err
-	}
 	err = json.Unmarshal(body, &vms)
 	if err != nil {
-		fmt.Println("ERROR: %v", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("Failed to retrieve all Proxmox VMs: Unmarshal error: %v", err.Error())
 	}
 
 	return &(vms.Data), nil
@@ -148,24 +152,23 @@ type PVEVMOptions struct {
 
 // func createVM(spec storage.SQLRequest) error {
 func CreateVM(options PVEVMOptions) error {
-	// Check if script is running on a cluster management node
 
-	// check if .ssh folder exists, if not create it
-
-	fmt.Println("[-] Checking if running on a cluster management node")
+	// fmt.Println("[-] Checking if running on a cluster management node")
 	client, err := createCMSSHClient()
 	if err != nil {
-		return fmt.Errorf("\t[X] Failed to estabilish SSH connection to cluster management node. Error: %v", err)
+		return fmt.Errorf("Failed to create VM: %v", err)
 	}
 	defer client.Close()
 
 	log.Println("[-] Checking if running on a cluster management node")
-	stdout, _ := client.Run("hostname --fqdn")
+	stdout, err := client.Run("hostname --fqdn")
+	if err != nil {
+		return fmt.Errorf("Failed to create VM: Cannot find hostname of configured PVE host: %v", err)
+	}
 	strstdout := strings.Trim(string(stdout), " \n")
 	match, _ := regexp.MatchString("^cm-.+\\.sos\\.ethz\\.ch$", strstdout)
 	if !match {
-		return fmt.Errorf("\t[X] Not running on a known cluster management node! (FQDN: '%v')", strstdout)
-		// exit
+		return fmt.Errorf("Failed to create VM: Configured PVE SSH host is not a cluster management node")
 	}
 
 	comp_node := "comp-epyc-lee-3.sos.ethz.ch"
@@ -207,14 +210,20 @@ func CreateVM(options PVEVMOptions) error {
 
 	// Checking existence of DNS entries for chosen FQDN
 	log.Printf("[-] Checking existence of DNS entries for chosen FQDN %v", options.FQDN)
-	ipv4, _ := client.Run(fmt.Sprintf("dig +short %v", options.FQDN))
-	ipv6, _ := client.Run(fmt.Sprintf("dig +short AAAA %v", options.FQDN))
-
+	ipv4, err := client.Run(fmt.Sprintf("dig +short %v", options.FQDN))
+	if err != nil {
+		return fmt.Errorf("Failed to create VM: PVE SSH host: Failed to check if there are existing ipv4 DNS entries for FQDN: %v", err.Error())
+	}
 	log.Println("\tIPv4: ", string(ipv4))
+
+	ipv6, err := client.Run(fmt.Sprintf("dig +short AAAA %v", options.FQDN))
+	if err != nil {
+		return fmt.Errorf("Failed to create VM: PVE SSH host: Failed to check if there are existing ipv6 DNS entries for FQDN: %v", err.Error())
+	}
 	log.Println("\tIPv6: ", string(ipv6))
 
 	if options.Reinstall && (string(ipv4) == "" || string(ipv6) == "nil") {
-		return fmt.Errorf("\t[X] Aborting. Getting IP address from FQDN failed.")
+		return fmt.Errorf("Failed to create VM: Cannot reinstall VM with FQDN %v as it does not have both ipv4 and ipv6 DNS entries", options.FQDN)
 	}
 	if !options.Reinstall && (string(ipv4) != "" || string(ipv6) != "") {
 		fmt.Println("\t[!] FQDN still has DNS entries with IP addresses:")
@@ -229,9 +238,12 @@ func CreateVM(options PVEVMOptions) error {
 
 	// Check if image exists
 	log.Printf("[-] Checking if image '%v' exists on management node", IMAGE)
-	stdout, _ = client.Run(fmt.Sprintf("test -f %v && echo 'yes' || echo 'no'", IMAGE))
+	stdout, err = client.Run(fmt.Sprintf("test -f %v && echo 'yes' || echo 'no'", IMAGE))
+	if err != nil {
+		return fmt.Errorf("Failed to create VM: PVE SSH host: Failed to check if image '%v' exists: %v", IMAGE, err.Error())
+	}
 	if string(stdout) == "no" {
-		return fmt.Errorf("\t[X] Image '%v' does not exist on management node", IMAGE)
+		return fmt.Errorf("Failed to create VM: PVE SSH host: Image '%v' does not exist", IMAGE)
 	}
 
 	// Preparing sources.list for VM
@@ -258,10 +270,11 @@ func CreateVM(options PVEVMOptions) error {
 		deb http://security.ubuntu.com/ubuntu $template-security main universe multiverse
 		#deb-src http://security.ubuntu.com/ubuntu $template-security main universe multiverse`
 	} else {
-		return fmt.Errorf("\t[X] Unknown template '%v'. Aborting", options.Template)
+		return fmt.Errorf("Failed to create VM: Unknown template %v", options.Template)
 	}
 
 	// Generate random VM ID
+	// TODO: Do not generate randomly, rather take the smallest available one
 	log.Println("[-] Generating random VM ID")
 	VM_ID := 100000 + rand.Intn(899999)
 
@@ -286,7 +299,7 @@ Reinstall: %v
 
 	if !options.Reinstall {
 		fmt.Printf("[-] Registering \"FQDN\" %v in net \"%v\"\n", options.FQDN, net)
-		// result, retcode := sosregisterhost(options.nethz_user, options.nethz_pass, net, options.FQDN)
+		// ipv4, ipv6 := netcenter.Registerhost(net, options.FQDN)
 	}
 	_ = comp_node
 	_ = example_fqdn
@@ -313,10 +326,10 @@ Reinstall: %v
 }
 
 func IsHostnameTaken(hostname string) (bool, error) {
-	// Check if hostname is already taken
+	// TODO: We check only if there is a VM with the same name. Should we also check DNS ?
 	vms, err := GetAllVMs()
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("Failed to check if hostname '%v' is taken: %v", err.Error())
 	}
 
 	for _, m := range *vms {
@@ -332,12 +345,12 @@ func createCMSSHClient() (*goph.Client, error) {
 	// Start new ssh connection with private key.
 	auth, err := goph.Key("/root/.ssh/pkey.key", os.Getenv("SSH_CM_PKEY_PASSPHRASE"))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to create SSH client: Failed to create pkey auth method: %v", err.Error())
 	}
 
 	client, err := goph.New(os.Getenv("SSH_CM_USER"), os.Getenv("SSH_CM_HOST"), auth)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to create SSH client: %v", err.Error())
 	}
 
 	return client, nil
