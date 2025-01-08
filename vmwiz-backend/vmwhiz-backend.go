@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -42,18 +41,24 @@ func main() {
 	storage.DB.Init("")
 
 	// TODO: Remove
-	chosenIP, err := netcenter.Registerhost("vm", "vmwiz-test.vsos.ethz.ch")
+	chosenIPv4, chosenIPv6, err := netcenter.Registerhost("vm", "vmwiz-test.vsos.ethz.ch")
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Println(err)
 	}
 
+	log.Printf("Host 'vmwiz-test.vsos.ethz.ch'\n\tIPv4: %v\n\tIPv6: %v", chosenIPv4, chosenIPv6)
+
 	// ? Deleting the DNS entry
-	err = netcenter.DeleteDNSEntryByIP(chosenIP)
+	err = netcenter.DeleteDNSEntryByIP(chosenIPv4.ToIP())
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
-	fmt.Println("Host deleted !")
+
+	err = netcenter.DeleteDNSEntryByIP(chosenIPv6.ToIP())
+	if err != nil {
+		log.Println(err)
+	}
+	log.Println("Host deleted !")
 
 	// fmt.Println(proxmox.IsHostnameTaken(""))
 	// err := proxmox.CreateVM(proxmox.PVEVMOptions{

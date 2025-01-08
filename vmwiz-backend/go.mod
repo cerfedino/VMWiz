@@ -8,6 +8,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/melbahja/goph v1.4.0
 	github.com/rs/cors v1.11.0
+	github.com/seancfoley/ipaddress-go v1.7.0
 	golang.org/x/crypto v0.27.0
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 )
@@ -18,7 +19,7 @@ require (
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/sftp v1.13.5 // indirect
+	github.com/seancfoley/bintree v1.3.1 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
-	golang.org/x/net v0.29.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
 )
