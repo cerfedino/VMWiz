@@ -20,7 +20,10 @@ import (
 )
 
 func proxmoxMakeRequest(method string, path string, body []byte) (*http.Request, *http.Client, error) {
-	url, _ := url.Parse(fmt.Sprintf("%v%v", os.Getenv("PVE_HOST"), path))
+	url, err := url.Parse(fmt.Sprintf("%v%v", os.Getenv("PVE_HOST"), path))
+	if err != nil {
+		return nil, nil, fmt.Errorf("Creating request: Parsing URL: %v", err.Error())
+	}
 	// fmt.Println("Requesting URL: '" + url.String() + "'")
 	req, err := http.NewRequest(method, url.String(), bytes.NewReader(body))
 	if err != nil {

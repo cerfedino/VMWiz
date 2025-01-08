@@ -41,24 +41,10 @@ func main() {
 	storage.DB.Init("")
 
 	// TODO: Remove
-	chosenIPv4, chosenIPv6, err := netcenter.Registerhost("vm", "vmwiz-test.vsos.ethz.ch")
+	_, _, err := netcenter.Registerhost("vm", "vmwiz-test.vsos.ethz.ch")
 	if err != nil {
 		log.Println(err)
 	}
-
-	log.Printf("Host 'vmwiz-test.vsos.ethz.ch'\n\tIPv4: %v\n\tIPv6: %v", chosenIPv4, chosenIPv6)
-
-	// ? Deleting the DNS entry
-	err = netcenter.DeleteDNSEntryByIP(chosenIPv4.ToIP())
-	if err != nil {
-		log.Println(err)
-	}
-
-	err = netcenter.DeleteDNSEntryByIP(chosenIPv6.ToIP())
-	if err != nil {
-		log.Println(err)
-	}
-	log.Println("Host deleted !")
 
 	// fmt.Println(proxmox.IsHostnameTaken(""))
 	// err := proxmox.CreateVM(proxmox.PVEVMOptions{
@@ -74,6 +60,11 @@ func main() {
 	// if err != nil {
 	// 	log.Println(err)
 	// }
+
+	err = netcenter.DeleteDNSEntryByHostname("vmwiz-test.vsos.ethz.ch")
+	if err != nil {
+		log.Println(err)
+	}
 
 	cors := cors.New(cors.Options{
 		// Allowing the Vue frontend to access the API
