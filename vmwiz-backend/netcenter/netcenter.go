@@ -42,6 +42,11 @@ type netcenterFreeIPv6List struct {
 	FreeIps []NetcenterFreeIPv6 `xml:"freeIpV6"`
 }
 
+type netcenterRequestErrors struct {
+	XMLName xml.Name `xml:"errors"`
+	Errors  []string `xml:"error>msg"`
+}
+
 type NetcenterSubnet struct {
 	Name        string
 	V4net       *ipaddr.IPv4Address
@@ -72,8 +77,11 @@ var VM_SUBNET NetcenterSubnet = NewNetcenterSubnet("vm",
 const ISG_GROUP string = "adm-soseth"
 
 func netcenterMakeRequest(method string, path string, body []byte) (*http.Request, *http.Client, error) {
-	url, _ := url.Parse(fmt.Sprintf("%v%v", os.Getenv("NETCENTER_HOST"), path))
-	// fmt.Println("Requesting URL: '" + url.String() + "'")
+	url, err := url.Parse(fmt.Sprintf("%v%v", os.Getenv("NETCENTER_HOST"), path))
+	if err != nil {
+		return nil, nil, fmt.Errorf("Creating request: Parsing URL: %v", err.Error())
+	}
+
 	req, err := http.NewRequest(method, url.String(), bytes.NewReader(body))
 	if err != nil {
 		return nil, nil, fmt.Errorf("Creating request %v %v: %v", method, url.String(), err.Error())
@@ -99,8 +107,12 @@ func netcenterDoRequest(req *http.Request, client *http.Client) ([]byte, error) 
 		return nil, fmt.Errorf("Making request %v %v: Status %v\nBody: %v", req.Method, req.URL, res.Status, string(body))
 	}
 
-	// TODO: Netcenter adds error xml tags in body sometimes, parse those aswell if they are present
-	// Check function get_tree_or_raise_error in netcenter.py in sans api
+	// Netcenter adds error xml tags in the response body. We try to unmarshal the errors and return them if they exist
+	var errors netcenterRequestErrors
+	err = xml.Unmarshal(body, &errors)
+	if err == nil && len(errors.Errors) > 0 {
+		return nil, fmt.Errorf("Making request %v %v: Errors: \n- %v", req.Method, req.URL, strings.Join(errors.Errors, "\n- "))
+	}
 
 	return body, nil
 }
