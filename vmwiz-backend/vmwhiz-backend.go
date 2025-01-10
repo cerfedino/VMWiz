@@ -11,20 +11,23 @@ import (
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/router"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/startupcheck"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 	"github.com/rs/cors"
 )
 
-// type StartupChecks struct {
-// 	Name   string
-// 	Errors []any
-// }
-
 // func (s *StartupChecks) String() string {
-// 	ret := "[-] Checks for " + s.Name + ":\n"
-// 	for _, err := range s.Errors {
-// 		if reflect.TypeOf(err) {
-// 			ret += fmt.Sprintf("\t[ERROR] %v\n", err)
+
+// 	ret := fmt.Printf("[-] %v\n", s.Name)
+// 	for _, result := range s.Results {
+// 		err, ok := result.(error)
+// 		if ok {
+// 			ret += fmt.Sprintf("\t[ERROR] %v\n", err.Error())
+// 			continue
+// 		}
+
+// 		if reflect.TypeOf(err) == reflect.TypeOf(errors.New("")) {
+// 			ret += fmt.Sprintf("\t[ERROR] %v\n", err.Error())
 // 		} else {
 // 			ret += fmt.Sprintf("\t[OK] %v\n", err)
 // 		}
@@ -33,15 +36,18 @@ import (
 // 	return ret
 // }
 
-// func DoChecks() []error {
-// 	return []error{}
-// }
-
 func main() {
-	storage.DB.Init("")
+	if startupcheck.DoAllStartupChecks() {
+		log.Fatalf("Startup checks failed. Exiting ...")
+	}
+
+	err := storage.DB.Init()
+	if err != nil {
+		log.Fatalf("Error on startup: %v", err.Error())
+	}
 
 	// TODO: Remove
-	_, _, err := netcenter.Registerhost("vm", "vmwiz-test.vsos.ethz.ch")
+	_, _, err = netcenter.Registerhost("vm", "vmwiz-test.vsos.ethz.ch")
 	if err != nil {
 		log.Println(err)
 	}

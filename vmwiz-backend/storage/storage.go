@@ -15,15 +15,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
-// Almost like a ternary operator
-func If(condition bool, trueVal any, falseVal any) any {
-	if condition {
-		return trueVal
-	}
-	return falseVal
-}
-
-type SQLRequest struct {
+type SQLVMRequest struct {
 	ID             int64     `db:"id"`
 	CreatedAt      time.Time `db:"created"`
 	Email          string    `db:"email"`
@@ -40,40 +32,75 @@ type SQLRequest struct {
 }
 
 type Storage interface {
+	CreateConnection() error
+	InitMigrations() error
 	Init(dataSourceName string)
 	StoreVMRequest(req *form.Form) error
 }
 
-type sqlstorage struct {
-	db *sql.DB
+type postgresstorage struct {
+	db        *sql.DB
+	migration *migrate.Migrate
 }
-
-type postgresstorage sqlstorage
 
 var DB postgresstorage
 
-func (s *postgresstorage) Init(dataSourceName string) {
+func buildConnectionString(POSTGRES_USER string, POSTGRES_PASSWORD string, POSTGRES_DB string) string {
+	return fmt.Sprintf("postgres://%v:%v@vmwiz-db/%v?sslmode=disable", POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB)
+}
+
+func (s *postgresstorage) CreateConnection() error {
 	POSTGRES_USER := os.Getenv("POSTGRES_USER")
 	POSTGRES_PASSWORD := os.Getenv("POSTGRES_PASSWORD")
 	POSTGRES_DB := os.Getenv("POSTGRES_DB")
 
-	if dataSourceName == "" {
-		dataSourceName = fmt.Sprintf("postgres://%v:%v@vmwiz-db/%v?sslmode=disable", POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB)
+	if s.db != nil {
+		s.db.Close()
+		s.db = nil
 	}
-
-	db, _ := sql.Open("postgres", dataSourceName)
-	if err := db.Ping(); err != nil {
-		log.Fatalf("Could not ping SQL data source '%s':\n%s", dataSourceName, err)
-	} else {
-		log.Printf("Successfully connected to SQL data source '%s'\n", dataSourceName)
-		s.db = db
-	}
-
-	m, err := migrate.New("file://migrations/", dataSourceName)
+	db, err := sql.Open("postgres", buildConnectionString(POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB))
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("Test DB connection failed: %v", err.Error())
 	}
-	m.Up()
+
+	if err := db.Ping(); err != nil {
+		return fmt.Errorf("Test DB connection failed: %v", err.Error())
+	} else {
+		s.db = db
+		return nil
+	}
+}
+
+func (s *postgresstorage) InitMigrations() error {
+	if s.migration != nil {
+		s.migration.Close()
+		s.migration = nil
+	}
+	m, err := migrate.New("file://migrations/", buildConnectionString(os.Getenv("POSTGRES_USER"), os.Getenv("POSTGRES_PASSWORD"), os.Getenv("POSTGRES_DB")))
+	if err != nil {
+		return fmt.Errorf("Couldn't initialize migrations: %v", err.Error())
+	}
+	s.migration = m
+	return nil
+}
+
+func (s *postgresstorage) Init() error {
+	err := s.CreateConnection()
+	if err != nil {
+		return fmt.Errorf("Initializing DB: %v", err.Error())
+	}
+
+	err = s.InitMigrations()
+	if err != nil {
+		return fmt.Errorf("Initializing DB: %v", err.Error())
+	}
+
+	err = s.migration.Up()
+	if err != nil {
+		return fmt.Errorf("Initializing DB: Running migration UP:%v", err.Error())
+	}
+
+	return nil
 }
 
 func (s *postgresstorage) StoreVMRequest(req *form.Form) error {
@@ -88,8 +115,8 @@ func (s *postgresstorage) StoreVMRequest(req *form.Form) error {
 	return nil
 }
 
-func (s *postgresstorage) GetVMRequest(id int64) (*SQLRequest, error) {
-	var req SQLRequest
+func (s *postgresstorage) GetVMRequest(id int64) (*SQLVMRequest, error) {
+	var req SQLVMRequest
 	err := DB.db.QueryRow(`SELECT 
 	ID, created, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments
 	FROM request WHERE id=$1`, id).Scan(&req.ID, &req.CreatedAt, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, pq.Array(&req.SshPubkeys), &req.Comments)

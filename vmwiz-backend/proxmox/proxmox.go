@@ -14,6 +14,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/melbahja/goph"
 	"golang.org/x/exp/rand"
@@ -32,7 +33,7 @@ func proxmoxMakeRequest(method string, path string, body []byte) (*http.Request,
 
 	req.Header.Add("Authorization", fmt.Sprintf("PVEAPIToken=%v!%v=%v", os.Getenv("PVE_USER"), os.Getenv("PVE_TOKENID"), os.Getenv("PVE_UUID")))
 
-	return req, http.DefaultClient, nil
+	return req, &http.Client{Timeout: time.Second * 10}, nil
 }
 
 func proxmoxDoRequest(req *http.Request, client *http.Client) ([]byte, error) {
@@ -153,7 +154,6 @@ type PVEVMOptions struct {
 	nethz_pass   string
 }
 
-// func createVM(spec storage.SQLRequest) error {
 func CreateVM(options PVEVMOptions) error {
 
 	// fmt.Println("[-] Checking if running on a cluster management node")
@@ -357,4 +357,31 @@ func createCMSSHClient() (*goph.Client, error) {
 	}
 
 	return client, nil
+}
+
+// TODO: Perform proper marshalling
+func GetTokenPermissions() (string, error) {
+	req, client, err := proxmoxMakeRequest("GET", "/api2/json/access/permissions", nil)
+	if err != nil {
+		return "", fmt.Errorf("Failed to get permissions: %v", err.Error())
+	}
+
+	body, err := proxmoxDoRequest(req, client)
+	if err != nil {
+		return "", fmt.Errorf("Failed to get permissions: %v", err.Error())
+	}
+	return string(body), nil
+}
+
+func TestCMConnection() error {
+	client, err := createCMSSHClient()
+	if err != nil {
+		return fmt.Errorf("Testing CM connection: %v", err.Error())
+	}
+	_, err = client.Run("ls")
+	if err != nil {
+		return fmt.Errorf("Testing CM connection: %v", err.Error())
+	}
+
+	return nil
 }

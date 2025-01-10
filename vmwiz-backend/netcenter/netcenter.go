@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/seancfoley/ipaddress-go/ipaddr"
 )
@@ -91,7 +92,7 @@ func netcenterMakeRequest(method string, path string, body []byte) (*http.Reques
 
 	addAuthHeaders(req, nil)
 	req.Host = url.Host
-	return req, &http.Client{CheckRedirect: addAuthHeaders}, nil
+	return req, &http.Client{CheckRedirect: addAuthHeaders, Timeout: time.Second * 10}, nil
 }
 
 func netcenterDoRequest(req *http.Request, client *http.Client) ([]byte, error) {
@@ -123,7 +124,19 @@ func addAuthHeaders(req *http.Request, via []*http.Request) error {
 }
 
 func GetFreeIPv4sInSubnet(ip *ipaddr.IPv4Address) (*[]NetcenterFreeIPv4, error) {
-	req, client, err := netcenterMakeRequest("GET", fmt.Sprintf("/netcenter/rest/nameToIP/freeIps/v4/%v", ip.String()), nil)
+	/*
+		<freeIps>
+			<freeIp>
+				<ip>192.33.91.173</ip>
+				<ipSubnet>192.33.91.0</ipSubnet>
+				<ipMask>24</ipMask>
+				<subnetAndMask>192.33.91.0/24</subnetAndMask>
+				<subnetName>sos-dcz2-server-1-a</subnetName>
+			</freeIp>
+			...
+		</freeIps>
+	*/
+	req, client, err := netcenterMakeRequest("GET", fmt.Sprintf("/netcenter/rest/nameToIP/freeIps/v4/%v", ip.WithoutPrefixLen().String()), nil)
 	if err != nil {
 		return nil, fmt.Errorf("Get free IPv4 addresses in subnet '%v': %v", ip.String(), err.Error())
 	}
@@ -144,7 +157,25 @@ func GetFreeIPv4sInSubnet(ip *ipaddr.IPv4Address) (*[]NetcenterFreeIPv4, error) 
 }
 
 func GetFreeIPv6sInSubnet(ip *ipaddr.IPv6Address) (*[]NetcenterFreeIPv6, error) {
-	req, client, err := netcenterMakeRequest("GET", fmt.Sprintf("/netcenter/rest/nameToIP/freeIps/v6/%v", ip.String()), nil)
+	/*
+		<freeIpV6>
+			<freeIpV6>
+				<ipv6>2001:67c:10ec:49c3::3ca</ipv6>
+				<ipv6Subnet>2001:67c:10ec:49c3::</ipv6Subnet>
+				<prefix>118</prefix>
+				<subnetAndPrefix>2001:67c:10ec:49c3::/118</subnetAndPrefix>
+				<subnetName>sos-dcz2-server-1-static</subnetName>
+				<ipv6>2001:67c:10ec:49c3::3cc</ipv6>
+				<ipv6Subnet>2001:67c:10ec:49c3::</ipv6Subnet>
+				<prefix>118</prefix>
+				<subnetAndPrefix>2001:67c:10ec:49c3::/118</subnetAndPrefix>
+				<subnetName>sos-dcz2-server-1-static</subnetName>
+				<subnetType>Subnet_Static</subnetType>
+			</freeIpV6>
+			...
+		</freeIpV6>
+	*/
+	req, client, err := netcenterMakeRequest("GET", fmt.Sprintf("/netcenter/rest/nameToIP/freeIps/v6/%v", ip.WithoutPrefixLen().String()), nil)
 	if err != nil {
 		return nil, fmt.Errorf("Get free IPv6 addresses in subnet '%v': %v", ip.String(), err.Error())
 	}
@@ -256,21 +287,22 @@ type NetcenterUsedIPv4 struct {
 
 func GetUsedIPv4sInSubnet(ip *ipaddr.IPv4Address) (*[]NetcenterUsedIPv4, error) {
 	/*
-		  <usedIps>
-		    <usedIp>
-		      <ip>192.33.91.1</ip>
-		      <ipSubnet>192.33.91.0</ipSubnet>
-		      <fqname>rou-dcz2-dg-sos-dcz2-server-1-a.ethz.ch</fqname>
-		      <forward>Y</forward>
-		      <reverse>Y</reverse>
-		      <ttl>7200</ttl>
-		      <dhcp>N</dhcp>
-		      <ddns>N</ddns>
-		      <isgGroup>id-kom-net</isgGroup>
-		      <views>
-		        <view>intern</view>
-		      </views>
-		    </usedIp>
+		<usedIps>
+			<usedIp>
+				<ip>192.33.91.1</ip>
+				<ipSubnet>192.33.91.0</ipSubnet>
+				<fqname>rou-dcz2-dg-sos-dcz2-server-1-a.ethz.ch</fqname>
+				<forward>Y</forward>
+				<reverse>Y</reverse>
+				<ttl>7200</ttl>
+				<dhcp>N</dhcp>
+				<ddns>N</ddns>
+				<isgGroup>id-kom-net</isgGroup>
+				<views>
+					<view>intern</view>
+				</views>
+			</usedIp>
+			...
 		</usedIps>
 	*/
 	req, client, err := netcenterMakeRequest("GET", fmt.Sprintf("/netcenter/rest/nameToIP/usedIps/v4/%v", ip.WithoutPrefixLen().String()), nil)
@@ -370,32 +402,26 @@ type netcenterCreateIPv6DNSEntryRequest struct {
 }
 
 func CreateDNSEntry(ip *ipaddr.IPAddress, fqdn string) error {
-	// bodyStruct := netcenterCreateIPv4DNSEntryRequest{
-	// 	Ip:       ip,
-	// 	Reverse:  "Y",
-	// 	ISGGroup: ISG_GROUP,
-	// 	FqName:   fqdn,
-	// }
-	var body []byte
-	var err error
+	var reqBody any
 	if ip.IsIPv4() {
-		body, err = xml.Marshal(netcenterCreateIPv4DNSEntryRequest{
+		reqBody = netcenterCreateIPv4DNSEntryRequest{
 			IPv4:     ip.String(),
 			Reverse:  "Y",
 			ISGGroup: ISG_GROUP,
 			FqName:   fqdn,
-		})
+		}
 	} else if ip.IsIPv6() {
-		body, err = xml.Marshal(netcenterCreateIPv6DNSEntryRequest{
+		reqBody = netcenterCreateIPv6DNSEntryRequest{
 			IPv6:     ip.String(),
 			Reverse:  "Y",
 			ISGGroup: ISG_GROUP,
 			FqName:   fqdn,
-		})
+		}
 	} else {
-		return fmt.Errorf("Creating DNS entry: IP is neither IPv4 nor IPv6 ?: %v", ip)
+		return fmt.Errorf("Creating DNS entry: IP %v is neither IPv4 nor IPv6 ?", ip)
 	}
 
+	body, err := xml.Marshal(reqBody)
 	if err != nil {
 		return fmt.Errorf("Creating DNS entry: Marshalling: %v", err.Error())
 	}
