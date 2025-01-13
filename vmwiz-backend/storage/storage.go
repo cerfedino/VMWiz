@@ -96,7 +96,7 @@ func (s *postgresstorage) Init() error {
 	}
 
 	err = s.migration.Up()
-	if err != nil {
+	if err != nil && err != migrate.ErrNoChange {
 		return fmt.Errorf("Initializing DB: Running migration UP:%v", err.Error())
 	}
 

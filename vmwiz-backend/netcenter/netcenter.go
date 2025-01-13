@@ -19,28 +19,117 @@ import (
 
 // https://netcenter.ethz.ch/netcenter/rest/nameToIP/freeIps/v4/{}
 type NetcenterFreeIPv4 struct {
-	IP            string `xml:"ip"`
-	IpSubnet      string `xml:"ipSubnet"`
-	IpMask        int    `xml:"ipMask"`
-	SubnetAndMask string `xml:"subnetAndMask"`
-	SubnetName    string `xml:"subnetName"`
+	IP            *ipaddr.IPv4Address
+	IpSubnet      *ipaddr.IPv4Address
+	SubnetAndMask *ipaddr.IPv4Address
+
+	IpMask     int
+	SubnetName string
 }
 type netcenterFreeIPv4List struct {
 	XMLName xml.Name            `xml:"freeIps"`
 	FreeIps []NetcenterFreeIPv4 `xml:"freeIp"`
 }
 
+func (out *NetcenterFreeIPv4) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	// We first unmarshal the XML into a struct with string fields, after which we parse the complex fields separately
+	type RawNetcenterFreeIPv4 struct {
+		IPString            string `xml:"ip"`
+		IpSubnetString      string `xml:"ipSubnet"`
+		SubnetAndMaskString string `xml:"subnetAndMask"`
+
+		IpMask     int    `xml:"ipMask"`
+		SubnetName string `xml:"subnetName"`
+	}
+	aux := &RawNetcenterFreeIPv4{}
+
+	// Let the default XML decoding fill `aux`
+	if err := d.DecodeElement(aux, &start); err != nil {
+		return fmt.Errorf("Unmarshalling NetcenterFreeIPv4: %v", err.Error())
+	}
+
+	// copy over fields
+	out.IpMask = aux.IpMask
+	out.SubnetName = aux.SubnetName
+
+	// Parse complex types (e.g IP addresses)
+
+	ip, err := ipaddr.NewIPAddressString(aux.IPString).ToAddress()
+	if err != nil {
+		return fmt.Errorf("Unmarshalling NetcenterFreeIPv4: %v", err.Error())
+	}
+	out.IP = ip.ToIPv4()
+
+	ipsubnet, err := ipaddr.NewIPAddressString(aux.IpSubnetString).ToAddress()
+	if err != nil {
+		return fmt.Errorf("Unmarshalling NetcenterFreeIPv4: %v", err.Error())
+	}
+	out.IpSubnet = ipsubnet.ToIPv4()
+
+	subnetandmask, err := ipaddr.NewIPAddressString(aux.SubnetAndMaskString).ToAddress()
+	if err != nil {
+		return fmt.Errorf("Unmarshalling NetcenterFreeIPv4: %v", err.Error())
+	}
+	out.SubnetAndMask = subnetandmask.ToIPv4()
+
+	return nil
+}
+
 type NetcenterFreeIPv6 struct {
-	IP              string `xml:"ipv6"`
-	IpSubnet        string `xml:"ipv6Subnet"`
-	Prefix          int    `xml:"prefix"`
-	SubnetAndPrefix string `xml:"subnetAndPrefix"`
-	SubnetName      string `xml:"subnetName"`
-	SubnetType      string `xml:"subnetType"`
+	IP              *ipaddr.IPv6Address
+	IpSubnet        *ipaddr.IPv6Address
+	SubnetAndPrefix *ipaddr.IPv6Address
+	Prefix          int
+	SubnetName      string
+	SubnetType      string
 }
 type netcenterFreeIPv6List struct {
 	XMLName xml.Name            `xml:"freeIpV6s"`
 	FreeIps []NetcenterFreeIPv6 `xml:"freeIpV6"`
+}
+
+func (out *NetcenterFreeIPv6) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	type RawNetcenterFreeIPv6 struct {
+		IPString              string `xml:"ipv6"`
+		IpSubnetString        string `xml:"ipv6Subnet"`
+		SubnetAndPrefixString string `xml:"subnetAndPrefix"`
+
+		Prefix     int    `xml:"prefix"`
+		SubnetName string `xml:"subnetName"`
+		SubnetType string `xml:"subnetType"`
+	}
+	aux := &RawNetcenterFreeIPv6{}
+
+	// Let the default XML decoding fill `aux`
+	if err := d.DecodeElement(aux, &start); err != nil {
+		return fmt.Errorf("Unmarshalling NetcenterFreeIPv6: %v", err.Error())
+	}
+
+	// copy over fields
+	out.Prefix = aux.Prefix
+	out.SubnetName = aux.SubnetName
+	out.SubnetType = aux.SubnetType
+
+	// Parse complex types (e.g IP addresses)
+	ip, err := ipaddr.NewIPAddressString(aux.IPString).ToAddress()
+	if err != nil {
+		return fmt.Errorf("Unmarshalling NetcenterFreeIPv6: %v", err.Error())
+	}
+	out.IP = ip.ToIPv6()
+
+	ipsubnet, err := ipaddr.NewIPAddressString(aux.IpSubnetString).ToAddress()
+	if err != nil {
+		return fmt.Errorf("Unmarshalling NetcenterFreeIPv6: %v", err.Error())
+	}
+	out.IpSubnet = ipsubnet.ToIPv6()
+
+	subnetandprefix, err := ipaddr.NewIPAddressString(aux.SubnetAndPrefixString).ToAddress()
+	if err != nil {
+		return fmt.Errorf("Unmarshalling NetcenterFreeIPv6: %v", err.Error())
+	}
+	out.SubnetAndPrefix = subnetandprefix.ToIPv6()
+
+	return nil
 }
 
 type netcenterRequestErrors struct {
@@ -160,11 +249,6 @@ func GetFreeIPv6sInSubnet(ip *ipaddr.IPv6Address) (*[]NetcenterFreeIPv6, error) 
 	/*
 		<freeIpV6>
 			<freeIpV6>
-				<ipv6>2001:67c:10ec:49c3::3ca</ipv6>
-				<ipv6Subnet>2001:67c:10ec:49c3::</ipv6Subnet>
-				<prefix>118</prefix>
-				<subnetAndPrefix>2001:67c:10ec:49c3::/118</subnetAndPrefix>
-				<subnetName>sos-dcz2-server-1-static</subnetName>
 				<ipv6>2001:67c:10ec:49c3::3cc</ipv6>
 				<ipv6Subnet>2001:67c:10ec:49c3::</ipv6Subnet>
 				<prefix>118</prefix>
@@ -218,13 +302,13 @@ func DeleteDNSEntryByHostname(fqdn string) error {
 	// ? Deleting DNS entries for all IPs of the host
 	var errors []string
 	for _, ip := range hostIPv4s {
-		err = DeleteDNSEntryByIP(ipaddr.NewIPAddressString(ip.IP).GetAddress())
+		err = DeleteDNSEntryByIP(ip.IP.ToIP())
 		if err != nil {
 			errors = append(errors, err.Error())
 		}
 	}
 	for _, ip := range hostIPv6s {
-		err = DeleteDNSEntryByIP(ipaddr.NewIPAddressString(ip.IP).GetAddress())
+		err = DeleteDNSEntryByIP(ip.IP.ToIP())
 		if err != nil {
 			errors = append(errors, err.Error())
 		}
@@ -267,22 +351,70 @@ func GetHostIPs(fqdn string) ([]NetcenterUsedIPv4, []NetcenterUsedIPv6, error) {
 	return res_ipv4, res_ipv6, nil
 }
 
+type NetcenterUsedIPv4 struct {
+	IP       *ipaddr.IPv4Address
+	IPSubnet *ipaddr.IPv4Address
+
+	Fqname   string
+	Forward  string
+	Reverse  string
+	TTL      int
+	Dhcp     string
+	Ddns     string
+	IsgGroup string
+	Views    []string
+}
 type netcenterUsedIPv4List struct {
 	XMLName xml.Name            `xml:"usedIps"`
 	UsedIps []NetcenterUsedIPv4 `xml:"usedIp"`
 }
 
-type NetcenterUsedIPv4 struct {
-	IP       string   `xml:"ip"`
-	IPSubnet string   `xml:"ipSubnet"`
-	Fqname   string   `xml:"fqname"`
-	Forward  string   `xml:"forward"`
-	Reverse  string   `xml:"reverse"`
-	TTL      int      `xml:"ttl"`
-	Dhcp     string   `xml:"dhcp"`
-	Ddns     string   `xml:"ddns"`
-	IsgGroup string   `xml:"isgGroup"`
-	Views    []string `xml:"views>view"`
+func (out *NetcenterUsedIPv4) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	type RawNetcenterUsedIPv4 struct {
+		IPString       string `xml:"ip"`
+		IPSubnetString string `xml:"ipSubnet"`
+
+		Fqname   string   `xml:"fqname"`
+		Forward  string   `xml:"forward"`
+		Reverse  string   `xml:"reverse"`
+		TTL      int      `xml:"ttl"`
+		Dhcp     string   `xml:"dhcp"`
+		Ddns     string   `xml:"ddns"`
+		IsgGroup string   `xml:"isgGroup"`
+		Views    []string `xml:"views>view"`
+	}
+
+	aux := &RawNetcenterUsedIPv4{}
+
+	// Let the default XML decoding fill `aux`
+	if err := d.DecodeElement(aux, &start); err != nil {
+		return fmt.Errorf("Unmarshalling NetcenterUsedIPv4: %v", err.Error())
+	}
+
+	// copy over fields
+	out.Fqname = aux.Fqname
+	out.Forward = aux.Forward
+	out.Reverse = aux.Reverse
+	out.TTL = aux.TTL
+	out.Dhcp = aux.Dhcp
+	out.Ddns = aux.Ddns
+	out.IsgGroup = aux.IsgGroup
+	out.Views = aux.Views
+
+	// Parse complex types (e.g IP addresses)
+	ip, err := ipaddr.NewIPAddressString(aux.IPString).ToAddress()
+	if err != nil {
+		return fmt.Errorf("Unmarshalling NetcenterUsedIPv4: %v", err.Error())
+	}
+	out.IP = ip.ToIPv4()
+
+	ipsubnet, err := ipaddr.NewIPAddressString(aux.IPSubnetString).ToAddress()
+	if err != nil {
+		return fmt.Errorf("Unmarshalling NetcenterUsedIPv4: %v", err.Error())
+	}
+	out.IPSubnet = ipsubnet.ToIPv4()
+
+	return nil
 }
 
 func GetUsedIPv4sInSubnet(ip *ipaddr.IPv4Address) (*[]NetcenterUsedIPv4, error) {
@@ -324,24 +456,81 @@ func GetUsedIPv4sInSubnet(ip *ipaddr.IPv4Address) (*[]NetcenterUsedIPv4, error) 
 	return &(usedIps.UsedIps), nil
 }
 
+type NetcenterUsedIPv6 struct {
+	IP              *ipaddr.IPv6Address
+	IPSubnet        *ipaddr.IPv6Address
+	SubnetAndPrefix *ipaddr.IPv6Address
+
+	Fqname        string
+	Forward       string
+	Reverse       string
+	TTL           string
+	Dhcp          string
+	Ddns          string
+	IsgGroup      string
+	LastDetection string
+	Views         []string
+}
 type netcenterUsedIPv6List struct {
 	XMLName xml.Name            `xml:"usedIps"`
 	UsedIps []NetcenterUsedIPv6 `xml:"usedIp"`
 }
 
-type NetcenterUsedIPv6 struct {
-	IP              string   `xml:"ip"`
-	IPSubnet        string   `xml:"ipSubnet"`
-	SubnetAndPrefix string   `xml:"subnetAndPrefix"`
-	Fqname          string   `xml:"fqname"`
-	Forward         string   `xml:"forward"`
-	Reverse         string   `xml:"reverse"`
-	TTL             string   `xml:"ttl"`
-	Dhcp            string   `xml:"dhcp"`
-	Ddns            string   `xml:"ddns"`
-	IsgGroup        string   `xml:"isgGroup"`
-	LastDetection   string   `xml:"lastDetection"`
-	Views           []string `xml:"views>view"`
+func (out *NetcenterUsedIPv6) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	type RawNetcenterUsedIPv6 struct {
+		IPString              string `xml:"ip"`
+		IPSubnetString        string `xml:"ipSubnet"`
+		SubnetAndPrefixString string `xml:"subnetAndPrefix"`
+
+		Fqname        string   `xml:"fqname"`
+		Forward       string   `xml:"forward"`
+		Reverse       string   `xml:"reverse"`
+		TTL           string   `xml:"ttl"`
+		Dhcp          string   `xml:"dhcp"`
+		Ddns          string   `xml:"ddns"`
+		IsgGroup      string   `xml:"isgGroup"`
+		LastDetection string   `xml:"lastDetection"`
+		Views         []string `xml:"views>view"`
+	}
+
+	aux := &RawNetcenterUsedIPv6{}
+
+	// Let the default XML decoding fill `aux`
+	if err := d.DecodeElement(aux, &start); err != nil {
+		return fmt.Errorf("Unmarshalling NetcenterUsedIPv6: %v", err.Error())
+	}
+
+	// copy over fields
+	out.Fqname = aux.Fqname
+	out.Forward = aux.Forward
+	out.Reverse = aux.Reverse
+	out.TTL = aux.TTL
+	out.Dhcp = aux.Dhcp
+	out.Ddns = aux.Ddns
+	out.IsgGroup = aux.IsgGroup
+	out.LastDetection = aux.LastDetection
+	out.Views = aux.Views
+
+	// Parse complex types (e.g IP addresses)
+	ip, err := ipaddr.NewIPAddressString(aux.IPString).ToAddress()
+	if err != nil {
+		return fmt.Errorf("Unmarshalling NetcenterUsedIPv6: %v", err.Error())
+	}
+	out.IP = ip.ToIPv6()
+
+	ipsubnet, err := ipaddr.NewIPAddressString(aux.IPSubnetString).ToAddress()
+	if err != nil {
+		return fmt.Errorf("Unmarshalling NetcenterUsedIPv6: %v", err.Error())
+	}
+	out.IPSubnet = ipsubnet.ToIPv6()
+
+	subnetandprefix, err := ipaddr.NewIPAddressString(aux.SubnetAndPrefixString).ToAddress()
+	if err != nil {
+		return fmt.Errorf("Unmarshalling NetcenterUsedIPv6: %v", err.Error())
+	}
+	out.SubnetAndPrefix = subnetandprefix.ToIPv6()
+
+	return nil
 }
 
 func GetUsedIPv6sInSubnet(ip *ipaddr.IPv6Address) (*[]NetcenterUsedIPv6, error) {
@@ -456,11 +645,11 @@ func Registerhost(net string, fqdn string) (*ipaddr.IPv4Address, *ipaddr.IPv6Add
 		return nil, nil, fmt.Errorf("Registering host with FQDN '%v': %v", fqdn, err.Error())
 	}
 
-	chosenIPv4 := ipaddr.NewIPAddressString((*freeIPv4s)[0].IP).GetAddress().ToIPv4()
+	var chosenIPv4 *ipaddr.IPv4Address = (*freeIPv4s)[0].IP
 	var chosenIPv6 *ipaddr.IPv6Address = nil
 	// Discard IPv6 addresses that are not in the usable range (0 address + ipv6_offset)
 	for _, ip := range *freeIPv6s {
-		ipv6 := ipaddr.NewIPAddressString(ip.IP).GetAddress().ToIPv6()
+		ipv6 := ip.IP
 		if v6_subnet.Enumerate(ipv6).Cmp(big.NewInt(VM_SUBNET.ipv6_offset)) > 0 {
 			chosenIPv6 = ipv6
 			break

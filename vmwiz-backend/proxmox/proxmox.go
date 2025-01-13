@@ -97,7 +97,7 @@ type pveVMlist struct {
 func GetAllNodes() (*[]PVENode, error) {
 	req, client, err := proxmoxMakeRequest(http.MethodGet, "/api2/json/nodes", []byte{})
 	if err != nil {
-		fmt.Println("ERROR: %v", err.Error())
+		fmt.Println("Failed to retrieve all Proxmox nodes: %v", err.Error())
 		return nil, err
 	}
 	q := req.URL.Query()
