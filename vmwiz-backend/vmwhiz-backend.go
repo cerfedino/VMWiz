@@ -46,12 +46,6 @@ func main() {
 		log.Fatalf("Error on startup: %v", err.Error())
 	}
 
-	// TODO: Remove
-	_, _, err = netcenter.Registerhost("vm", "vmwiz-test.vsos.ethz.ch")
-	if err != nil {
-		log.Println(err)
-	}
-
 	// fmt.Println(proxmox.IsHostnameTaken(""))
 	// err := proxmox.CreateVM(proxmox.PVEVMOptions{
 	// 	Template:     "noble",
@@ -66,11 +60,6 @@ func main() {
 	// if err != nil {
 	// 	log.Println(err)
 	// }
-
-	err = netcenter.DeleteDNSEntryByHostname("vmwiz-test.vsos.ethz.ch")
-	if err != nil {
-		log.Println(err)
-	}
 
 	cors := cors.New(cors.Options{
 		// Allowing the Vue frontend to access the API
