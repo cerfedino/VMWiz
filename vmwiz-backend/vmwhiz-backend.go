@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/router"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/startupcheck"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
@@ -46,20 +45,23 @@ func main() {
 		log.Fatalf("Error on startup: %v", err.Error())
 	}
 
-	// fmt.Println(proxmox.IsHostnameTaken(""))
-	// err := proxmox.CreateVM(proxmox.PVEVMOptions{
+	// TODO: Remove
+
+	// err = proxmox.CreateVM(proxmox.PVEVMOptions{
 	// 	Template:     "noble",
-	// 	FQDN:         "cerfedinoo.vsos.ethz.ch",
+	// 	FQDN:         "vmwiz-test.vsos.ethz.ch",
 	// 	Reinstall:    false,
 	// 	RAM_MB:       1024,
 	// 	Disk_GB:      10,
 	// 	UseQemuAgent: true,
 	// 	Description:  "Test VM",
-	// 	SSHKeys:      []string{"ecdsa-sha2-nistp521 AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBAAjFvUZr/m8zoXKW5wjNBXehNO9u7oiS+VchueNGA7Fa05aeI7KaP5iEDRUJ9fvfqOprV3z7OAv11lrJ0IKcsLOFQErfl1IrmErot0UJ6sDbAAmnKbr9gjqA0qQcDSNNKRjj7BkKd7zQGvOEjy179q9mvcNNMINFrPXjk2qvIBFHg1hnQ== cerfe@student-net-nw-0407.intern.ethz.ch"},
+	// 	SSHPubkeys:   []string{"ecdsa-sha2-nistp521 AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBAAjFvUZr/m8zoXKW5wjNBXehNO9u7oiS+VchueNGA7Fa05aeI7KaP5iEDRUJ9fvfqOprV3z7OAv11lrJ0IKcsLOFQErfl1IrmErot0UJ6sDbAAmnKbr9gjqA0qQcDSNNKRjj7BkKd7zQGvOEjy179q9mvcNNMINFrPXjk2qvIBFHg1hnQ== cerfe@student-net-nw-0407.intern.ethz.ch"},
 	// })
 	// if err != nil {
 	// 	log.Println(err)
 	// }
+
+	// netcenter.DeleteDNSEntryByHostname("vmwiz-test.vsos.ethz.ch")
 
 	cors := cors.New(cors.Options{
 		// Allowing the Vue frontend to access the API

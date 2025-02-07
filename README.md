@@ -20,10 +20,11 @@
 3. (Optional) **Add a notification endpoint into [notifier_config.yml](/docker/notifier_config.yml) such that you also get notifications.**
 4. **Modify PVE values inside [.pve.env](.pve.env)**
 5. **Modify SSH values inside of [.pve.env](.pve.env) and setup SSH**\
-The backend connects via SSH to the cluster management node (e.g `cm-lee.sos.ethz.ch`). To that end, you need to put your private key inside of [docker/ssh/pkey.key](docker/ssh/pkey.key). Make sure that your public key is in the `authorized_keys` file on the CM machine.
-Add the CM host's fingerprint to the [docker/ssh/known_hosts](docker/ssh/known_hosts) file. Finally, adjust the environment variables inside of [.pve.env](.pve.env).
+The backend estabilishes SSH sessions to the Cluster management (CM) node (e.g `cm-lee.sos.ethz.ch`) and the Compute node (CN) (e.g `comp-epyc-lee-3.sos.ethz.ch`).\
+To that end, you need to supply valid SSH credentials for the two nodes. Populate [docker/ssh/cm_pkey.key](docker/ssh/cm_pkey.key) and [docker/ssh/comp_pkey.key](docker/ssh/comp_pkey.key) with valid private keys for the root user.\
+Add the CM and Comp host fingerprint to the [docker/ssh/known_hosts](docker/ssh/known_hosts) file. Finally, adjust the environment variables inside of [.pve.env](.pve.env).
 6. **Modify Netcenter values inside of [.pve.env](.pve.env)**\
-The backend uses the Netcenter HTTP API, whcih requires the backend to authenticate. To that end, insert the credentials of a valid user. 
+The backend uses the Netcenter HTTP API, which requires authentication. To that end, insert the credentials of a valid user. 
 7. **Bring up the stack**\
 `cd docker && docker compose up`\
 You should now be able to navigate to https://localhost and access the frontend UI.
@@ -54,13 +55,20 @@ PVE_UUID=
 
 # Cluster manager SSH
 SSH_CM_HOST=cm-lee.sos.ethz.ch 
-SSH_CM_USER=
-# Leave empty if your private key has no passphrase
+SSH_CM_USER=root
+## Leave empty if your private key has no passphrase
 SSH_CM_PKEY_PASSPHRASE=
 
-NETCENTER_HOST=https://netcenter.ethz.ch
-NETCENTER_USER=
+# Comp node SSH
+SSH_COMP_HOST=comp-epyc-lee-3.sos.ethz.ch
+SSH_COMP_USER=root
+## Leave empty if your private key has no passphrase
+SSH_COMP_PKEY_PASSPHRASE=
+
+
+NETCENTER_HOST=https://www.netcenter.ethz.ch
+NETCENTER_USER=sys-sos-vm-service
 NETCENTER_PWD=
 ```
 
-The PVE variables should be set according to a valid API key of the form `{PVE_USER}!{PVE_TOKENID}={PVE_UUID}`
+The PVE variables should be set according to a valid PVE API key of the form `<PVE_USER>!<PVE_TOKENID>=<PVE_UUID>`
