@@ -100,7 +100,7 @@ func (f *Form) Validate() (Form_validation, bool) {
 		err = true
 	}
 
-	taken, e := proxmox.IsHostnameTaken(fmt.Sprintf("%v.vsos.ethz.ch", f.Hostname))
+	taken, e := proxmox.IsNameTaken(fmt.Sprintf("%v.vsos.ethz.ch", f.Hostname))
 	if e != nil {
 		fmt.Printf("ERROR: %v", e)
 		validation.Hostname_err = "Hostname cannot be validated"

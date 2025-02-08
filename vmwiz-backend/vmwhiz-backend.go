@@ -47,7 +47,7 @@ func main() {
 
 	// TODO: Remove
 
-	// err = proxmox.CreateVM(proxmox.PVEVMOptions{
+	// _, err = proxmox.CreateVM(proxmox.PVEVMOptions{
 	// 	Template:     "noble",
 	// 	FQDN:         "vmwiz-test.vsos.ethz.ch",
 	// 	Reinstall:    false,
@@ -57,6 +57,16 @@ func main() {
 	// 	Description:  "Test VM",
 	// 	SSHPubkeys:   []string{"ecdsa-sha2-nistp521 AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBAAjFvUZr/m8zoXKW5wjNBXehNO9u7oiS+VchueNGA7Fa05aeI7KaP5iEDRUJ9fvfqOprV3z7OAv11lrJ0IKcsLOFQErfl1IrmErot0UJ6sDbAAmnKbr9gjqA0qQcDSNNKRjj7BkKd7zQGvOEjy179q9mvcNNMINFrPXjk2qvIBFHg1hnQ== cerfe@student-net-nw-0407.intern.ethz.ch"},
 	// })
+	// if err != nil {
+	// 	log.Println(err)
+	// }
+
+	// err = proxmox.ForceStopNodeVM("comp-epyc-lee-3", 686395)
+	// if err != nil {
+	// 	log.Println(err)
+	// }
+
+	// err = proxmox.DeleteNodeVM("comp-epyc-lee-3", 686395, false, true, false)
 	// if err != nil {
 	// 	log.Println(err)
 	// }

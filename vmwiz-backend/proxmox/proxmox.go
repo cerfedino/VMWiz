@@ -5,7 +5,7 @@ package proxmox
 
 import (
 	"bytes"
-"crypto/md5"
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
-"github.com/google/uuid"
+	"github.com/google/uuid"
 	"github.com/melbahja/goph"
 	"github.com/pkg/sftp"
 	"golang.org/x/exp/rand"
@@ -57,49 +57,8 @@ func proxmoxDoRequest(req *http.Request, client *http.Client) ([]byte, error) {
 	return body, nil
 }
 
-// /api2/json/nodes
-type PVENode struct {
-	Status  string  `json:"status"`
-	Disk    int     `json:"disk"`
-	Maxdisk int     `json:"maxdisk"`
-	Mem     int     `json:"mem"`
-	Maxmem  int     `json:"maxmem"`
-	Cpu     float32 `json:"cpu"`
-	Type    string  `json:"type"`
-	Id      string  `json:"id"`
-	Node    string  `json:"node"`
-}
-type pveNodeList struct {
-	Data []PVENode `json:"data"`
-}
-
-// /api2/json/cluster/resources?type=vm
-type PVEVM struct {
-	Node      string  `json:"node"`
-	Diskwrite int     `json:"diskwrite"`
-	Status    string  `json:"status"`
-	Maxmem    int     `json:"maxmem"`
-	Uptime    int     `json:"uptime"`
-	Mem       int     `json:"mem"`
-	Netout    int     `json:"netout"`
-	Diskread  int     `json:"diskread"`
-	Maxcpu    int     `json:"maxcpu"`
-	Pool      string  `json:"pool"`
-	Netin     int     `json:"netin"`
-	Cpu       float64 `json:"cpu"`
-	Template  int     `json:"template"`
-	Type      string  `json:"type"`
-	Vmid      int     `json:"vmid"`
-	Maxdisk   int     `json:"maxdisk"`
-	Disk      int     `json:"disk"`
-	Id        string  `json:"id"`
-	Name      string  `json:"name"`
-}
-type pveVMlist struct {
-	Data []PVEVM `json:"data"`
-}
-
-func GetAllNodes() (*[]PVENode, error) {
+// GET /api2/json/nodes
+func GetAllClusterNodes() (*[]PVENode, error) {
 	req, client, err := proxmoxMakeRequest(http.MethodGet, "/api2/json/nodes", []byte{})
 	if err != nil {
 		log.Println("Failed to retrieve all Proxmox nodes: %v", err.Error())
@@ -123,8 +82,102 @@ func GetAllNodes() (*[]PVENode, error) {
 	return &nodes.Data, nil
 }
 
+type PVENode struct {
+	Status  string  `json:"status"`
+	Disk    int     `json:"disk"`
+	Maxdisk int     `json:"maxdisk"`
+	Mem     int     `json:"mem"`
+	Maxmem  int     `json:"maxmem"`
+	Cpu     float32 `json:"cpu"`
+	Type    string  `json:"type"`
+	Id      string  `json:"id"`
+	Node    string  `json:"node"`
+}
+type pveNodeList struct {
+	Data []PVENode `json:"data"`
+}
+
+// GET /api2/json/nodes/{node}/qemu
+func GetAllNodeVMs(node string) (*[]PVENodeVM, error) {
+	req, client, err := proxmoxMakeRequest(http.MethodGet, fmt.Sprintf("/api2/json/nodes/%v/qemu", node), []byte{})
+	if err != nil {
+		return nil, fmt.Errorf("Failed to retrieve all Proxmox VMs: %v", err.Error())
+	}
+	q := req.URL.Query()
+	q.Set("full", "true")
+	req.URL.RawQuery = q.Encode()
+
+	body, err := proxmoxDoRequest(req, client)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to retrieve all Proxmox VMs: %v", err.Error())
+	}
+
+	var vms pveNodeVMList
+	err = json.Unmarshal(body, &vms)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to retrieve all Proxmox VMs: Unmarshal error: %v", err.Error())
+	}
+
+	return &(vms.Data), nil
+}
+
+// GET /api2/json/nodes/{node}/qemu/{vmid}/status/current
+func GetNodeVM(node string, vm_id int) (*PVENodeVM, error) {
+	req, client, err := proxmoxMakeRequest(http.MethodGet, fmt.Sprintf("/api2/json/nodes/%v/qemu/%v/status/current", node, vm_id), nil)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to retrieve VM '%v' on node '%v': %v", vm_id, node, err.Error())
+	}
+
+	body, err := proxmoxDoRequest(req, client)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to retrieve VM '%v' on node '%v': %v", vm_id, node, err.Error())
+	}
+
+	var vm pveNodeVM
+	err = json.Unmarshal(body, &vm)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to retrieve VM '%v' on node '%v': Unmarshal error: %v", vm_id, node, err.Error())
+	}
+
+	fmt.Println(string(body))
+
+	return &vm.Data, nil
+}
+
+type PVENodeVM struct {
+	Status string `json:"status"`
+	Vmid   int    `json:"vmid"`
+
+	Agent           int     `json:"agent"`
+	Clipboard       string  `json:"clipboard"`
+	Cpus            float64 `json:"cpus"`
+	Diskread        int     `json:"diskread"`
+	Diskwrite       int     `json:"diskwrite"`
+	lock            string  `json:"lock"`
+	Maxdisk         int     `json:"maxdisk"`
+	Maxmem          int     `json:"maxmem"`
+	Name            string  `json:"name"`
+	Netin           int     `json:"netin"`
+	Netout          int     `json:"netout"`
+	Pid             int     `json:"pid"`
+	Qmpstatus       string  `json:"qmpstatus"`
+	Running_machine string  `json:"running-machine"`
+	Running_qemu    string  `json:"running-qemu"`
+	Tags            string  `json:"tags"`
+	Template        bool    `json:"template"`
+	Uptime          int     `json:"uptime"`
+
+	Spice bool `json:"spice"`
+}
+type pveNodeVMList struct {
+	Data []PVENodeVM `json:"data"`
+}
+type pveNodeVM struct {
+	Data PVENodeVM `json:"data"`
+}
+
 // GET /api2/json/cluster/resources?type=vm
-func GetAllVMsInCluster() (*[]PVEVM, error) {
+func GetAllClusterVMs() (*[]PVEClusterVM, error) {
 	req, client, err := proxmoxMakeRequest(http.MethodGet, "/api2/json/cluster/resources", []byte{})
 	if err != nil {
 		return nil, fmt.Errorf("Failed to retrieve all Proxmox VMs: %v", err.Error())
@@ -138,7 +191,7 @@ func GetAllVMsInCluster() (*[]PVEVM, error) {
 		return nil, fmt.Errorf("Failed to retrieve all Proxmox VMs: %v", err.Error())
 	}
 
-	var vms pveVMlist
+	var vms pveClusterVMList
 	err = json.Unmarshal(body, &vms)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to retrieve all Proxmox VMs: Unmarshal error: %v", err.Error())
@@ -147,7 +200,88 @@ func GetAllVMsInCluster() (*[]PVEVM, error) {
 	return &(vms.Data), nil
 }
 
-type PVEVMOptions struct {
+type PVEClusterVM struct {
+	Id   string `json:"id"`
+	Type string `json:"type"`
+
+	Cgroup_mode int     `json:"cgroup-mode"`
+	Cpu         float64 `json:"cpu"`
+	Disk        int     `json:"disk"`
+	Diskread    int     `json:"diskread"`
+	Diskwrite   int     `json:"diskwrite"`
+	Hastate     string  `json:"hastate"`
+	Level       string  `json:"level"`
+	Lock        string  `json:"lock"`
+	Maxcpu      float64 `json:"maxcpu"`
+	Maxdisk     int     `json:"maxdisk"`
+	Maxmem      int     `json:"maxmem"`
+	Mem         int     `json:"mem"`
+	Name        string  `json:"name"`
+	Netin       int     `json:"netin"`
+	Netout      int     `json:"netout"`
+	Node        string  `json:"node"`
+	Plugintype  string  `json:"plugintype"`
+	Pool        string  `json:"pool"`
+	Status      string  `json:"status"`
+	Storage     string  `json:"storage"`
+	Tags        string  `json:"tags"`
+	Template    bool    `json:"template"`
+	Uptime      int     `json:"uptime"`
+	Vmid        int     `json:"vmid"`
+}
+type pveClusterVMList struct {
+	Data []PVEClusterVM `json:"data"`
+}
+
+// POST /api2/json/nodes/{node}/qemu/{vmid}/status/start
+func ForceStopNodeVM(node string, vm_id int) error {
+	req, client, err := proxmoxMakeRequest(http.MethodPost, fmt.Sprintf("/api2/json/nodes/%v/qemu/%v/status/stop", node, vm_id), nil)
+	if err != nil {
+		return fmt.Errorf("Failed to force stop VM '%v' on node '%v': %v", vm_id, node, err.Error())
+	}
+
+	_, err = proxmoxDoRequest(req, client)
+	if err != nil {
+		return fmt.Errorf("Failed to force stop VM '%v' on node '%v': %v", vm_id, node, err.Error())
+	}
+
+	// Wait for VM to stop
+	for {
+		vm, err := GetNodeVM(node, vm_id)
+		if err != nil {
+			return fmt.Errorf("Failed to force stop VM '%v' on node '%v': Waiting for VM to stop: %v", vm_id, node, err.Error())
+		}
+		if vm.Status == "stopped" {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return nil
+}
+
+// DELETE /api2/json/nodes/{node}/qemu/{vmid}
+func DeleteNodeVM(node string, vm_id int, destroy_unreferenced_disks bool, purge_vm_from_configs bool, skip_lock bool) error {
+	req, client, err := proxmoxMakeRequest(http.MethodDelete, fmt.Sprintf("/api2/json/nodes/%v/qemu/%v", node, vm_id), nil)
+	if err != nil {
+		return fmt.Errorf("Failed to delete VM '%v' on node '%v': %v", vm_id, node, err.Error())
+	}
+	q := req.URL.Query()
+	q.Set("destroy-unreferenced-disks", map[bool]string{true: "1", false: "0"}[destroy_unreferenced_disks])
+	q.Set("purge", map[bool]string{true: "1", false: "0"}[purge_from_configs])
+	// Skips locks (usually the VM running). Only root can use.
+	q.Set("skiplock", map[bool]string{true: "1", false: "0"}[skip_lock])
+	req.URL.RawQuery = q.Encode()
+
+	body, err := proxmoxDoRequest(req, client)
+	if err != nil {
+		return fmt.Errorf("Failed to delete VM '%v' on node '%v': %v", vm_id, node, err.Error())
+	}
+
+	fmt.Println(string(body))
+	return nil
+}
+
+type VMCreationOptions struct {
 	Template     string
 	FQDN         string
 	Reinstall    bool
@@ -160,7 +294,7 @@ type PVEVMOptions struct {
 	nethz_pass   string
 }
 
-func CreateVM(options PVEVMOptions) (*PVEVM, error) {
+func CreateVM(options VMCreationOptions) (*PVEClusterVM, error) {
 
 	//! Verify that configured CM SSH host is actually a cluster management node
 	// fmt.Println("[-] Checking if running on a cluster management node")
@@ -596,7 +730,7 @@ migrate_downtime: 1
 		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot boot VM: %v\nOutput:\n%s", err, stdout)
 	}
 
-  // TODO: Wait for first boot line
+	// TODO: Wait for first boot line
 
 	_ = comp_node
 	_ = example_fqdn
@@ -634,7 +768,7 @@ migrate_downtime: 1
 
 func IsNameTaken(hostname string) (bool, error) {
 	// TODO: We check only if there is a VM with the same name. Should we also check DNS ?
-	vms, err := GetAllVMsInCluster()
+	vms, err := GetAllClusterVMs()
 	if err != nil {
 		return false, fmt.Errorf("Failed to check if hostname '%v' is taken: %v", err.Error())
 	}
