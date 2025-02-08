@@ -5,6 +5,7 @@ package proxmox
 
 import (
 	"bytes"
+"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
+"github.com/google/uuid"
 	"github.com/melbahja/goph"
 	"github.com/pkg/sftp"
 	"golang.org/x/exp/rand"
@@ -121,7 +123,8 @@ func GetAllNodes() (*[]PVENode, error) {
 	return &nodes.Data, nil
 }
 
-func GetAllVMs() (*[]PVEVM, error) {
+// GET /api2/json/cluster/resources?type=vm
+func GetAllVMsInCluster() (*[]PVEVM, error) {
 	req, client, err := proxmoxMakeRequest(http.MethodGet, "/api2/json/cluster/resources", []byte{})
 	if err != nil {
 		return nil, fmt.Errorf("Failed to retrieve all Proxmox VMs: %v", err.Error())
@@ -157,25 +160,25 @@ type PVEVMOptions struct {
 	nethz_pass   string
 }
 
-func CreateVM(options PVEVMOptions) error {
+func CreateVM(options PVEVMOptions) (*PVEVM, error) {
 
-	//! Verify that configured CH SSH host is actually a cluster management node
+	//! Verify that configured CM SSH host is actually a cluster management node
 	// fmt.Println("[-] Checking if running on a cluster management node")
 	client, err := createCMSSHClient()
 	if err != nil {
-		return fmt.Errorf("Failed to create VM: %v", err)
+		return nil, fmt.Errorf("Failed to create VM: %v", err)
 	}
 	defer client.Close()
 
 	log.Println("[-] Checking if CM SSH session is actually on a cluster management node")
 	stdout, err := client.Run("hostname --fqdn")
 	if err != nil {
-		return fmt.Errorf("Failed to create VM: Cannot verify hostname of configured CM host: %v", err)
+		return nil, fmt.Errorf("Failed to create VM: Cannot verify hostname of configured CM host: %v\nOutput:\n%s", err, stdout)
 	}
 	strstdout := strings.Trim(string(stdout), " \n")
 	match, _ := regexp.MatchString("^cm-.+\\.sos\\.ethz\\.ch$", strstdout)
 	if !match {
-		return fmt.Errorf("Failed to create VM: Configured PVE SSH host is not a cluster management node")
+		return nil, fmt.Errorf("Failed to create VM: Configured CM SSH host is not a cluster management node")
 	}
 
 	//! Prepare default/hardcoded parameters
@@ -216,14 +219,14 @@ func CreateVM(options PVEVMOptions) error {
 		ssh_user = "ubuntu"
 		first_boot_line = "Cloud-init .* finished"
 	default:
-		return fmt.Errorf("\t[X] Unknown template %v", template)
+		return nil, fmt.Errorf("\t[X] Unknown template %v", template)
 	}
 
 	//! Checking existence of DNS entries for chosen FQDN
 	log.Printf("[-] Checking existence of DNS entries for chosen FQDN %v", options.FQDN)
 	ipv4s, ipv6s, err := netcenter.GetHostIPs(options.FQDN)
 	if err != nil {
-		return fmt.Errorf("Failed to create VM: PVE SSH host: Failed to check if there are existing ipv4 DNS entries for FQDN: %v", err.Error())
+		return nil, fmt.Errorf("Failed to create VM: PVE SSH host: Failed to check if there are existing ipv4 DNS entries for FQDN: %v", err.Error())
 	}
 
 	// Map ipv4s object to just their ips
@@ -241,17 +244,17 @@ func CreateVM(options PVEVMOptions) error {
 	log.Println("\tIPv6: ", strings.Join(ipv6s_str, ", "))
 
 	if len(ipv4s_str) > 1 || len(ipv6s_str) > 1 {
-		return fmt.Errorf("Failed to create VM: Each VM hostname should have AT MOST one IPv4 and one IPv6 address", options.FQDN)
+		return nil, fmt.Errorf("Failed to create VM: Each VM hostname should have AT MOST one IPv4 and one IPv6 address", options.FQDN)
 	}
 
 	if options.Reinstall && (len(ipv4s_str) == 0 || len(ipv6s_str) == 0) {
-		return fmt.Errorf("Failed to create VM: Cannot reinstall VM with FQDN %v as it does not have both ipv4 and ipv6 DNS entries", options.FQDN)
+		return nil, fmt.Errorf("Failed to create VM: Cannot reinstall VM with FQDN %v as it does not have both ipv4 and ipv6 DNS entries", options.FQDN)
 	}
 
 	if !options.Reinstall && (len(ipv4s_str) > 0 || len(ipv6s_str) > 0) {
 		log.Println("\t[!] FQDN still has DNS entries with IP addresses:")
 		// TODO: You sure you want to continue?
-		return nil
+		return nil, nil
 	}
 
 	//! Check if the image exists on the management node
@@ -262,13 +265,13 @@ func CreateVM(options PVEVMOptions) error {
 
 	cm_sftp, err := createCMSFTPClient()
 	if err != nil {
-		return fmt.Errorf("Failed to create VM: CM SFTP: %v", err.Error())
+		return nil, fmt.Errorf("Failed to create VM: CM SFTP: %v", err.Error())
 	}
 	defer cm_sftp.Close()
 
 	_, err = cm_sftp.Stat(IMAGE)
 	if err != nil {
-		return fmt.Errorf("Failed to create VM: Cannot ensure existence of '%v' on CM node: %v", IMAGE, err)
+		return nil, fmt.Errorf("Failed to create VM: Cannot ensure existence of '%v' on CM node: %v", IMAGE, err)
 	}
 
 	//! Preparing sources.list for VM
@@ -295,7 +298,7 @@ func CreateVM(options PVEVMOptions) error {
 		deb http://security.ubuntu.com/ubuntu $template-security main universe multiverse
 		#deb-src http://security.ubuntu.com/ubuntu $template-security main universe multiverse`
 	} else {
-		return fmt.Errorf("Failed to create VM: Unknown template %v", options.Template)
+		return nil, fmt.Errorf("Failed to create VM: Unknown template %v", options.Template)
 	}
 
 	//! Generate random VM ID
@@ -328,7 +331,7 @@ Reinstall: %v
 		log.Printf("[-] Registering \"FQDN\" %v in net \"%v\"\n", options.FQDN, net)
 		ipv4, ipv6, err := netcenter.Registerhost(net, options.FQDN)
 		if err != nil {
-			return fmt.Errorf("Failed to create VM: %v", err)
+			return nil, fmt.Errorf("Failed to create VM: %v", err)
 		}
 		ipv4s_str = append(ipv4s_str, (*ipv4).String())
 		ipv6s_str = append(ipv6s_str, (*ipv6).String())
@@ -341,13 +344,13 @@ Reinstall: %v
 
 	vmkey_file, err := cm_sftp.Open(VMKEY_PATH)
 	if err != nil {
-		return fmt.Errorf("Failed to create VM: PVE SFTP: Failed to open the VM key '%v': %v", VMKEY_PATH, err)
+		return nil, fmt.Errorf("Failed to create VM: PVE SFTP: Failed to open the VM key '%v': %v", VMKEY_PATH, err)
 	}
 	defer vmkey_file.Close()
 
 	vmkey_content, err := io.ReadAll(vmkey_file)
 	if err != nil {
-		return fmt.Errorf("Failed to create VM: PVE SFTP: Failed to read the VM key '%v': %v", VMKEY_PATH, err)
+		return nil, fmt.Errorf("Failed to create VM: PVE SFTP: Failed to read the VM key '%v': %v", VMKEY_PATH, err)
 	}
 
 	//! Prepare authorized_keys file
@@ -355,23 +358,23 @@ Reinstall: %v
 	authorized_keys_content := strings.Join(slices.Concat(options.SSHPubkeys, strings.Split(string(vmkey_content), "\n")), "\n\n")
 
 	//! Upload authorized_keys file to comp node
-	VM_AUTHORIZED_KEYS_PATH := fmt.Sprintf("/tmp/%v.ssh.pub", VM_ID)
+	VM_AUTHORIZED_KEYS_PATH := fmt.Sprintf("/tmp/vmwiz-%v.ssh.pub", VM_ID)
 	log.Printf("[-] Uploading authorized_keys file to %v:%v\n", comp_node, VM_AUTHORIZED_KEYS_PATH)
 	comp_sftp, err := createCompSFTPClient()
 	if err != nil {
-		return fmt.Errorf("Failed to create VM: Comp node SFTP: %v", err.Error())
+		return nil, fmt.Errorf("Failed to create VM: Comp node SFTP: %v", err.Error())
 	}
 
 	comp_sftp_authorized_keys, err := comp_sftp.Create(VM_AUTHORIZED_KEYS_PATH)
 	if err != nil {
-		return fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to create file '%v': %v", VM_AUTHORIZED_KEYS_PATH, err)
+		return nil, fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to create file '%v': %v", VM_AUTHORIZED_KEYS_PATH, err)
 	}
 	defer comp_sftp_authorized_keys.Close()
 	defer comp_sftp.Remove(VM_AUTHORIZED_KEYS_PATH)
 
 	_, err = comp_sftp_authorized_keys.Write([]byte(authorized_keys_content))
 	if err != nil {
-		return fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to write to file '%v': %v", VM_AUTHORIZED_KEYS_PATH, err)
+		return nil, fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to write to file '%v': %v", VM_AUTHORIZED_KEYS_PATH, err)
 	}
 
 	//! Prepare Cloudinit configuration
@@ -380,21 +383,220 @@ Reinstall: %v
 	// fmt.Println(cloudinit_fragments)
 
 	//! Upload Cloudinit configuration to comp node
-	VM_CLOUDINIT_PATH := fmt.Sprintf("/tmp/%v.pve.tail", VM_ID)
+	VM_CLOUDINIT_PATH := fmt.Sprintf("/tmp/vmwiz-%v.cloudinit.tail", VM_ID)
 	log.Printf("[-] Uploading Cloudinit fragments to %v:%v\n", comp_node, VM_CLOUDINIT_PATH)
 	comp_sftp_cloudinitfrags, err := comp_sftp.Create(VM_CLOUDINIT_PATH)
 	if err != nil {
-		return fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to create file '%v': %v", VM_CLOUDINIT_PATH, err)
+		return nil, fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to create file '%v': %v", VM_CLOUDINIT_PATH, err)
 	}
 	defer comp_sftp_cloudinitfrags.Close()
 	defer comp_sftp.Remove(VM_CLOUDINIT_PATH)
 
 	_, err = comp_sftp_cloudinitfrags.Write([]byte(cloudinit_fragments))
 	if err != nil {
-		return fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to write to file '%v': %v", VM_CLOUDINIT_PATH, err)
+		return nil, fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to write to file '%v': %v", VM_CLOUDINIT_PATH, err)
 	}
 
-	//!
+	//! Create VM on compute node
+	log.Printf("[-] Creating VM on %v\n", comp_node)
+
+	VM_NETMODEL := "virtio"
+
+	VM_FQDN := options.FQDN
+	IMAGE_PATH := IMAGE_REMOTE
+	FIRST_BOOT_LINE := first_boot_line
+	VM_DESC := options.Description
+	var AGENT int
+	if options.UseQemuAgent {
+		AGENT = 1
+	} else {
+		AGENT = 0
+	}
+	SWAP_SIZE := VM_SWAP_SIZE
+	ROOT_SIZE := VM_DEFAULT_ROOT_SIZE
+	RAM_SIZE := VM_DEFAULT_RAM_SIZE
+
+	EFI_DISK := fmt.Sprintf("vm-%v-efivars", VM_ID)
+	SWAP_DISK := fmt.Sprintf("vm-%v-disk-0", VM_ID)
+	MAIN_DISK := fmt.Sprintf("vm-%v-disk-1", VM_ID)
+
+	//! Verify that configured Comp node SSH host is actually a compute node
+	log.Println("\t[-] Checking if compute SSH session is actually on a compute node")
+	comp_ssh, err := createCompSSHClient()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: %v", err)
+	}
+	defer comp_ssh.Close()
+
+	stdout, err = comp_ssh.Run("hostname --fqdn")
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot verify hostname of configured compute node: %v\nOutput:\n%s", err, stdout)
+	}
+	strstdout = strings.Trim(string(stdout), " \n")
+	match, _ = regexp.MatchString("^comp-.+\\.sos\\.ethz\\.ch$", strstdout)
+	if !match {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Configured compute SSH host is not a compute node")
+	}
+
+	//! Generate MAC address
+	// TODO: Fix collisions by ensuring we are taking a free macaddr
+	r := regexp.MustCompile("^(..)(..)(..)(..)(..).*$")
+
+	matches := r.FindStringSubmatch(fmt.Sprintf("%x", md5.Sum([]byte(VM_FQDN))))
+	if len(matches) != 6 {
+		return nil, fmt.Errorf("Failed to create VM: Failed to generate MAC address")
+	}
+
+	VM_MACADDR := fmt.Sprintf("%s:%s:%s:%s:%s", matches[1], matches[2], matches[3], matches[4], matches[5])
+	log.Printf("\t[-] Generated MAC address: %v\n", VM_MACADDR)
+
+	//! Create disks
+	log.Printf("\t[-] Creating disks\n")
+
+	// Create swap disk
+	command := fmt.Sprintf("rbd -p \"%v\" create --size \"%v\" \"%v\"", CEPH_POOL, SWAP_SIZE, SWAP_DISK)
+	log.Printf("\t\t[-] Creating SWAP disk\n")
+	log.Printf("\t\t> %v", command)
+	stdout, err = comp_ssh.Run(command)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot create SWAP disk: %v\nOutput:\n%s", err, stdout)
+	}
+
+	// Create EFI disk
+	command = fmt.Sprintf("rbd -p \"%v\" create --size \"4M\" \"%v\"", CEPH_POOL, EFI_DISK)
+	log.Printf("\t\t[-] Creating EFI disk\n")
+	log.Printf("\t\t> %v\n", command)
+	stdout, err = comp_ssh.Run(command)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot create EFI disk: %v\nOutput:\n%s", err, stdout)
+	}
+
+	//! Creating VM configuration in Proxmox
+	log.Printf("\t[-] Generating VM configuration\n")
+
+	uuidv7, _ := uuid.NewV7()
+
+	vm_config := fmt.Sprintf(`
+agent: %v
+bios: ovmf
+boot: order=scsi0;scsi1
+cores: 2
+cpu: host,flags=+ibpb;+virt-ssbd;+amd-ssbd;+pdpe1gb;+aes
+description: %v
+name: %v
+efidisk0: %v:%v,size=4M
+machine: q35
+memory: %v
+nameserver: 129.132.98.12 129.132.250.2
+net0: %v=%v,bridge=vmbr1,rate=125
+numa: 0
+ostype: l26
+scsi1: %v:%v,size=%v,discard=on
+scsihw: virtio-scsi-pci
+searchdomain: ethz.ch
+serial0: socket
+smbios1: uuid=%v,base64=1,manufacturer=U09TRVRIIC8gc29zLmV0aHouY2g=,product=VlNPUyB2U2VydmVy,version=Mi4w,sku=RGVmYXVsdA==,family=TEVFIFZNcw==
+sockets: 1
+vga: serial0
+migrate_downtime: 1
+`, AGENT,
+		VM_DESC,
+		VM_FQDN,
+		CEPH_POOL, EFI_DISK,
+		RAM_SIZE,
+		VM_NETMODEL, VM_MACADDR,
+		CEPH_POOL, SWAP_DISK, SWAP_SIZE,
+		uuidv7)
+
+	// log.Println(vm_config)
+
+	//! Upload VM configuration in Proxmox
+
+	VM_CONFIG_PATH := fmt.Sprintf("/etc/pve/local/qemu-server/%v.conf", VM_ID)
+
+	log.Printf("\t[-] Uploading VM configuration to %v:%v\n", comp_node, VM_CONFIG_PATH)
+	vm_config_file, err := comp_sftp.Create(VM_CONFIG_PATH)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to create file '%v': %v", VM_CONFIG_PATH, err)
+	}
+	defer vm_config_file.Close()
+
+	_, err = vm_config_file.Write([]byte(vm_config))
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to write to file '%v': %v", VM_CONFIG_PATH, err)
+	}
+
+	//! Importing disk image
+	log.Printf("\t[-] Importing disk image\n")
+	command = fmt.Sprintf("qm importdisk \"%v\" \"%v\" \"%v\"", VM_ID, IMAGE_PATH, CEPH_POOL)
+	log.Printf("\t\t> %v\n", command)
+
+	stdout, err = comp_ssh.Run(command)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot import disk image: %v\nOutput:\n%s", err, stdout)
+	}
+
+	//! Attaching disk to VM
+	log.Printf("\t[-] Attaching disk to VM\n")
+	command = fmt.Sprintf("qm set \"%v\" --scsi0 \"%v:%v,discard=on\"", VM_ID, CEPH_POOL, MAIN_DISK)
+	log.Printf("\t\t> %v \n", command)
+
+	stdout, err = comp_ssh.Run(command)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot attach disk to VM: %v\nOutput:\n%s", err, stdout)
+	}
+
+	//! Resizing VM root disk to target size
+	log.Printf("\t[-] Resizing VM root disk to target size\n")
+	command = fmt.Sprintf("qm resize \"%v\" scsi0 \"%v\"", VM_ID, ROOT_SIZE)
+	log.Printf("\t\t> %v \n", command)
+
+	stdout, err = comp_ssh.Run(command)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot resize VM root disk: %v\nOutput:\n%s", err, stdout)
+	}
+
+	//! Appending cloudinit fragments to VM configuration
+	log.Printf("\t[-] Appending cloudinit fragments to VM configuration\n")
+	command = fmt.Sprintf("cat \"%v\" >> \"%v\"", VM_CLOUDINIT_PATH, VM_CONFIG_PATH)
+	log.Printf("\t\t> %v \n", command)
+
+	stdout, err = comp_ssh.Run(command)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot append cloudinit fragments to VM configuration: %v\nOutput:\n%s", err, stdout)
+	}
+
+	//! Creating Cloudinit disk
+	log.Printf("\t[-] Creating Cloudinit disk\n")
+	command = fmt.Sprintf("qm set \"%v\" -scsi2 \"%v:cloudinit\"", VM_ID, CEPH_POOL)
+	log.Printf("\t\t> %v \n", command)
+
+	stdout, err = comp_ssh.Run(command)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot create Cloudinit disk: %v\nOutput:\n%s", err, stdout)
+	}
+
+	//! Adding SSH keys to machine
+	log.Printf("\t[-] Adding SSH keys to machine\n")
+	command = fmt.Sprintf("qm set \"%v\" --sshkey \"%v\"", VM_ID, VM_AUTHORIZED_KEYS_PATH)
+	log.Printf("\t\t> %v \n", command)
+
+	stdout, err = comp_ssh.Run(command)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot add SSH keys to machine: %v\nOutput:\n%s", err, stdout)
+	}
+
+	//! Booting VM and capturing output until first boot line
+	log.Printf("\t[-] Booting VM and capturing output until first boot line\n")
+	command = fmt.Sprintf("qm start \"%v\"", VM_ID)
+	log.Printf("\t\t> %v \n", command)
+
+	stdout, err = comp_ssh.Run(command)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot boot VM: %v\nOutput:\n%s", err, stdout)
+	}
+
+  // TODO: Wait for first boot line
 
 	_ = comp_node
 	_ = example_fqdn
@@ -415,12 +617,24 @@ Reinstall: %v
 	_ = IMAGE_REMOTE
 	_ = SOURCES_LIST
 	_ = VM_ID
-	return nil
+
+	_ = VM_NETMODEL
+	_ = IMAGE_PATH
+	_ = FIRST_BOOT_LINE
+	_ = VM_DESC
+	_ = SWAP_SIZE
+	_ = ROOT_SIZE
+	_ = RAM_SIZE
+	_ = EFI_DISK
+	_ = SWAP_DISK
+	_ = MAIN_DISK
+
+	return nil, nil
 }
 
-func IsHostnameTaken(hostname string) (bool, error) {
+func IsNameTaken(hostname string) (bool, error) {
 	// TODO: We check only if there is a VM with the same name. Should we also check DNS ?
-	vms, err := GetAllVMs()
+	vms, err := GetAllVMsInCluster()
 	if err != nil {
 		return false, fmt.Errorf("Failed to check if hostname '%v' is taken: %v", err.Error())
 	}
