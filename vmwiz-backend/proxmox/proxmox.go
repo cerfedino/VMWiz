@@ -6,6 +6,7 @@ package proxmox
 import (
 	"bytes"
 	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -589,15 +590,19 @@ Reinstall: %v
 	}
 
 	//! Generate MAC address
-	// TODO: Fix collisions by ensuring we are taking a free macaddr
-	r := regexp.MustCompile("^(..)(..)(..)(..)(..).*$")
+	// TODO: Fix collisions by ensuring we are taking a free mac addr
+	r := regexp.MustCompile("^(..)(..)(..)(..)(..)(..).*$")
 
-	matches := r.FindStringSubmatch(fmt.Sprintf("%x", md5.Sum([]byte(VM_FQDN))))
+	digest := md5.Sum([]byte(VM_FQDN))
+	hex_digest := hex.EncodeToString(digest[:])
+
+	matches := r.FindAllStringSubmatch(hex_digest, 6)[0][1:]
+
 	if len(matches) != 6 {
-		return nil, fmt.Errorf("Failed to create VM: Failed to generate MAC address")
+		return nil, fmt.Errorf("Failed to create VM: Failed to generate MAC address: Length of generated MAC address is not 6")
 	}
 
-	VM_MACADDR := fmt.Sprintf("%s:%s:%s:%s:%s", matches[1], matches[2], matches[3], matches[4], matches[5])
+	VM_MACADDR := fmt.Sprintf("%s:%s:%s:%s:%s:%s", matches[0], matches[1], matches[2], matches[3], matches[4], matches[5])
 	log.Printf("\t[-] Generated MAC address: %v\n", VM_MACADDR)
 
 	//! Create disks
@@ -638,7 +643,6 @@ efidisk0: %v:%v,size=4M
 machine: q35
 memory: %v
 nameserver: 129.132.98.12 129.132.250.2
-net0: %v=%v,bridge=vmbr1,rate=125
 numa: 0
 ostype: l26
 scsi1: %v:%v,size=%v,discard=on
@@ -655,7 +659,6 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 		VM_FQDN,
 		CEPH_POOL, EFI_DISK,
 		RAM_SIZE,
-		VM_NETMODEL, VM_MACADDR,
 		CEPH_POOL, SWAP_DISK, SWAP_SIZE,
 		uuidv7,
 		VM_GATEWAY_4, ipv4s_str[0], VM_NETMASK_4, ipv6s_str[0], VM_NETMASK_6)
@@ -736,6 +739,16 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 	stdout, err = comp_ssh.Run(command)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot add SSH keys to machine: %v\nOutput:\n%s", err, stdout)
+	}
+
+	//! Append network configuration to VM configuration
+	// ? For some reason, running the previous commands erases the network config entry, so we append it here, after running the aforementioned commands
+	log.Printf("\t[-] Appending network configuration to VM configuration\n")
+	config := fmt.Sprintf("net0: %v=%v,bridge=vmbr1,rate=125", VM_NETMODEL, VM_MACADDR)
+	command = fmt.Sprintf("echo \"%v\" >> \"%v\"", config, VM_CONFIG_PATH)
+	stdout, err = comp_ssh.Run(command)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot append network configuration to VM configuration: %v\nOutput:\n%s", err, stdout)
 	}
 
 	//! Booting VM and capturing output until first boot line
