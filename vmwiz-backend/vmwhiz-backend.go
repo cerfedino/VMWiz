@@ -36,8 +36,14 @@ import (
 // }
 
 func main() {
+	// TODO: Remove in prod
+	// rand.Seed(uint64((time.Now().UnixNano())))
+	rand.Seed(uint64(42))
+
 	if startupcheck.DoAllStartupChecks() {
 		log.Fatalf("Startup checks failed. Exiting ...")
+	} else {
+		log.Println("Startup checks passed.")
 	}
 
 	err := storage.DB.Init()

@@ -104,7 +104,7 @@ func GetAllNodeVMs(node string) (*[]PVENodeVM, error) {
 		return nil, fmt.Errorf("Failed to retrieve all Proxmox VMs: %v", err.Error())
 	}
 	q := req.URL.Query()
-	q.Set("full", "true")
+	q.Set("full", "1")
 	req.URL.RawQuery = q.Encode()
 
 	body, err := proxmoxDoRequest(req, client)
@@ -138,8 +138,6 @@ func GetNodeVM(node string, vm_id int) (*PVENodeVM, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Failed to retrieve VM '%v' on node '%v': Unmarshal error: %v", vm_id, node, err.Error())
 	}
-
-	fmt.Println(string(body))
 
 	return &vm.Data, nil
 }
@@ -256,6 +254,7 @@ func ForceStopNodeVM(node string, vm_id int) error {
 		}
 		time.Sleep(1 * time.Second)
 	}
+	log.Printf("[+] Stopped VM %v on node %v\n", vm_id, node)
 	return nil
 }
 
@@ -267,17 +266,17 @@ func DeleteNodeVM(node string, vm_id int, destroy_unreferenced_disks bool, purge
 	}
 	q := req.URL.Query()
 	q.Set("destroy-unreferenced-disks", map[bool]string{true: "1", false: "0"}[destroy_unreferenced_disks])
-	q.Set("purge", map[bool]string{true: "1", false: "0"}[purge_from_configs])
+	q.Set("purge", map[bool]string{true: "1", false: "0"}[purge_vm_from_configs])
 	// Skips locks (usually the VM running). Only root can use.
 	q.Set("skiplock", map[bool]string{true: "1", false: "0"}[skip_lock])
 	req.URL.RawQuery = q.Encode()
 
-	body, err := proxmoxDoRequest(req, client)
+	_, err = proxmoxDoRequest(req, client)
 	if err != nil {
 		return fmt.Errorf("Failed to delete VM '%v' on node '%v': %v", vm_id, node, err.Error())
 	}
 
-	fmt.Println(string(body))
+	log.Printf("[+] Deleted VM %v on node %v [destroy-unreferenced-disks: %v, purge: %v, skiplock: %v]\n", vm_id, node, destroy_unreferenced_disks, purge_vm_from_configs, skip_lock)
 	return nil
 }
 
@@ -294,7 +293,7 @@ type VMCreationOptions struct {
 	nethz_pass   string
 }
 
-func CreateVM(options VMCreationOptions) (*PVEClusterVM, error) {
+func CreateVM(options VMCreationOptions) (*PVENodeVM, error) {
 
 	//! Verify that configured CM SSH host is actually a cluster management node
 	// fmt.Println("[-] Checking if running on a cluster management node")
@@ -318,6 +317,7 @@ func CreateVM(options VMCreationOptions) (*PVEClusterVM, error) {
 	//! Prepare default/hardcoded parameters
 
 	comp_node := os.Getenv("SSH_COMP_HOST")
+	comp_node_name := os.Getenv("COMP_NAME")
 	example_fqdn := "example.vsos.ethz.ch"
 	net := "vm"
 	CEPH_POOL := "ssd"
@@ -353,14 +353,14 @@ func CreateVM(options VMCreationOptions) (*PVEClusterVM, error) {
 		ssh_user = "ubuntu"
 		first_boot_line = "Cloud-init .* finished"
 	default:
-		return nil, fmt.Errorf("\t[X] Unknown template %v", template)
+		return nil, fmt.Errorf("\tFailed to create VM: Unknown template %v", template)
 	}
 
 	//! Checking existence of DNS entries for chosen FQDN
 	log.Printf("[-] Checking existence of DNS entries for chosen FQDN %v", options.FQDN)
 	ipv4s, ipv6s, err := netcenter.GetHostIPs(options.FQDN)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create VM: PVE SSH host: Failed to check if there are existing ipv4 DNS entries for FQDN: %v", err.Error())
+		return nil, fmt.Errorf("Failed to create VM: Failed to check if there are existing ipv4 DNS entries for FQDN: %v", err.Error())
 	}
 
 	// Map ipv4s object to just their ips
@@ -633,6 +633,7 @@ smbios1: uuid=%v,base64=1,manufacturer=U09TRVRIIC8gc29zLmV0aHouY2g=,product=VlNP
 sockets: 1
 vga: serial0
 migrate_downtime: 1
+ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 `, AGENT,
 		VM_DESC,
 		VM_FQDN,
@@ -640,7 +641,8 @@ migrate_downtime: 1
 		RAM_SIZE,
 		VM_NETMODEL, VM_MACADDR,
 		CEPH_POOL, SWAP_DISK, SWAP_SIZE,
-		uuidv7)
+		uuidv7,
+		VM_GATEWAY_4, ipv4s_str[0], VM_NETMASK_4, ipv6s_str[0], VM_NETMASK_6)
 
 	// log.Println(vm_config)
 
@@ -763,7 +765,14 @@ migrate_downtime: 1
 	_ = SWAP_DISK
 	_ = MAIN_DISK
 
-	return nil, nil
+	//! Get VM data
+	vm, err := GetNodeVM(comp_node_name, VM_ID)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: %v", err)
+	}
+
+	log.Printf("[+] Created VM %v on node %v [FQDN: %v, Image: %v, CPU: %v, RAM: %v, Disk: %v]\n", VM_ID, comp_node_name, options.FQDN, options.Template, vm.Cpus, vm.Maxmem, vm.Maxdisk)
+	return vm, nil
 }
 
 func IsNameTaken(hostname string) (bool, error) {
