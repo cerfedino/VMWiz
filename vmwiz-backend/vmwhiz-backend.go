@@ -13,6 +13,7 @@ import (
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/startupcheck"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 	"github.com/rs/cors"
+	"golang.org/x/exp/rand"
 )
 
 // func (s *StartupChecks) String() string {
@@ -51,33 +52,40 @@ func main() {
 		log.Fatalf("Error on startup: %v", err.Error())
 	}
 
-	// TODO: Remove
+	// nodes, err := proxmox.GetAllNodeVMsByName("comp-epyc-lee-3", "vmwiz-test.vsos.ethz.ch")
+	// if err != nil {
+	// 	log.Println(err)
+	// } else {
+	// 	if len(*nodes) > 0 {
+	// 		err = proxmox.ForceStopNodeVM("comp-epyc-lee-3", (*nodes)[0].Vmid)
+	// 		if err != nil {
+	// 			log.Println(err)
+	// 		}
+	// 		err = proxmox.DeleteNodeVM("comp-epyc-lee-3", (*nodes)[0].Vmid, true, true, false)
+	// 		if err != nil {
+	// 			log.Println(err)
+	// 		}
+	// 	}
+	// }
 
-	// _, err = proxmox.CreateVM(proxmox.PVEVMOptions{
+	// err = netcenter.DeleteDNSEntryByHostname("vmwiz-test.vsos.ethz.ch")
+	// if err != nil {
+	// 	log.Println(err)
+	// }
+
+	// _, err = proxmox.CreateVM(proxmox.VMCreationOptions{
 	// 	Template:     "noble",
 	// 	FQDN:         "vmwiz-test.vsos.ethz.ch",
 	// 	Reinstall:    false,
 	// 	RAM_MB:       1024,
 	// 	Disk_GB:      10,
-	// 	UseQemuAgent: true,
+	// 	UseQemuAgent: false,
 	// 	Description:  "Test VM",
-	// 	SSHPubkeys:   []string{"ecdsa-sha2-nistp521 AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBAAjFvUZr/m8zoXKW5wjNBXehNO9u7oiS+VchueNGA7Fa05aeI7KaP5iEDRUJ9fvfqOprV3z7OAv11lrJ0IKcsLOFQErfl1IrmErot0UJ6sDbAAmnKbr9gjqA0qQcDSNNKRjj7BkKd7zQGvOEjy179q9mvcNNMINFrPXjk2qvIBFHg1hnQ== cerfe@student-net-nw-0407.intern.ethz.ch"},
+	// 	SSHPubkeys:   []string{"ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBO1IgyOIr5Sx9/Re60E4A6D2KLX9sT8bLl/8mKpS0P8O0wTj82T6/qPWJWeuOfOYP5bj0yErK0Y1xgiTVOePgws= cerfe@sirius"},
 	// })
 	// if err != nil {
 	// 	log.Println(err)
 	// }
-
-	// err = proxmox.ForceStopNodeVM("comp-epyc-lee-3", 686395)
-	// if err != nil {
-	// 	log.Println(err)
-	// }
-
-	// err = proxmox.DeleteNodeVM("comp-epyc-lee-3", 686395, false, true, false)
-	// if err != nil {
-	// 	log.Println(err)
-	// }
-
-	// netcenter.DeleteDNSEntryByHostname("vmwiz-test.vsos.ethz.ch")
 
 	cors := cors.New(cors.Options{
 		// Allowing the Vue frontend to access the API
