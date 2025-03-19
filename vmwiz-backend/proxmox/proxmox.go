@@ -348,15 +348,16 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, error) {
 	VM_DEFAULT_ROOT_SIZE := "15G"
 	VM_DEFAULT_RAM_SIZE := "2048"
 
-	template := options.Template
+	vm_template := options.Template
 	ssh_user := "root"
 	first_boot_line := "no"
 
-	VMKEY_PATH := "/root/.ssh/vm_key.pub"
+	VMPUBKEY_PATH := "/root/.ssh/vm_univ_pubkey.key"
+	VMPRIVKEY_PATH := "/root/.ssh/vm_univ_privkey.key"
 
 	//! Choosing appropriate user and first boot line
 	log.Println("[-] Choosing appropriate user and first boot line based on template")
-	switch template {
+	switch vm_template {
 	case "bullseye":
 		ssh_user = "debian"
 		first_boot_line = "Cloud-init .* finished"
@@ -370,7 +371,7 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, error) {
 		ssh_user = "ubuntu"
 		first_boot_line = "Cloud-init .* finished"
 	default:
-		return nil, fmt.Errorf("\tFailed to create VM: Unknown template %v", template)
+		return nil, fmt.Errorf("\tFailed to create VM: Unknown template %v", vm_template)
 	}
 
 	//! Checking existence of DNS entries for chosen FQDN
@@ -493,20 +494,14 @@ Reinstall: %v
 	// TODO: Have the default universal public key of the VMs stored in the configs.
 	log.Println("[-] Reading universal VM public key from CM LEE")
 
-	vmkey_file, err := cm_sftp.Open(VMKEY_PATH)
+	vmpubkey_content, err := os.ReadFile(VMPUBKEY_PATH)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create VM: PVE SFTP: Failed to open the VM key '%v': %v", VMKEY_PATH, err)
-	}
-	defer vmkey_file.Close()
-
-	vmkey_content, err := io.ReadAll(vmkey_file)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create VM: PVE SFTP: Failed to read the VM key '%v': %v", VMKEY_PATH, err)
+		return nil, fmt.Errorf("Failed to create VM: CM node: Failed to open the universal public VM key '%v': %v", VMPUBKEY_PATH, err)
 	}
 
 	//! Prepare authorized_keys file
 	log.Println("[-] Preparing authorized_keys file\n\tConcatenating VM universal public key with provided pubkeys")
-	authorized_keys_content := strings.Join(slices.Concat(options.SSHPubkeys, strings.Split(string(vmkey_content), "\n")), "\n\n")
+	authorized_keys_content := strings.Join(slices.Concat(options.SSHPubkeys, strings.Split(string(vmpubkey_content), "\n")), "\n\n")
 
 	//! Upload authorized_keys file to comp node
 	VM_AUTHORIZED_KEYS_PATH := fmt.Sprintf("/tmp/vmwiz-%v.ssh.pub", VM_ID)
@@ -751,8 +746,8 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot append network configuration to VM configuration: %v\nOutput:\n%s", err, stdout)
 	}
 
-	//! Booting VM and capturing output until first boot line
-	log.Printf("\t[-] Booting VM and capturing output until first boot line\n")
+	//! Booting VM
+	log.Printf("\t[-] Booting VM\n")
 	command = fmt.Sprintf("qm start \"%v\"", VM_ID)
 	log.Printf("\t\t> %v \n", command)
 
@@ -761,7 +756,43 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot boot VM: %v\nOutput:\n%s", err, stdout)
 	}
 
-	// TODO: Wait for first boot line
+	//! Read private key
+	log.Println("\t[-] Waiting for VM to be ready by trying to connect to it via SSH")
+
+	log.Printf("\t\t[-] Reading universal VM private key from file %v\n", VMPRIVKEY_PATH)
+	vm_goph_privkey, err := goph.Key(VMPRIVKEY_PATH, "")
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Failed to import VM priv key: %v", err)
+	}
+
+	//! Wait for VM to be reachable
+	// TODO: Change to reading serial output and wait for "Cloud init .... finished"
+	VM_REACHABLE_FOR := 2 * time.Minute
+	log.Printf("\t\t[-] Trying to connect to VM via SSH. VM will reboot often. We assume it is ready when it is reachable for %v minutes\n", time.Duration(VM_REACHABLE_FOR).Minutes())
+	timestamp := time.Now()
+	reachable := false
+	var cl *goph.Client
+	for {
+		cl, err = goph.NewUnknown("root", string(ipv4s_str[0]), vm_goph_privkey)
+		if err != nil {
+			if reachable == true {
+				log.Println(fmt.Errorf("\t\tVM is unreachable: %v", err).Error())
+			}
+			reachable = false
+		} else {
+			cl.Close()
+			if reachable == false {
+				timestamp = time.Now()
+				reachable = true
+				log.Println("\t\tVM is reachable now. Starting timer.")
+			}
+			if time.Duration(time.Now().Sub(timestamp)) >= VM_REACHABLE_FOR {
+				break
+			}
+
+		}
+		time.Sleep(time.Second)
+	}
 
 	_ = comp_node
 	_ = example_fqdn
@@ -800,7 +831,7 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 		return nil, fmt.Errorf("Failed to create VM: %v", err)
 	}
 
-	log.Printf("[+] Created VM %v on node %v [FQDN: %v, Image: %v, CPU: %v, RAM: %v, Disk: %v]\n", VM_ID, comp_node_name, options.FQDN, options.Template, vm.Cpus, vm.Maxmem, vm.Maxdisk)
+	log.Printf("[+] Created VM %v on node %v [FQDN: %v, IPv4[0]:%v, Image: %v, CPU: %v, RAM: %v, Disk: %v]\n", VM_ID, ipv4s_str[0], comp_node_name, options.FQDN, options.Template, vm.Cpus, vm.Maxmem, vm.Maxdisk)
 	return vm, nil
 }
 
