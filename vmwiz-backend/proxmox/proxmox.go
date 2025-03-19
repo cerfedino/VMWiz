@@ -396,6 +396,7 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, error) {
 	}
 	log.Println("\tIPv6: ", strings.Join(ipv6s_str, ", "))
 
+	// TODO: What is actually allowed ?
 	if len(ipv4s_str) > 1 || len(ipv6s_str) > 1 {
 		return nil, fmt.Errorf("Failed to create VM: Each VM hostname should have AT MOST one IPv4 and one IPv6 address", options.FQDN)
 	}
@@ -769,14 +770,14 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 	}
 
 	//! Wait for VM to be reachable
-	COMP_VM_BOOT_LOG_PATH := fmt.Sprintf("/tmp/vmwiz-%v.boot.log", VM_ID)
+	COMP_VM_BOOT_LOG_PATH := fmt.Sprintf("/tmp/%v.vmwiz.boot.log", VM_ID)
 	COMP_QEMU_VM_BOOT_LOG_PATH := fmt.Sprintf("/var/run/qemu-server/%v.serial0", VM_ID)
-	boot_log_file, err := comp_sftp.Create(COMP_VM_BOOT_LOG_PATH)
+	comp_boot_log_file, err := comp_sftp.Create(COMP_VM_BOOT_LOG_PATH)
 		if err != nil {
 		return nil, fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to create file '%v': %v", COMP_VM_BOOT_LOG_PATH, err)
 	}
 	defer comp_sftp.Remove(COMP_VM_BOOT_LOG_PATH)
-	defer boot_log_file.Close()
+	defer comp_boot_log_file.Close()
 
 	// Tailing VM's QEMU log file on Comp node
 	log.Printf("\t\t[-] Waiting for boot to complete by tailing QEMU's boot log on Comp node at '%v'\n", COMP_QEMU_VM_BOOT_LOG_PATH)
@@ -809,7 +810,7 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 			last_line_timestamp = time.Now()
 		}
 		// Append to file
-		_, err := boot_log_file.Write([]byte(line + "\n"))
+		_, err := comp_boot_log_file.Write([]byte(line + "\n"))
 		if err != nil {
 			return nil, fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to append to file '%v': %v", COMP_VM_BOOT_LOG_PATH, err)
 		}
@@ -819,17 +820,40 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 			}
 	}
 	log.Println("\t\t [X] VM has completed first boot in ", int(time.Now().Sub(vm_boot_start_timestamp).Seconds()), " seconds")
-	boot_log_file.Close()
 
 	// Check for any scanning error
 	if err := scanner.Err(); err != nil {
 		log.Fatalf("Error reading output: %v", err)
 		}
 
+	//! Copying VM's boot log file from Comp to CM
+	log.Printf("[-] Copying VM's boot log file from Comp node to CM at '%v'\n", COMP_VM_BOOT_LOG_PATH)
+	log.Println("\t[-] Reading VM's boot log file from Comp node")
+	comp_boot_log_file.Close()
+	comp_boot_log_file, err = comp_sftp.Open(COMP_VM_BOOT_LOG_PATH)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to open file '%v': %v", COMP_VM_BOOT_LOG_PATH, err)
+	}
+	defer comp_sftp.Remove(COMP_VM_BOOT_LOG_PATH)
+	defer comp_boot_log_file.Close()
+	comp_sftp_bootlog_content, err := io.ReadAll(comp_boot_log_file)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to read file '%v': %v", COMP_VM_BOOT_LOG_PATH, err)
+	}
 
-
-
-	
+	CM_VM_BOOT_LOG_PATH_CM := fmt.Sprintf("/tmp/%v.vmwiz.boot.log", VM_ID)
+	log.Printf("\t[-] Writing VM's boot log file to CM at '%v'\n", CM_VM_BOOT_LOG_PATH_CM)
+	cm_sftp_bootlog_cm, err := cm_sftp.Create(CM_VM_BOOT_LOG_PATH_CM)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: CM node SFTP: Failed to create file '%v': %v", CM_VM_BOOT_LOG_PATH_CM, err)
+	}
+	defer cm_sftp.Remove(CM_VM_BOOT_LOG_PATH_CM)
+	defer cm_sftp_bootlog_cm.Close()
+	_, err = cm_sftp_bootlog_cm.Write(comp_sftp_bootlog_content)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: CM node SFTP: Failed to write to file '%v': %v", CM_VM_BOOT_LOG_PATH_CM, err)
+	}
+	// fmt.Println(string(comp_sftp_bootlog_content))
 
 	_ = comp_node
 	_ = example_fqdn
