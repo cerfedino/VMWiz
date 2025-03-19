@@ -18,6 +18,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"text/template"
 	"time"
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
@@ -854,6 +855,27 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 		return nil, fmt.Errorf("Failed to create VM: CM node SFTP: Failed to write to file '%v': %v", CM_VM_BOOT_LOG_PATH_CM, err)
 	}
 	// fmt.Println(string(comp_sftp_bootlog_content))
+
+	//! Prepare VM post-install script
+	POST_INSTALL_SCRIPT_PATH := "proxmox/vm_finish_script.sh.tmpl"
+	log.Printf("\t[-] Preparing VM post-install script from template '%v'\n", POST_INSTALL_SCRIPT_PATH)
+	vm_finish_script_content := new(bytes.Buffer)
+	temp, err := template.ParseFiles(POST_INSTALL_SCRIPT_PATH)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Failed to parse template: %v", err)
+	}
+	err = temp.Execute(vm_finish_script_content, struct {
+		SOURCES_LIST string
+		VM_GATEWAY_6 string
+		UseQemuAgent bool
+	}{
+		SOURCES_LIST: SOURCES_LIST,
+		VM_GATEWAY_6: VM_GATEWAY_6,
+		UseQemuAgent: options.UseQemuAgent,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Failed to execute template: %v", err)
+	}
 
 	_ = comp_node
 	_ = example_fqdn
