@@ -4,6 +4,7 @@ package proxmox
 // https://pve.proxmox.com/pve-docs/api-viewer/
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/md5"
 	"encoding/hex"
@@ -751,13 +752,15 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 	command = fmt.Sprintf("qm start \"%v\"", VM_ID)
 	log.Printf("\t\t> %v \n", command)
 
+	vm_boot_start_timestamp := time.Now()
+
 	stdout, err = comp_ssh.Run(command)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot boot VM: %v\nOutput:\n%s", err, stdout)
 	}
 
 	//! Read private key
-	log.Println("\t[-] Waiting for VM to be ready by trying to connect to it via SSH")
+	log.Println("\t[-] Waiting for VM to complete first setup")
 
 	log.Printf("\t\t[-] Reading universal VM private key from file %v\n", VMPRIVKEY_PATH)
 	vm_goph_privkey, err := goph.Key(VMPRIVKEY_PATH, "")
@@ -766,33 +769,67 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 	}
 
 	//! Wait for VM to be reachable
-	// TODO: Change to reading serial output and wait for "Cloud init .... finished"
-	VM_REACHABLE_FOR := 2 * time.Minute
-	log.Printf("\t\t[-] Trying to connect to VM via SSH. VM will reboot often. We assume it is ready when it is reachable for %v minutes\n", time.Duration(VM_REACHABLE_FOR).Minutes())
-	timestamp := time.Now()
-	reachable := false
-	var cl *goph.Client
-	for {
-		cl, err = goph.NewUnknown("root", string(ipv4s_str[0]), vm_goph_privkey)
+	COMP_VM_BOOT_LOG_PATH := fmt.Sprintf("/tmp/vmwiz-%v.boot.log", VM_ID)
+	COMP_QEMU_VM_BOOT_LOG_PATH := fmt.Sprintf("/var/run/qemu-server/%v.serial0", VM_ID)
+	boot_log_file, err := comp_sftp.Create(COMP_VM_BOOT_LOG_PATH)
 		if err != nil {
-			if reachable == true {
-				log.Println(fmt.Errorf("\t\tVM is unreachable: %v", err).Error())
-			}
-			reachable = false
-		} else {
-			cl.Close()
-			if reachable == false {
-				timestamp = time.Now()
-				reachable = true
-				log.Println("\t\tVM is reachable now. Starting timer.")
-			}
-			if time.Duration(time.Now().Sub(timestamp)) >= VM_REACHABLE_FOR {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to create file '%v': %v", COMP_VM_BOOT_LOG_PATH, err)
+	}
+	defer comp_sftp.Remove(COMP_VM_BOOT_LOG_PATH)
+	defer boot_log_file.Close()
+
+	// Tailing VM's QEMU log file on Comp node
+	log.Printf("\t\t[-] Waiting for boot to complete by tailing QEMU's boot log on Comp node at '%v'\n", COMP_QEMU_VM_BOOT_LOG_PATH)
+	session, err := comp_ssh.NewSession()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Failed to create session: %v", err)
+	}
+	defer session.Close()
+
+	stdout_reader, err := session.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Failed to create stdout pipe: %v", err)
+	}
+
+	command = fmt.Sprintf("socat -u \"%v\" -", COMP_QEMU_VM_BOOT_LOG_PATH)
+	log.Printf("\t\t> %v\n", command)
+	if err := session.Start(command); err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Failed to start tailing qemu log: %v", err)
+	}
+
+	// Read output line by line
+	scanner := bufio.NewScanner(stdout_reader)
+	lines_read := 0
+	last_line_timestamp := time.Now()
+	for scanner.Scan() {
+		lines_read++
+		line := scanner.Text()
+		if time.Now().Sub(last_line_timestamp) >= 30*time.Second {
+			log.Printf("\t\t VM still booting. Elapsed: %v seconds", int(time.Now().Sub(vm_boot_start_timestamp).Seconds()))
+			last_line_timestamp = time.Now()
+		}
+		// Append to file
+		_, err := boot_log_file.Write([]byte(line + "\n"))
+		if err != nil {
+			return nil, fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to append to file '%v': %v", COMP_VM_BOOT_LOG_PATH, err)
+		}
+		match, _ := regexp.MatchString(first_boot_line, line)
+		if match {
 				break
 			}
-
-		}
-		time.Sleep(time.Second)
 	}
+	log.Println("\t\t [X] VM has completed first boot in ", int(time.Now().Sub(vm_boot_start_timestamp).Seconds()), " seconds")
+	boot_log_file.Close()
+
+	// Check for any scanning error
+	if err := scanner.Err(); err != nil {
+		log.Fatalf("Error reading output: %v", err)
+		}
+
+
+
+
+	
 
 	_ = comp_node
 	_ = example_fqdn
