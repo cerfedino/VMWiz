@@ -492,15 +492,19 @@ Reinstall: %v
 		ipv6s_str = append(ipv6s_str, (*ipv6).String())
 	}
 
-	//! Read universal VM public key from CM LEE
+	//! Read universal VM public key
 	// TODO: Startup check
-	// TODO: Have the default universal public key of the VMs stored in the configs.
-	log.Println("[-] Reading universal VM public key from CM LEE")
+	log.Println("[-] Reading universal VM public key from file")
 
 	vmpubkey_content, err := os.ReadFile(VMPUBKEY_PATH)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create VM: CM node: Failed to open the universal public VM key '%v': %v", VMPUBKEY_PATH, err)
+		return nil, fmt.Errorf("Failed to create VM: Failed to open the universal public VM key '%v': %v", VMPUBKEY_PATH, err)
 	}
+
+	// vmprivkey_content, err := os.ReadFile(VMPRIVKEY_PATH)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("Failed to create VM: Failed to open the universal private VM key '%v': %v", VMPRIVKEY_PATH, err)
+	// }
 
 	//! Prepare authorized_keys file
 	log.Println("[-] Preparing authorized_keys file\n\tConcatenating VM universal public key with provided pubkeys")
@@ -547,7 +551,7 @@ Reinstall: %v
 	}
 
 	//! Create VM on compute node
-	log.Printf("[-] Creating VM on %v\n", comp_node)
+	fmt.Printf("[-] Creating VM on %v\n", comp_node)
 
 	VM_NETMODEL := "virtio"
 
@@ -761,16 +765,8 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 		return nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot boot VM: %v\nOutput:\n%s", err, stdout)
 	}
 
-	//! Read private key
-	log.Println("\t[-] Waiting for VM to complete first setup")
-
-	log.Printf("\t\t[-] Reading universal VM private key from file %v\n", VMPRIVKEY_PATH)
-	vm_goph_privkey, err := goph.Key(VMPRIVKEY_PATH, "")
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create VM: Failed to import VM priv key: %v", err)
-	}
-
 	//! Wait for VM to be reachable
+	log.Println("\t[-] Waiting for VM to complete first setup")
 	COMP_VM_BOOT_LOG_PATH := fmt.Sprintf("/tmp/%v.vmwiz.boot.log", VM_ID)
 	COMP_QEMU_VM_BOOT_LOG_PATH := fmt.Sprintf("/var/run/qemu-server/%v.serial0", VM_ID)
 	comp_boot_log_file, err := comp_sftp.Create(COMP_VM_BOOT_LOG_PATH)
@@ -876,6 +872,73 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create VM: Failed to execute template: %v", err)
 	}
+
+	//! Adding VM ssh public key to CM known hosts file
+	log.Printf("\t[-] Generating VM SSH fingerprints\n")
+	cm_ssh, err := createCMSSHClient()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Generating VM SSH fingerprints: Failed to create CM SSH client: %v", err)
+	}
+	// Removing previous entries
+	command = fmt.Sprintf("ssh-keygen -f \"/root/.ssh/known_hosts\" -R \"%v\"", ipv4s_str[0])
+	_, _ = cm_ssh.Run(command)
+	command = fmt.Sprintf("ssh-keygen -f \"/root/.ssh/known_hosts\" -R \"%v\"", ipv6s_str[0])
+	_, _ = cm_ssh.Run(command)
+
+	log.Printf("\t\t[-] Extracting VM pubkeys from boot log\n")
+	vm_pubkeys_regex, err := regexp.Compile("-----BEGIN SSH HOST KEY KEYS-----([\\s\\S]*)-----END SSH HOST KEY KEYS-----")
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Generating VM SSH fingerprints: Failed to compile regex: %v", err)
+	}
+
+	vm_pubkey_regex_matches := vm_pubkeys_regex.FindAllStringSubmatch(string(comp_sftp_bootlog_content), -1)
+	if vm_pubkey_regex_matches == nil || len(vm_pubkey_regex_matches[0]) == 0 {
+		return nil, fmt.Errorf("Failed to create VM: Generating VM SSH fingerprints: Failed to find pubkeys in boot log")
+	}
+
+	vm_pubkeys := strings.Split(vm_pubkey_regex_matches[0][1], "\n")
+
+	// Choosing the ed25519 key
+	var ssh_ed_25519_pubkey string
+	for _, pubkey := range vm_pubkeys {
+		if strings.Contains(pubkey, "ssh-ed25519") {
+			ssh_ed_25519_pubkey = pubkey
+			break
+		}
+	}
+	if ssh_ed_25519_pubkey == "" {
+		return nil, fmt.Errorf("Failed to create VM: Generating VM SSH fingerprints: Failed to find ed25519 pubkey in boot log. Found Pubkeys are: %v", vm_pubkeys)
+	}
+
+	ssh_ed_25519_pubkey_parts := strings.Fields(ssh_ed_25519_pubkey)
+	ssh_ed_25519_pubkey = strings.Join(ssh_ed_25519_pubkey_parts[:2], " ")
+
+	// Append to CM known hosts file
+	log.Printf("\t\t[-] Appending VM SSH ed25519 pubkey to CM's known hosts\n")
+	command = "echo \"" + options.FQDN + "," + ipv4s_str[0] + "," + ipv6s_str[0] + "," + ssh_ed_25519_pubkey + "\" >> /root/.ssh/known_hosts"
+	log.Printf("\t\t> %v\n", command)
+	_, err = cm_ssh.Run(command)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Generating VM SSH fingerprints: Failed to append fingerprints to known hosts: %v", err)
+	}
+
+	var vm_fingerprints []string
+	for _, pubkey := range vm_pubkeys {
+		if pubkey == "" {
+			continue
+		}
+		for _, hash_algo := range []string{"sha256", "md5"} {
+			command = fmt.Sprintf("echo '%v' | ssh-keygen -f - -l -E %v | awk '{print $2}'", pubkey, hash_algo)
+			log.Printf("\t\t> %v\n", command)
+			stdout, err = cm_ssh.Run(command)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to create VM: Generating VM SSH fingerprints: Failed to get fingerprint: %v", err)
+			}
+			vm_fingerprints = append(vm_fingerprints, fmt.Sprintf("%v: %v", hash_algo, strings.Trim(string(stdout), " \n")))
+		}
+	}
+
+	fmt.Println(strings.Join(vm_fingerprints, "\n"))
 
 	_ = comp_node
 	_ = example_fqdn
