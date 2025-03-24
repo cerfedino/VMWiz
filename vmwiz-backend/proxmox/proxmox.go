@@ -500,11 +500,6 @@ Reinstall: %v
 		return nil, fmt.Errorf("Failed to create VM: Failed to open the universal public VM key '%v': %v", VMPUBKEY_PATH, err)
 	}
 
-	// vmprivkey_content, err := os.ReadFile(VMPRIVKEY_PATH)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("Failed to create VM: Failed to open the universal private VM key '%v': %v", VMPRIVKEY_PATH, err)
-	// }
-
 	//! Prepare authorized_keys file
 	log.Println("[-] Preparing authorized_keys file\n\tConcatenating VM universal public key with provided pubkeys")
 	authorized_keys_content := strings.Join(slices.Concat(options.SSHPubkeys, strings.Split(string(vmpubkey_content), "\n")), "\n\n")
@@ -550,7 +545,7 @@ Reinstall: %v
 	}
 
 	//! Create VM on compute node
-	fmt.Printf("[-] Creating VM on %v\n", comp_node)
+	log.Printf("[-] Creating VM on %v\n", comp_node)
 
 	VM_NETMODEL := "virtio"
 
@@ -629,42 +624,51 @@ Reinstall: %v
 
 	//! Creating VM configuration in Proxmox
 	log.Printf("\t[-] Generating VM configuration\n")
+	VM_CONF_TEMPLATE_PATH := "proxmox/VM.conf.tmpl"
+	uuidv7, err := uuid.NewV7()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Failed to generate UUID: %v", err)
+	}
 
-	uuidv7, _ := uuid.NewV7()
-
-	vm_config := fmt.Sprintf(`
-agent: %v
-bios: ovmf
-boot: order=scsi0;scsi1
-cores: 2
-cpu: host,flags=+ibpb;+virt-ssbd;+amd-ssbd;+pdpe1gb;+aes
-description: %v
-name: %v
-efidisk0: %v:%v,size=4M
-machine: q35
-memory: %v
-nameserver: 129.132.98.12 129.132.250.2
-numa: 0
-ostype: l26
-scsi1: %v:%v,size=%v,discard=on
-scsihw: virtio-scsi-pci
-searchdomain: ethz.ch
-serial0: socket
-smbios1: uuid=%v,base64=1,manufacturer=U09TRVRIIC8gc29zLmV0aHouY2g=,product=VlNPUyB2U2VydmVy,version=Mi4w,sku=RGVmYXVsdA==,family=TEVFIFZNcw==
-sockets: 1
-vga: serial0
-migrate_downtime: 1
-ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
-`, AGENT,
-		VM_DESC,
-		VM_FQDN,
-		CEPH_POOL, EFI_DISK,
-		RAM_SIZE,
-		CEPH_POOL, SWAP_DISK, SWAP_SIZE,
-		uuidv7,
-		VM_GATEWAY_4, ipv4s_str[0], VM_NETMASK_4, ipv6s_str[0], VM_NETMASK_6)
-
-	// log.Println(vm_config)
+	vm_config := new(bytes.Buffer)
+	vm_config_template, err := template.ParseFiles(VM_CONF_TEMPLATE_PATH)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Failed to parse template: %v", err)
+	}
+	err = vm_config_template.Execute(vm_config, struct {
+		AGENT        int
+		VM_DESC      string
+		VM_FQDN      string
+		CEPH_POOL    string
+		EFI_DISK     string
+		RAM_SIZE     string
+		SWAP_DISK    string
+		SWAP_SIZE    string
+		UUIDV7       string
+		VM_GATEWAY_4 string
+		IPV4S_STR0   string
+		VM_NETMASK_4 int
+		IPV6S_STR0   string
+		VM_NETMASK_6 int
+	}{
+		AGENT:        AGENT,
+		VM_DESC:      VM_DESC,
+		VM_FQDN:      VM_FQDN,
+		CEPH_POOL:    CEPH_POOL,
+		EFI_DISK:     EFI_DISK,
+		RAM_SIZE:     RAM_SIZE,
+		SWAP_DISK:    SWAP_DISK,
+		SWAP_SIZE:    SWAP_SIZE,
+		UUIDV7:       uuidv7.String(),
+		VM_GATEWAY_4: VM_GATEWAY_4,
+		IPV4S_STR0:   ipv4s_str[0],
+		VM_NETMASK_4: VM_NETMASK_4,
+		IPV6S_STR0:   ipv6s_str[0],
+		VM_NETMASK_6: VM_NETMASK_6,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Failed to execute template: %v", err)
+	}
 
 	//! Upload VM configuration in Proxmox
 
@@ -677,7 +681,7 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 	}
 	defer vm_config_file.Close()
 
-	_, err = vm_config_file.Write([]byte(vm_config))
+	_, err = vm_config_file.Write(vm_config.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to write to file '%v': %v", VM_CONFIG_PATH, err)
 	}
@@ -919,14 +923,14 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 	fmt.Println(strings.Join(vm_fingerprints, "\n"))
 
 	//! Prepare VM post-install script
-	POST_INSTALL_SCRIPT_PATH := "proxmox/vm_finish_script.sh.tmpl"
-	log.Printf("\t[-] Preparing VM post-install script from template '%v'\n", POST_INSTALL_SCRIPT_PATH)
+	POST_INSTALL_SCRIPT_TEMPLATE_PATH := "proxmox/vm_finish_script.sh.tmpl"
+	log.Printf("\t[-] Preparing VM post-install script from template '%v'\n", POST_INSTALL_SCRIPT_TEMPLATE_PATH)
 	vm_finish_script_content := new(bytes.Buffer)
-	temp, err := template.ParseFiles(POST_INSTALL_SCRIPT_PATH)
+	post_install_template, err := template.ParseFiles(POST_INSTALL_SCRIPT_TEMPLATE_PATH)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create VM: Failed to parse template: %v", err)
 	}
-	err = temp.Execute(vm_finish_script_content, struct {
+	err = post_install_template.Execute(vm_finish_script_content, struct {
 		SOURCES_LIST string
 		VM_GATEWAY_6 string
 		UseQemuAgent bool

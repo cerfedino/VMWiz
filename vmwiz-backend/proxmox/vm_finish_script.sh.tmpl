@@ -99,4 +99,8 @@ systemctl enable fstrim.timer || true
 apt install -y qemu-guest-agent
 {{end}}
 
+
+# Script removes itself
+rm -- "$0"
+
 shutdown --reboot +1 "System is going down for reboot in 1 minute"

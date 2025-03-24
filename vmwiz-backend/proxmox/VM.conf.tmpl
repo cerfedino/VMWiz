@@ -1,0 +1,22 @@
+agent: {{.AGENT}}
+bios: ovmf
+boot: order=scsi0;scsi1
+cores: 2
+cpu: host,flags=+ibpb;+virt-ssbd;+amd-ssbd;+pdpe1gb;+aes
+description: {{.VM_DESC}}
+name: {{.VM_FQDN}}
+efidisk0: {{.CEPH_POOL}}:{{.EFI_DISK}},size=4M
+machine: q35
+memory: {{.RAM_SIZE}}
+nameserver: 129.132.98.12 129.132.250.2
+numa: 0
+ostype: l26
+scsi1: {{.CEPH_POOL}}:{{.SWAP_DISK}},size={{.SWAP_SIZE}},discard=on
+scsihw: virtio-scsi-pci
+searchdomain: ethz.ch
+serial0: socket
+smbios1: uuid={{.UUIDV7}},base64=1,manufacturer=U09TRVRIIC8gc29zLmV0aHouY2g=,product=VlNPUyB2U2VydmVy,version=Mi4w,sku=RGVmYXVsdA==,family=TEVFIFZNcw==
+sockets: 1
+vga: serial0
+migrate_downtime: 1
+ipconfig0: gw={{.VM_GATEWAY_4}},ip={{.IPV4S_STR0}}/{{.VM_NETMASK_4}},ip6={{.IPV6S_STR0}}/{{.VM_NETMASK_6}}
