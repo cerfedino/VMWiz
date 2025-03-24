@@ -14,35 +14,38 @@ const app = createApp(App);
 import { aliases, mdi } from "vuetify/iconsets/mdi-svg";
 
 const vuetify = createVuetify({
-  components,
-  directives,
-  icons: {
-    defaultSet: "mdi",
-    aliases,
-    sets: {
-      mdi,
+    components,
+    directives,
+    icons: {
+        defaultSet: "mdi",
+        aliases,
+        sets: {
+            mdi,
+        },
     },
-  },
 });
 
 const store = new Vuex.Store({
-  state: {
-    baseUrl: `${process.env.VUE_APP_VMWIZ_SCHEME}://${process.env.VUE_APP_VMWIZ_HOSTNAME}:${process.env.VUE_APP_VMWIZ_PORT}`,
-  },
-  getters: {
-    fetchVMOptions: (state) => () => {
-      return fetch(`${state.baseUrl}/api/vmoptions`);
+    state: {
+        baseUrl: `${process.env.VUE_APP_VMWIZ_SCHEME}://${process.env.VUE_APP_VMWIZ_HOSTNAME}:${process.env.VUE_APP_VMWIZ_PORT}`,
     },
-    fetchSendVMRequest: (state) => (formData) => {
-      return fetch(`${state.baseUrl}/api/vmrequest`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+    getters: {
+        fetchVMOptions: (state) => () => {
+            return fetch(`${state.baseUrl}/api/vmoptions`);
         },
-        body: JSON.stringify(formData),
-      });
+        fetchRequests: (state) => () => {
+            return fetch(`${state.baseUrl}/api/requests`);
+        },
+        fetchSendVMRequest: (state) => (formData) => {
+            return fetch(`${state.baseUrl}/api/vmrequest`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(formData),
+            });
+        },
     },
-  },
 });
 
 app.use(router).use(store).use(vuetify).mount("#app");

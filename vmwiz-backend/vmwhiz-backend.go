@@ -54,26 +54,26 @@ func main() {
 		log.Fatalf("Error on startup: %v", err.Error())
 	}
 
-	// nodes, err := proxmox.GetAllNodeVMsByName("comp-epyc-lee-3", "vmwiz-test.vsos.ethz.ch")
-	// if err != nil {
-	// 	log.Println(err)
-	// } else {
-	// 	if len(*nodes) > 0 {
-	// 		err = proxmox.ForceStopNodeVM("comp-epyc-lee-3", (*nodes)[0].Vmid)
-	// 		if err != nil {
-	// 			log.Println(err)
-	// 		}
-	// 		err = proxmox.DeleteNodeVM("comp-epyc-lee-3", (*nodes)[0].Vmid, true, true, false)
-	// 		if err != nil {
-	// 			log.Println(err)
-	// 		}
-	// 	}
-	// }
+	nodes, err := proxmox.GetAllNodeVMsByName("comp-epyc-lee-3", "vmwiz-test.vsos.ethz.ch")
+	if err != nil {
+		log.Println(err)
+	} else {
+		if len(*nodes) > 0 {
+			err = proxmox.ForceStopNodeVM("comp-epyc-lee-3", (*nodes)[0].Vmid)
+			if err != nil {
+				log.Println(err)
+			}
+			err = proxmox.DeleteNodeVM("comp-epyc-lee-3", (*nodes)[0].Vmid, true, true, false)
+			if err != nil {
+				log.Println(err)
+			}
+		}
+	}
 
-	// err = netcenter.DeleteDNSEntryByHostname("vmwiz-test.vsos.ethz.ch")
-	// if err != nil {
-	// 	log.Println(err)
-	// }
+	err = netcenter.DeleteDNSEntryByHostname("vmwiz-test.vsos.ethz.ch")
+	if err != nil {
+		log.Println(err)
+	}
 
 	// _, err = proxmox.CreateVM(proxmox.VMCreationOptions{
 	// 	Template:     "noble",
@@ -81,7 +81,7 @@ func main() {
 	// 	Reinstall:    false,
 	// 	RAM_MB:       1024,
 	// 	Disk_GB:      10,
-	// 	UseQemuAgent: false,
+	// 	UseQemuAgent: true,
 	// 	Description:  "Test VM",
 	// 	SSHPubkeys:   []string{"ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBO1IgyOIr5Sx9/Re60E4A6D2KLX9sT8bLl/8mKpS0P8O0wTj82T6/qPWJWeuOfOYP5bj0yErK0Y1xgiTVOePgws= cerfe@sirius"},
 	// })
