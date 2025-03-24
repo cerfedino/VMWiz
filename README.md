@@ -20,16 +20,16 @@
 3. (Optional) **Add a notification endpoint into [notifier_config.yml](/docker/notifier_config.yml) such that you also get notifications.**
 4. **Modify PVE values inside [.pve.env](.pve.env)**
 5. **Setup SSH**\
-The backend estabilishes SSH sessions to the Cluster management (CM) node, the Compute node (CN) and the VMs during the creation process. To that end, you need to supply valid SSH credentials.\
+The backend estabilishes SSH sessions to the Cluster management (CM) node and the Compute node (CN). To that end, you need to supply valid SSH credentials.\
   **5.1 Cluster Management node and Compute node**\
   Populate [docker/ssh/cm_pkey.key](docker/ssh/cm_pkey.key) and [docker/ssh/comp_pkey.key](docker/ssh/comp_pkey.key) with valid private keys for the root user.
   Add the CM and Comp host fingerprints to the [docker/ssh/known_hosts](docker/ssh/known_hosts) file. Finally, adjust the environment variables inside of [.pve.env](.pve.env).\
   **5.2 Default VM credentials**\
   Each VM created through VMWiz will both accept the public key supplied by the requesting student/organization and another "universal" public key shared by every VM.
   Populate [docker/ssh/vm_univ_pubkey.pkey](docker/ssh/vm_univ_pubkey.pkey) and [docker/ssh/vm_univ_privkey.key](docker/ssh/vm_univ_privkey.pkey) with a valid key pair.
-6. **Modify Netcenter values inside of [.pve.env](.pve.env)**\
+1. **Modify Netcenter values inside of [.pve.env](.pve.env)**\
 The backend uses the Netcenter HTTP API, which requires authentication. To that end, insert the credentials of a valid user. 
-7. **Bring up the stack**\
+1. **Bring up the stack**\
 `cd docker && docker compose up`\
 You should now be able to navigate to https://localhost and access the frontend UI.
 
