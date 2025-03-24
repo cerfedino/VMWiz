@@ -774,7 +774,7 @@ Reinstall: %v
 	COMP_VM_BOOT_LOG_PATH := fmt.Sprintf("/tmp/%v.vmwiz.boot.log", VM_ID)
 	COMP_QEMU_VM_BOOT_LOG_PATH := fmt.Sprintf("/var/run/qemu-server/%v.serial0", VM_ID)
 	comp_boot_log_file, err := comp_sftp.Create(COMP_VM_BOOT_LOG_PATH)
-		if err != nil {
+	if err != nil {
 		return nil, fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to create file '%v': %v", COMP_VM_BOOT_LOG_PATH, err)
 	}
 	defer comp_sftp.Remove(COMP_VM_BOOT_LOG_PATH)
@@ -817,15 +817,15 @@ Reinstall: %v
 		}
 		match, _ := regexp.MatchString(first_boot_line, line)
 		if match {
-				break
-			}
+			break
+		}
 	}
 	log.Println("\t\t [X] VM has completed first boot in ", int(time.Now().Sub(vm_boot_start_timestamp).Seconds()), " seconds")
 
 	// Check for any scanning error
 	if err := scanner.Err(); err != nil {
 		log.Fatalf("Error reading output: %v", err)
-		}
+	}
 
 	//! Copying VM's boot log file from Comp to CM
 	log.Printf("[-] Copying VM's boot log file from Comp node to CM at '%v'\n", COMP_VM_BOOT_LOG_PATH)

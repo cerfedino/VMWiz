@@ -127,18 +127,29 @@ func (s *postgresstorage) GetVMRequest(id int64) (*SQLVMRequest, error) {
 	return &req, nil
 }
 
-func (s *postgresstorage) GetAllVMsRequest(id int64) (*SQLVMRequest[], error) {
-	var ids []int64
-	err := DB.db.QueryRow(`SELECT ID FROM request`).Scan(ids)
+func (s *postgresstorage) GetAllVMsRequest() ([]*SQLVMRequest, error) {
+	rows, err := DB.db.Query(`SELECT ID FROM request`)
 	if err != nil {
 		log.Printf("Error getting from SQL: \n%s", err)
 		return nil, err
 	}
+	// Store all IDs
+	var ids []*int64
+	for rows.Next() {
+		var id int64
+		err = rows.Scan(&id)
+		if err != nil {
+			log.Printf("Error getting from SQL: \n%s", err)
+			return nil, err
+		}
+		ids = append(ids, &id)
+	}
+
 	//for id in ids
-	var reqs []SQLVMRequest
+	var reqs []*SQLVMRequest
 	for _, id := range ids {
-		var req SQLVMRequest
-		req, err := s.GetVMRequest(id)
+		var req *SQLVMRequest
+		req, err := s.GetVMRequest(*id)
 		if err != nil {
 			log.Printf("Error getting from SQL: \n%s", err)
 			return nil, err
@@ -146,5 +157,5 @@ func (s *postgresstorage) GetAllVMsRequest(id int64) (*SQLVMRequest[], error) {
 		reqs = append(reqs, req)
 	}
 
-	return &reqs, nil
+	return reqs, nil
 }
