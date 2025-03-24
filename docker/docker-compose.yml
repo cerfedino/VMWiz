@@ -1,0 +1,110 @@
+name: "vmwiz"
+
+networks:
+  vmwiz-internal:
+    external: false
+
+services:
+  vmwiz-caddy:
+    container_name: vmwiz-caddy
+    image: caddy:2.8.4
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    networks:
+      - vmwiz-internal
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./data/Caddy/caddy_data:/data
+      - ./data/Caddy/caddy_config:/config
+      - /etc/timezone:/etc/timezone
+      - /etc/localtime:/etc/localtime
+    env_file:
+      - ../.env
+
+  vmwiz-backend:
+    container_name: vmwiz-backend
+    build: 
+      context: ../vmwiz-backend
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    expose:
+      - 8081:8081
+    networks:
+      - vmwiz-internal
+    command: ["air"]
+    volumes:
+      - ../vmwiz-backend:/app
+      - ./ssh:/root/.ssh
+      - /etc/timezone:/etc/timezone
+      - /etc/localtime:/etc/localtime
+    env_file:
+      - ../.db.env
+      - ../.pve.env
+    depends_on:
+      vmwiz-db:
+        condition: service_healthy
+  
+  vmwiz-notifier:
+    container_name: vmwiz-notifier
+    image: caronc/apprise:1.1.5
+    restart: unless-stopped
+    networks:
+      - vmwiz-internal
+    volumes:
+      - ${PWD}/notifier_config.yml:/config/default.yml
+      - /etc/timezone:/etc/timezone
+      - /etc/localtime:/etc/localtime
+    ports:
+      - "8000:8000" 
+    environment:
+      - APPRISE_STATEFUL_MODE=simple
+      - APPRISE_DEFAULT_CONFIG_ID=default	
+  
+  vmwiz-db:
+    container_name: vmwiz-db
+    image: postgres:latest
+    restart: unless-stopped
+    networks:
+      - vmwiz-internal
+    volumes:
+      - ./data/postgres/:/var/lib/postgresql/data
+      - /etc/timezone:/etc/timezone
+      - /etc/localtime:/etc/localtime
+    env_file:
+      - ../.db.env
+    healthcheck:
+      test: [
+        "CMD-SHELL", 
+        "psql -U $$POSTGRES_USER -d $$POSTGRES_DB -c 'SELECT 1' || exit 1"
+      ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+
+
+  vmwiz-frontend:
+    container_name: vmwiz-frontend
+    build: 
+      context: ../vmwiz-frontend
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    expose:
+      - "8080:8080"
+      - "443:443"
+    networks:
+      - vmwiz-internal
+    volumes:
+      - ../vmwiz-frontend:/app
+      - /etc/timezone:/etc/timezone
+      - /etc/localtime:/etc/localtime
+    working_dir: /app
+    command: /bin/sh -c "yarn install && yarn run serve"
+    env_file:
+      - ../.env

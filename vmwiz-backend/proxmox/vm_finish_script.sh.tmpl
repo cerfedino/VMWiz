@@ -1,0 +1,106 @@
+#!/bin/bash
+
+export TERM="xterm-256color"
+set -euo pipefail
+
+info() {
+    echo "$(tput bold)$(tput setaf 4)$*$(tput sgr 0)"
+}
+
+prex() {
+    echo "> $*"
+    "$@"
+}
+
+info "Launching post-setup script on $(hostname -f) on $(date)"
+
+# On the first boot, cloudinit on some distros installs all outstanding updates. Wait for it to complete.
+info "Waiting for cloudinit completion"
+while [ "$(ps ax | grep cloud-init | grep -v grep)" != "" ] ; do sleep 1 ; done
+
+# Point apt mirrors to something useful
+echo "apt_preserve_sources_list: true" >> /etc/cloud/cloud.cfg
+cat >/etc/apt/sources.list << __EOF__
+{{.SOURCES_LIST}}
+__EOF__
+
+# Create and enable swap
+lsblk
+sed -e 's/\s*\([\+0-9a-zA-Z]*\).*/\1/' << __EOF__ | fdisk /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1
+  g # new GPT table
+  n # new partition
+  1 # partition number 1
+    # default - start at beginning of disk
+    # default - end at end of disk
+  t # type
+  19 # Linux swap
+  p # print the in-memory partition table
+  w # write the partition table
+  q # and we're done
+__EOF__
+sleep 3
+mkswap /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1-part1
+echo -e "$(blkid /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1-part1 | awk '{print $2}')\tnone\tswap\tdefaults\t0\t0" >> /etc/fstab
+
+# Wipe MBR
+dd if=/dev/zero of=/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi0 bs=446 count=1
+
+# Remove cloudinit grub overrides
+rm /etc/default/grub.d/*cloud* || /bin/true
+# Remove debian-specific timeout-to-0 override
+rm /etc/default/grub.d/15_timeout.cfg || /bin/true
+
+# Some cloud images already have old settings floating around - comment them
+sed -i -E 's/^(GRUB_TERMINAL.*)$/#\1/g' /etc/default/grub
+sed -i -E 's/^(GRUB_SERIAL_COMMAND.*)$/#\1/g' /etc/default/grub
+
+# Enable grub serial console (machine doesn't have a gpu)
+cat >>/etc/default/grub << __EOF__
+GRUB_TERMINAL=serial
+GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0 --word=8 --parity=no --stop=1"
+__EOF__
+sed -i 's/GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/g' /etc/default/grub
+sed -i 's/GRUB_TIMEOUT_STYLE=.*/GRUB_TIMEOUT_STYLE=menu/g' /etc/default/grub
+sed -i 's/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="console=ttyS0 console=tty1"/g' /etc/default/grub
+prex update-grub
+# Make sure we have the EFI entry
+prex grub-install
+
+export DEBIAN_FRONTEND=noninteractive
+export DEBCONF_NONINTERACTIVE_SEEN=true
+apt update
+apt upgrade -y
+# Without acpid soft-shutdowns via the console won't work
+apt install -y acpid
+
+# Generate locales
+sed -i '/^#.* en_US.UTF-8 /s/^#//' /etc/locale.gen
+sed -i '/^#.* de_CH.UTF-8 /s/^#//' /etc/locale.gen
+locale-gen
+
+# Do the ETHZ IPv6 sing-and-dance number
+ping6 -c 1 {{.VM_GATEWAY_6}} 2> /dev/null > /dev/null || /bin/true
+# ..and on every boot
+cat >> /etc/rc.local <<__EOF__
+#!/bin/sh
+
+# Ping the ETH IPv6 router on its "normal" address once
+# That makes the DC switches aware where your VM is running so that you don't have to
+# wait for timeouts of their IPv6 filters to expire...
+ping6 -c 1 {{.VM_GATEWAY_6}} 2> /dev/null > /dev/null || /bin/true
+exit 0
+__EOF__
+chmod +x /etc/rc.local
+
+# This will tell CEPH which blocks are free so that other users can get them
+systemctl enable fstrim.timer || true
+
+{{if .UseQemuAgent}}
+apt install -y qemu-guest-agent
+{{end}}
+
+
+# Script removes itself
+rm -- "$0"
+
+shutdown --reboot +1 "System is going down for reboot in 1 minute"

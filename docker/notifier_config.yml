@@ -1,0 +1,6 @@
+# We are using tags for associating backend events with specific services.
+# You can see the available services on the apprise repo [See https://github.com/caronc/apprise#supported-notifications]
+
+urls:
+  # - zulip://vmwiz-bot@chat.sos.ethz.ch/JN7XHKJ3zmWAM6T33QIWslaJtekrF9xD/vsos:
+  #   - tag: new_vmrequest
