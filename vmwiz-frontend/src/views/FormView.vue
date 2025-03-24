@@ -324,11 +324,19 @@ export default {
   },
   methods: {
     resetForm() {
+      // Reset the form values to the initial values
       for (const [key, value] of Object.entries(this.form_values.initial)) {
         if (Array.isArray(value)) this.form_values.current[key] = [...value];
         else this.form_values.current[key] = value;
       }
+
+      // Reset validation errors
+      for (const key of Object.keys(this.form_values.initial)) {
+        this.form_values.validation_errors[key] = "";
+      }
+
       this.storeFormState();
+      this.$refs.form.validate();
     },
     isFormModified() {
       return Object.keys(this.form_values.current).some((key) => {
