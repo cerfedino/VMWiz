@@ -521,8 +521,8 @@ Reinstall: %v
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to create file '%v': %v", VM_AUTHORIZED_KEYS_PATH, err)
 	}
-	defer comp_sftp_authorized_keys.Close()
 	defer comp_sftp.Remove(VM_AUTHORIZED_KEYS_PATH)
+	defer comp_sftp_authorized_keys.Close()
 
 	_, err = comp_sftp_authorized_keys.Write([]byte(authorized_keys_content))
 	if err != nil {
@@ -851,27 +851,6 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 	}
 	// fmt.Println(string(comp_sftp_bootlog_content))
 
-	//! Prepare VM post-install script
-	POST_INSTALL_SCRIPT_PATH := "proxmox/vm_finish_script.sh.tmpl"
-	log.Printf("\t[-] Preparing VM post-install script from template '%v'\n", POST_INSTALL_SCRIPT_PATH)
-	vm_finish_script_content := new(bytes.Buffer)
-	temp, err := template.ParseFiles(POST_INSTALL_SCRIPT_PATH)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create VM: Failed to parse template: %v", err)
-	}
-	err = temp.Execute(vm_finish_script_content, struct {
-		SOURCES_LIST string
-		VM_GATEWAY_6 string
-		UseQemuAgent bool
-	}{
-		SOURCES_LIST: SOURCES_LIST,
-		VM_GATEWAY_6: VM_GATEWAY_6,
-		UseQemuAgent: options.UseQemuAgent,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create VM: Failed to execute template: %v", err)
-	}
-
 	//! Adding VM ssh public key to CM known hosts file
 	log.Printf("\t[-] Generating VM SSH fingerprints\n")
 	cm_ssh, err := createCMSSHClient()
@@ -914,7 +893,7 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 
 	// Append to CM known hosts file
 	log.Printf("\t\t[-] Appending VM SSH ed25519 pubkey to CM's known hosts\n")
-	command = "echo \"" + options.FQDN + "," + ipv4s_str[0] + "," + ipv6s_str[0] + "," + ssh_ed_25519_pubkey + "\" >> /root/.ssh/known_hosts"
+	command = "echo \"" + options.FQDN + "," + ipv4s_str[0] + "," + ipv6s_str[0] + " " + ssh_ed_25519_pubkey + "\" >> /root/.ssh/known_hosts"
 	log.Printf("\t\t> %v\n", command)
 	_, err = cm_ssh.Run(command)
 	if err != nil {
@@ -938,6 +917,65 @@ ipconfig0: gw=%v,ip=%v/%v,ip6=%v/%v
 	}
 
 	fmt.Println(strings.Join(vm_fingerprints, "\n"))
+
+	//! Prepare VM post-install script
+	POST_INSTALL_SCRIPT_PATH := "proxmox/vm_finish_script.sh.tmpl"
+	log.Printf("\t[-] Preparing VM post-install script from template '%v'\n", POST_INSTALL_SCRIPT_PATH)
+	vm_finish_script_content := new(bytes.Buffer)
+	temp, err := template.ParseFiles(POST_INSTALL_SCRIPT_PATH)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Failed to parse template: %v", err)
+	}
+	err = temp.Execute(vm_finish_script_content, struct {
+		SOURCES_LIST string
+		VM_GATEWAY_6 string
+		UseQemuAgent bool
+	}{
+		SOURCES_LIST: SOURCES_LIST,
+		VM_GATEWAY_6: VM_GATEWAY_6,
+		UseQemuAgent: options.UseQemuAgent,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Failed to execute template: %v", err)
+	}
+
+	//! Upload post-install script to VM
+	log.Printf("\t[-] Uploading post-install script to VM\n")
+	POST_INSTALL_SCRIPT_PATH_CM := fmt.Sprintf("/tmp/%v-vmwiz-post-install.sh", VM_ID)
+	POST_INSTALL_SCRIPT_PATH_VM := fmt.Sprintf("/home/%v/vmwiz-post-install.sh", ssh_user)
+	POST_INSTALL_LOG_PATH_CM := fmt.Sprintf("/tmp/%v-vmwiz-post-install.log", VM_ID)
+	log.Printf("\t\t[-] Creating post-install script to CM first at %v\n", POST_INSTALL_SCRIPT_PATH_CM)
+	cm_sftp_postinstall, err := cm_sftp.Create(POST_INSTALL_SCRIPT_PATH_CM)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: CM SFTP: Failed to create file '%v': %v", POST_INSTALL_SCRIPT_PATH_CM, err)
+	}
+	defer cm_sftp.Remove(POST_INSTALL_SCRIPT_PATH_CM)
+	defer cm_sftp_postinstall.Close()
+
+	_, err = cm_sftp_postinstall.Write(vm_finish_script_content.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: CM SFTP: Failed to write to file '%v': %v", POST_INSTALL_SCRIPT_PATH_CM, err)
+	}
+
+	log.Printf("\t\t[-] Copying post-install script from CM to VM\n")
+	command = fmt.Sprintf("scp %v %v@%v:%v", POST_INSTALL_SCRIPT_PATH_CM, ssh_user, ipv4s_str[0], POST_INSTALL_SCRIPT_PATH_VM)
+	log.Printf("\t\t> %v\n", command)
+	_, err = cm_ssh.Run(command)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: CM SSH: Failed to copy post-install script to VM: %v\nOutput:\n%s", err, stdout)
+	}
+
+	//! Execute post-install script on VM
+	log.Printf("\t[-] Executing post-install script on VM\n")
+
+	log.Printf("\t\t[-] Running post-install script on VM\n")
+	defer cm_sftp.Remove(POST_INSTALL_LOG_PATH_CM)
+	command = fmt.Sprintf("ssh \"%v@%v\" \"chmod +x %v && sudo %v | sudo tee %v\"", ssh_user, ipv4s_str[0], POST_INSTALL_SCRIPT_PATH_VM, POST_INSTALL_SCRIPT_PATH_VM, POST_INSTALL_LOG_PATH_CM)
+	log.Printf("\t\t> %v\n", command)
+	stdout, err = cm_ssh.Run(command)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create VM: Failed to run post-install script on VM: %v\nStdout: %v", err, string(stdout))
+	}
 
 	_ = comp_node
 	_ = example_fqdn

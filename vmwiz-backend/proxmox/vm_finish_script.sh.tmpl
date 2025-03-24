@@ -4,19 +4,19 @@ export TERM="xterm-256color"
 set -euo pipefail
 
 info() {
-    echo "\$(tput bold)\$(tput setaf 4)\$*\$(tput sgr 0)"
+    echo "$(tput bold)$(tput setaf 4)$*$(tput sgr 0)"
 }
 
 prex() {
-    echo "> \$*"
-    "\$@"
+    echo "> $*"
+    "$@"
 }
 
-info "Launching post-setup script on \$(hostname -f) on \$(date)"
+info "Launching post-setup script on $(hostname -f) on $(date)"
 
 # On the first boot, cloudinit on some distros installs all outstanding updates. Wait for it to complete.
 info "Waiting for cloudinit completion"
-while [ "\$(ps ax | grep cloud-init | grep -v grep)" != "" ] ; do sleep 1 ; done
+while [ "$(ps ax | grep cloud-init | grep -v grep)" != "" ] ; do sleep 1 ; done
 
 # Point apt mirrors to something useful
 echo "apt_preserve_sources_list: true" >> /etc/cloud/cloud.cfg
@@ -40,7 +40,7 @@ sed -e 's/\s*\([\+0-9a-zA-Z]*\).*/\1/' << __EOF__ | fdisk /dev/disk/by-id/scsi-0
 __EOF__
 sleep 3
 mkswap /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1-part1
-echo -e "\$(blkid /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1-part1 | awk '{print \$2}')\tnone\tswap\tdefaults\t0\t0" >> /etc/fstab
+echo -e "$(blkid /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1-part1 | awk '{print $2}')\tnone\tswap\tdefaults\t0\t0" >> /etc/fstab
 
 # Wipe MBR
 dd if=/dev/zero of=/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi0 bs=446 count=1
