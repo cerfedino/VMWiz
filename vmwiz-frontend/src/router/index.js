@@ -1,11 +1,17 @@
 import { createRouter, createWebHashHistory } from "vue-router";
 import FormView from "@/views/FormView.vue";
+import AdminConsoleView from "@/views/AdminConsoleView.ue";
 
 const routes = [
   {
     path: "/",
     name: "home",
     component: FormView,
+  },
+  {
+    path: "/console/",
+    name: "admin",
+    component: AdminConsoleView,
   },
   // {
   //   path: "/about",

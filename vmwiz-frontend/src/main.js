@@ -33,6 +33,9 @@ const store = new Vuex.Store({
     fetchVMOptions: (state) => () => {
       return fetch(`${state.baseUrl}/api/vmoptions`);
     },
+    fetchRequests: (state) => () => {
+      return fetch(`${state.baseUrl}/api/requests`);
+    },
     fetchSendVMRequest: (state) => (formData) => {
       return fetch(`${state.baseUrl}/api/vmrequest`, {
         method: "POST",

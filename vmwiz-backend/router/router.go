@@ -57,5 +57,16 @@ func Router() *mux.Router {
 		w.Write(resp)
 	}))
 
+	r.Methods("GET").Path("/api/requests").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vmRequests, err := storage.DB.GetVMRequests()
+		if err != nil {
+			log.Printf("Failed to get VM requests: %v", err)
+			http.Error(w, "Failed to get VM requests", http.StatusInternalServerError)
+			return
+		}
+		resp, _ := json.Marshal(vmRequests)
+		w.Write(resp)
+	}))
+
 	return r
 }
