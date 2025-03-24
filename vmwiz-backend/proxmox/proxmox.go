@@ -17,6 +17,7 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -242,7 +243,7 @@ type PVEClusterVM struct {
 	Status      string  `json:"status"`
 	Storage     string  `json:"storage"`
 	Tags        string  `json:"tags"`
-	Template    bool    `json:"template"`
+	Template    int     `json:"template"`
 	Uptime      int     `json:"uptime"`
 	Vmid        int     `json:"vmid"`
 }
@@ -1018,15 +1019,22 @@ Reinstall: %v
 		return nil, fmt.Errorf("Failed to create VM: %v", err)
 	}
 
-	log.Printf("[+] Created VM %v on node %v [FQDN: %v, IPv4[0]:%v, Image: %v, CPU: %v, RAM: %v, Disk: %v]\n", VM_ID, ipv4s_str[0], comp_node_name, options.FQDN, options.Template, vm.Cpus, vm.Maxmem, vm.Maxdisk)
+	log.Println(`[+] Created VM ` + string(vm.Vmid) + ` on node ` + comp_node_name + `
+	 FQDN: ` + options.FQDN + `
+	 IPv4[0]:` + ipv4s_str[0] + `
+	 IPv6[0]:` + ipv6s_str[0] + `
+	 Image: ` + options.Template + `
+	 CPU: ` + strconv.FormatFloat(vm.Cpus, 'f', -1, 64) + `
+	 RAM: ` + strconv.Itoa(vm.Maxmem) + `
+	 Disk: ` + strconv.Itoa(vm.Maxdisk))
+
 	return vm, nil
 }
 
-func IsNameTaken(hostname string) (bool, error) {
-	// TODO: We check only if there is a VM with the same name. Should we also check DNS ?
+func ExistsVMName(hostname string) (bool, error) {
 	vms, err := GetAllClusterVMs()
 	if err != nil {
-		return false, fmt.Errorf("Failed to check if hostname '%v' is taken: %v", err.Error())
+		return false, fmt.Errorf("Failed to check if hostname '%v' is taken: %v", hostname, err.Error())
 	}
 
 	for _, m := range *vms {

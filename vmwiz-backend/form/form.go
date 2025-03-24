@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/proxmox"
 
 	"golang.org/x/crypto/ssh"
@@ -100,14 +101,21 @@ func (f *Form) Validate() (Form_validation, bool) {
 		err = true
 	}
 
-	taken, e := proxmox.IsNameTaken(fmt.Sprintf("%v.vsos.ethz.ch", f.Hostname))
+	taken, e := proxmox.ExistsVMName(fmt.Sprintf("%v.vsos.ethz.ch", f.Hostname))
 	if e != nil {
 		fmt.Printf("ERROR: %v", e)
 		validation.Hostname_err = "Hostname cannot be validated"
 		err = true
 	}
 
-	if taken {
+	existing_ipv4s, existing_ipv6sm, e := netcenter.GetHostIPs(fmt.Sprintf("%v.vsos.ethz.ch", f.Hostname))
+	if e != nil {
+		fmt.Printf("ERROR: %v", e)
+		validation.Hostname_err = "Hostname cannot be validated"
+		err = true
+	}
+
+	if taken || len(existing_ipv4s) > 0 || len(existing_ipv6sm) > 0 {
 		validation.Hostname_err = "Hostname is already taken"
 		err = true
 	}
