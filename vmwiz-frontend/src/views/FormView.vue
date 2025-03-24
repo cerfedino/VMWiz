@@ -177,15 +177,6 @@
           :icon="mdiPlusBoxOutline"
           @click="form_values.current.sshPubkey.push('')"
         />
-        <p class="text-caption text-error">
-          {{
-            form_values.current.sshPubkey.length != 0
-              ? Array.isArray(form_values.validation_errors.sshPubkey)
-                ? form_values.validation_errors.sshPubkey.join("\n")
-                : form_values.validation_errors.sshPubkey
-              : ""
-          }}
-        </p>
       </h1>
       <div v-for="(key, index) in form_values.current.sshPubkey" :key="index">
         <v-text-field
