@@ -355,7 +355,6 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, error) {
 	first_boot_line := "no"
 
 	VMPUBKEY_PATH := "/root/.ssh/vm_univ_pubkey.key"
-	VMPRIVKEY_PATH := "/root/.ssh/vm_univ_privkey.key"
 
 	//! Choosing appropriate user and first boot line
 	log.Println("[-] Choosing appropriate user and first boot line based on template")
@@ -433,25 +432,25 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, error) {
 	log.Println("[-] Preparing apt sources for VM")
 	var SOURCES_LIST string
 	if options.Template == "bullseye" || options.Template == "bookworm" {
-		SOURCES_LIST = `
-		deb http://ftp.ch.debian.org/debian $template main
-		#deb-src http://ftp.ch.debian.org/debian $template main
+		SOURCES_LIST = fmt.Sprintf(`
+		deb http://ftp.ch.debian.org/debian %v main
+		#deb-src http://ftp.ch.debian.org/debian %v main
 
-		deb http://ftp.ch.debian.org/debian $template-updates main
-		#deb-src http://ftp.ch.debian.org/debian $template-updates main
+		deb http://ftp.ch.debian.org/debian %v-updates main
+		#deb-src http://ftp.ch.debian.org/debian %v-updates main
 
-		deb http://security.debian.org/ $template-security main
-		#deb-src http://security.debian.org/ $template-security main`
+		deb http://security.debian.org/ %v-security main
+		#deb-src http://security.debian.org/ %v-security main`, options.Template, options.Template, options.Template, options.Template, options.Template, options.Template)
 	} else if options.Template == "jammy" || options.Template == "noble" {
-		SOURCES_LIST = `
-		deb http://ch.archive.ubuntu.com/ubuntu $template main universe multiverse
-		#deb-src http://ch.archive.ubuntu.com/ubuntu $template main universe multiverse
+		SOURCES_LIST = fmt.Sprintf(`
+		deb http://ch.archive.ubuntu.com/ubuntu %v main universe multiverse
+		#deb-src http://ch.archive.ubuntu.com/ubuntu %v main universe multiverse
 
-		deb http://ch.archive.ubuntu.com/ubuntu $template-updates main universe multiverse
-		#deb-src http://ch.archive.ubuntu.com/ubuntu $template-updates main universe multiverse
+		deb http://ch.archive.ubuntu.com/ubuntu %v-updates main universe multiverse
+		#deb-src http://ch.archive.ubuntu.com/ubuntu %v-updates main universe multiverse
 
-		deb http://security.ubuntu.com/ubuntu $template-security main universe multiverse
-		#deb-src http://security.ubuntu.com/ubuntu $template-security main universe multiverse`
+		deb http://security.ubuntu.com/ubuntu %v-security main universe multiverse
+		#deb-src http://security.ubuntu.com/ubuntu %v-security main universe multiverse`, options.Template, options.Template, options.Template, options.Template, options.Template, options.Template)
 	} else {
 		return nil, fmt.Errorf("Failed to create VM: Unknown template %v", options.Template)
 	}
