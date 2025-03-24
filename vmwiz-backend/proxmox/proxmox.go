@@ -502,7 +502,8 @@ Reinstall: %v
 	}
 
 	//! Prepare authorized_keys file
-	log.Println("[-] Preparing authorized_keys file\n\tConcatenating VM universal public key with provided pubkeys")
+	log.Println("[-] Preparing authorized_keys file")
+	log.Println("\tConcatenating VM universal public key with provided pubkeys")
 	authorized_keys_content := strings.Join(slices.Concat(options.SSHPubkeys, strings.Split(string(vmpubkey_content), "\n")), "\n\n")
 
 	//! Upload authorized_keys file to comp node
