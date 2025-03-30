@@ -1,5 +1,4 @@
 <template>
-    <!-- <div class="h-screen d-flex flex-column justify-center"> -->
     <div class="w-75 pa-6 ma-auto border-t-sm" style="max-width: 700px">
         <h1 class="text-h4 text-center font-weight-bold mb-3">VM Requests</h1>
 
@@ -30,24 +29,48 @@
 
             <table>
                 <tr>
-                    <td>Hostname</td>
-                    <td>{{ request.Hostname }}</td>
-                </tr>
-                <tr>
                     <td>OS Image</td>
                     <td>{{ request.Image }}</td>
                 </tr>
                 <tr>
+                    <td>Hostname</td>
+                    <td>
+                        <input
+                            v-model="request.Hostname"
+                            type="text"
+                            class="form-control"
+                        />
+                    </td>
+                </tr>
+                <tr>
                     <td>CPU Cores</td>
-                    <td>{{ request.Cores }}</td>
+                    <td>
+                        <input
+                            v-model.number="request.Cores"
+                            type="number"
+                            class="form-control"
+                        />
+                    </td>
                 </tr>
                 <tr>
                     <td>RAM (GB)</td>
-                    <td>{{ request.RamGB }}</td>
+                    <td>
+                        <input
+                            v-model.number="request.RamGB"
+                            type="number"
+                            class="form-control"
+                        />
+                    </td>
                 </tr>
                 <tr>
                     <td>Disk Space (GB)</td>
-                    <td>{{ request.DiskGB }}</td>
+                    <td>
+                        <input
+                            v-model.number="request.DiskGB"
+                            type="number"
+                            class="form-control"
+                        />
+                    </td>
                 </tr>
                 <tr>
                     <td>SSH Public Key(s)</td>
@@ -67,36 +90,71 @@
             </table>
 
             <div class="d-flex flex-column">
-                <v-btn class="mt-4" :color="submit_color" @click="submit(request.ID)">
+                <v-btn
+                    class="mt-4"
+                    :color="submit_color"
+                    @click="accept(request.ID)"
+                >
                     <b>Accept request</b>
+                </v-btn>
+                <v-btn
+                    class="mt-4"
+                    :color="edit_color"
+                    @click="edit(request.ID, request.Hostname, request.Cores, request.RamGB, request.DiskGB)"
+                >
+                    <b>Edit request</b>
+                </v-btn>
+                <v-btn
+                    class="mt-4"
+                    :color="reject_color"
+                    @click="reject(request.ID)"
+                >
+                    <b>Reject request</b>
                 </v-btn>
             </div>
         </div>
     </div>
-    <!-- </div> -->
 </template>
 
 <script>
+function handleRequest(action, payload) {
+    const endpoints = {
+        accept: "/api/request/accept/",
+        reject: "/api/request/reject/",
+        edit: "/api/request/edit/",
+    };
 
-function submit(id) {
-    fetch("/api/accept", {
+    fetch(endpoints[action], {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
         },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify(payload),
     })
         .then((response) => {
             if (response.ok) {
-                console.log("Request accepted");
+                console.log(`Request ${action}ed successfully`);
             } else {
-                console.error("Error accepting request");
+                console.error(`Error ${action}ing request`);
             }
         })
         .catch((error) => {
             console.error("Error:", error);
         });
 }
+
+function accept(id) {
+    handleRequest("accept", { id });
+}
+
+function reject(id) {
+    handleRequest("reject", { id });
+}
+
+function edit(id, hostname, cores, ram, disk) {
+    handleRequest("edit", { id, hostname, cores, ram, disk });
+}
+
 export default {
     name: "AdminView",
     data() {
@@ -111,12 +169,6 @@ export default {
             .then((response) => response.json())
             .then((data) => {
                 this.$data.requests = data;
-
-                console.log(data);
-
-                // for (const [key, value] of Object.entries(data)) {
-                //   this.requests[key] = value;
-                // }
             });
     },
     components: {},
