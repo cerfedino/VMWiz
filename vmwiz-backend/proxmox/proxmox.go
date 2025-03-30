@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -26,18 +27,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/melbahja/goph"
 	"github.com/pkg/sftp"
-	"golang.org/x/exp/rand"
 )
 
 func proxmoxMakeRequest(method string, path string, body []byte) (*http.Request, *http.Client, error) {
 	url, err := url.Parse(fmt.Sprintf("%v%v", os.Getenv("PVE_HOST"), path))
 	if err != nil {
-		return nil, nil, fmt.Errorf("Creating request: Parsing URL: %v", err.Error())
+		return nil, nil, fmt.Errorf("Making request: Parsing URL: %v", err.Error())
 	}
 	// log.Println("Requesting URL: '" + url.String() + "'")
 	req, err := http.NewRequest(method, url.String(), bytes.NewReader(body))
 	if err != nil {
-		return nil, nil, fmt.Errorf("Creating request %v %v: %v", method, url, err.Error())
+		return nil, nil, fmt.Errorf("Making request %v %v: %v", method, url, err.Error())
 	}
 
 	req.Header.Add("Authorization", fmt.Sprintf("PVEAPIToken=%v!%v=%v", os.Getenv("PVE_USER"), os.Getenv("PVE_TOKENID"), os.Getenv("PVE_UUID")))
@@ -48,14 +48,14 @@ func proxmoxMakeRequest(method string, path string, body []byte) (*http.Request,
 func proxmoxDoRequest(req *http.Request, client *http.Client) ([]byte, error) {
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("Making request %v %v: %v", req.Method, req.URL, err.Error())
+		return nil, fmt.Errorf("Doing request %v %v: %v", req.Method, req.URL, err.Error())
 	}
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("Making request: Cannot read body: %v", err.Error())
+		return nil, fmt.Errorf("Doing request: Cannot read body: %v", err.Error())
 	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return nil, fmt.Errorf("Making request: Status %v\nBody: %v", res.Status, string(body))
+		return nil, fmt.Errorf("Doing request: Status %v\nBody: %v", res.Status, string(body))
 	}
 
 	return body, nil
