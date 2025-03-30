@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc"
@@ -41,10 +42,8 @@ func Init() {
 		ClientSecret: os.Getenv("KEYCLOAK_CLIENT_SECRET"),
 		RedirectURL:  os.Getenv("VMWIZ_SCHEME") + "://" + os.Getenv("VMWIZ_HOSTNAME") + "/api/auth/callback",
 
-		// Discovery returns the OAuth2 endpoints.
 		Endpoint: provider.Endpoint(),
 
-		// "openid" is a required scope for OpenID Connect flows.
 		Scopes: []string{oidc.ScopeOpenID, "profile", "roles"},
 	}
 }
@@ -76,7 +75,7 @@ func CheckAuthenticated(next http.Handler) http.Handler {
 			return
 		}
 
-		// Verify the token using your oidc verifier.
+		// Verify the token
 		idToken, err := verifier.Verify(ctx, tokenCookie.Value)
 		if err != nil {
 			fmt.Println("Error verifying token:", err)
@@ -84,14 +83,19 @@ func CheckAuthenticated(next http.Handler) http.Handler {
 			return
 		}
 
-		// Extract claims. You can decode them into a custom struct or a map.
 		var claims KeycloakUser
 		err = idToken.Claims(&claims)
-		fmt.Println(claims)
-
-		// Attach claims to the request context.
-		ctxWithClaims := context.WithValue(r.Context(), "user", claims)
-		next.ServeHTTP(w, r.WithContext(ctxWithClaims))
+		for _, group := range claims.Groups {
+			// TODO: Add groups to env
+			if strings.TrimPrefix(group, "/") == "vsos-team" {
+				// Attach claims to the request context.
+				ctxWithClaims := context.WithValue(r.Context(), "user", claims)
+				next.ServeHTTP(w, r.WithContext(ctxWithClaims))
+				return
+			}
+		}
+		http.Error(w, "Your user is not allowed to use this route", http.StatusUnauthorized)
+		return
 	})
 }
 
