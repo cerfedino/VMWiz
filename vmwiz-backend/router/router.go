@@ -106,6 +106,27 @@ func Router() *mux.Router {
 
 	}))
 
+	r.Methods("POST").Path("/api/requests/reject").Subrouter().NewRoute().Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		type bodyS struct {
+			ID int `json:"id"`
+		}
+
+		var body bodyS
+		err := json.NewDecoder(r.Body).Decode(&body)
+		if err != nil {
+			log.Printf("Error decoding JSON: %v", err)
+			http.Error(w, "Invalid request payload", http.StatusBadRequest)
+			return
+		}
+
+		err = storage.DB.UpdateVMRequestStatus(int64(body.ID), storage.STATUS_REJECTED)
+		if err != nil {
+			log.Printf("Error updating VM request status: %v", err)
+			http.Error(w, "Failed to update VM request status", http.StatusInternalServerError)
+			return
+		}
+	}))
+
 	// Authentication routes
 	r.Methods("GET").Path("/api/auth/start").HandlerFunc(auth.RedirectToKeycloak)
 	r.Methods("GET").Path("/api/auth/callback").HandlerFunc(auth.HandleKeycloakCallback)

@@ -152,7 +152,7 @@ func (s *postgresstorage) GetVMRequest(id int64) (*SQLVMRequest, error) {
 }
 
 func (s *postgresstorage) UpdateVMRequestStatus(id int64, status string) error {
-	_, err := DB.db.Exec(`UPDATE request SET requestStatus=$1 WHERE id=$2`, status, id)
+	_, err := DB.db.Exec(`UPDATE request SET requestStatus=$1 WHERE requestID=$2`, status, id)
 	if err != nil {
 		log.Printf("Error updating SQL: \n%s", err)
 	}
