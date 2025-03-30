@@ -126,6 +126,28 @@ func Router() *mux.Router {
 			return
 		}
 	}))
+	r.Methods("POST").Path("/api/dns/deleteByHostname").Subrouter().NewRoute().Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		type bodyS struct {
+			Hostname string `json:"hostname"`
+		}
+
+		var body bodyS
+		err := json.NewDecoder(r.Body).Decode(&body)
+		if err != nil {
+			log.Printf("Error decoding JSON: %v", err)
+			http.Error(w, "Invalid request payload", http.StatusBadRequest)
+			return
+		}
+
+		err = netcenter.DeleteDNSEntryByHostname(body.Hostname)
+		if err != nil {
+			log.Printf("Error deleting DNS entry: %v", err)
+			http.Error(w, "Failed to delete DNS entry", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}))
 
 	// Authentication routes
 	r.Methods("GET").Path("/api/auth/start").HandlerFunc(auth.RedirectToKeycloak)
