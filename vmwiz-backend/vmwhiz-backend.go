@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/router"
@@ -54,6 +55,8 @@ func main() {
 		log.Fatalf("Error on startup: %v", err.Error())
 	}
 
+	auth.Init()
+
 	nodes, err := proxmox.GetAllNodeVMsByName("comp-epyc-lee-3", "vmwiz-test.vsos.ethz.ch")
 	if err != nil {
 		log.Println(err)
@@ -82,7 +85,7 @@ func main() {
 	// 	RAM_MB:       1024,
 	// 	Disk_GB:      10,
 	// 	UseQemuAgent: true,
-	// 	Description:  "Test VM",
+	// 	Notes:        "Test VM",
 	// 	SSHPubkeys:   []string{"ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBO1IgyOIr5Sx9/Re60E4A6D2KLX9sT8bLl/8mKpS0P8O0wTj82T6/qPWJWeuOfOYP5bj0yErK0Y1xgiTVOePgws= cerfe@sirius"},
 	// })
 	// if err != nil {

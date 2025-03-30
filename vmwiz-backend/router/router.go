@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/form"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/notifier"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
@@ -57,7 +58,7 @@ func Router() *mux.Router {
 		w.Write(resp)
 	}))
 
-	r.Methods("GET").Path("/api/requests").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("GET").Path("/api/requests").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		vmRequests, err := storage.DB.GetAllVMsRequest()
 		if err != nil {
 			log.Printf("Failed to get VM requests: %v", err)
@@ -71,7 +72,11 @@ func Router() *mux.Router {
 			return
 		}
 		w.Write(resp)
-	}))
+	})))
+
+	r.Methods("GET").Path("/api/auth/start").HandlerFunc(auth.RedirectToKeycloak)
+	r.Methods("GET").Path("/api/auth/callback").HandlerFunc(auth.HandleKeycloakCallback)
+
 
 	return r
 }

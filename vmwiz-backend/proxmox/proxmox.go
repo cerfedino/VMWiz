@@ -65,8 +65,7 @@ func proxmoxDoRequest(req *http.Request, client *http.Client) ([]byte, error) {
 func GetAllClusterNodes() (*[]PVENode, error) {
 	req, client, err := proxmoxMakeRequest(http.MethodGet, "/api2/json/nodes", []byte{})
 	if err != nil {
-		log.Println("Failed to retrieve all Proxmox nodes: %v", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("Failed to retrieve all Proxmox nodes: %v\n", err.Error())
 	}
 	q := req.URL.Query()
 	// q.Set("type", "node")
@@ -171,7 +170,7 @@ type PVENodeVM struct {
 	Cpus            float64 `json:"cpus"`
 	Diskread        int     `json:"diskread"`
 	Diskwrite       int     `json:"diskwrite"`
-	lock            string  `json:"lock"`
+	Lock            string  `json:"lock"`
 	Maxdisk         int     `json:"maxdisk"`
 	Maxmem          int     `json:"maxmem"`
 	Name            string  `json:"name"`
@@ -307,7 +306,7 @@ type VMCreationOptions struct {
 	RAM_MB       int64
 	Disk_GB      int64
 	UseQemuAgent bool
-	Description  string
+	Notes        string
 	SSHPubkeys   []string
 	nethz_user   string
 	nethz_pass   string
@@ -399,7 +398,7 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, error) {
 
 	// TODO: What is actually allowed ?
 	if len(ipv4s_str) > 1 || len(ipv6s_str) > 1 {
-		return nil, fmt.Errorf("Failed to create VM: Each VM hostname should have AT MOST one IPv4 and one IPv6 address", options.FQDN)
+		return nil, fmt.Errorf("Failed to create VM: Each VM hostname %v should have AT MOST one IPv4 and one IPv6 address.", options.FQDN)
 	}
 
 	if options.Reinstall && (len(ipv4s_str) == 0 || len(ipv6s_str) == 0) {
@@ -479,7 +478,7 @@ QEMU agent: %v
 
 Reinstall: %v
 -------
-`, VM_ID, options.FQDN, options.Description, options.Template, options.RAM_MB, options.Disk_GB, VM_SWAP_SIZE, CEPH_POOL, options.UseQemuAgent, options.Reinstall)
+`, VM_ID, options.FQDN, options.Notes, options.Template, options.RAM_MB, options.Disk_GB, VM_SWAP_SIZE, CEPH_POOL, options.UseQemuAgent, options.Reinstall)
 
 	//! Register DNS entries for FQDN and an available IPv4 and IPv6 address.
 	if !options.Reinstall {
@@ -554,7 +553,7 @@ Reinstall: %v
 	VM_FQDN := options.FQDN
 	IMAGE_PATH := IMAGE_REMOTE
 	FIRST_BOOT_LINE := first_boot_line
-	VM_DESC := options.Description
+	VM_DESC := options.Notes
 	var AGENT int
 	if options.UseQemuAgent {
 		AGENT = 1
