@@ -1,7 +1,7 @@
 agent: {{.AGENT}}
 bios: ovmf
 boot: order=scsi0;scsi1
-cores: 2
+cores: {{.CPU_CORES}}
 cpu: host,flags=+ibpb;+virt-ssbd;+amd-ssbd;+pdpe1gb;+aes
 description: {{.VM_DESC}}
 name: {{.VM_FQDN}}

@@ -303,14 +303,20 @@ type VMCreationOptions struct {
 	Template     string
 	FQDN         string
 	Reinstall    bool
+	Cores_CPU    int
 	RAM_MB       int64
 	Disk_GB      int64
 	UseQemuAgent bool
 	Notes        string
 	SSHPubkeys   []string
-	nethz_user   string
-	nethz_pass   string
 }
+
+const (
+	IMAGE_UBUNTU_22_04 = "Ubuntu 22.04 - Jammy Jellyfish"
+	IMAGE_UBUNTU_24_04 = "Ubuntu 24.04 - Noble Numbat"
+	IMAGE_DEBIAN_12    = "Debian 12 - Bookworm"
+	IMAGE_DEBIAN_11    = "Debian 11 - Bullseye"
+)
 
 func CreateVM(options VMCreationOptions) (*PVENodeVM, error) {
 
@@ -350,7 +356,7 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, error) {
 	VM_DEFAULT_ROOT_SIZE := "15G"
 	VM_DEFAULT_RAM_SIZE := "2048"
 
-	vm_template := options.Template
+	// options.Template := options.Template
 	ssh_user := "root"
 	first_boot_line := "no"
 
@@ -358,21 +364,25 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, error) {
 
 	//! Choosing appropriate user and first boot line
 	log.Println("[-] Choosing appropriate user and first boot line based on template")
-	switch vm_template {
-	case "bullseye":
+	switch options.Template {
+	case IMAGE_DEBIAN_11:
+		options.Template = "bullseye"
 		ssh_user = "debian"
 		first_boot_line = "Cloud-init .* finished"
-	case "bookworm":
+	case IMAGE_DEBIAN_12:
+		options.Template = "bookworm"
 		ssh_user = "debian"
 		first_boot_line = "Cloud-init .* finished"
-	case "jammy":
+	case IMAGE_UBUNTU_22_04:
+		options.Template = "jammy"
 		ssh_user = "ubuntu"
 		first_boot_line = "Cloud-init .* finished"
-	case "noble":
+	case IMAGE_UBUNTU_24_04:
+		options.Template = "noble"
 		ssh_user = "ubuntu"
 		first_boot_line = "Cloud-init .* finished"
 	default:
-		return nil, fmt.Errorf("\tFailed to create VM: Unknown template %v", vm_template)
+		return nil, fmt.Errorf("\tFailed to create VM: Unknown template %v", options.Template)
 	}
 
 	//! Checking existence of DNS entries for chosen FQDN
@@ -469,6 +479,7 @@ FQDN: %v
 Description: %v
 
 OS: %v
+Cores: %v
 RAM: %v
 Disk size: %v
 Swap size: %v
@@ -478,7 +489,7 @@ QEMU agent: %v
 
 Reinstall: %v
 -------
-`, VM_ID, options.FQDN, options.Notes, options.Template, options.RAM_MB, options.Disk_GB, VM_SWAP_SIZE, CEPH_POOL, options.UseQemuAgent, options.Reinstall)
+`, VM_ID, options.FQDN, options.Notes, options.Template, options.Cores_CPU, options.RAM_MB, options.Disk_GB, VM_SWAP_SIZE, CEPH_POOL, options.UseQemuAgent, options.Reinstall)
 
 	//! Register DNS entries for FQDN and an available IPv4 and IPv6 address.
 	if !options.Reinstall {
@@ -642,6 +653,7 @@ Reinstall: %v
 		VM_FQDN      string
 		CEPH_POOL    string
 		EFI_DISK     string
+		CPU_CORES    int
 		RAM_SIZE     string
 		SWAP_DISK    string
 		SWAP_SIZE    string
@@ -657,6 +669,7 @@ Reinstall: %v
 		VM_FQDN:      VM_FQDN,
 		CEPH_POOL:    CEPH_POOL,
 		EFI_DISK:     EFI_DISK,
+		CPU_CORES:    options.Cores_CPU,
 		RAM_SIZE:     RAM_SIZE,
 		SWAP_DISK:    SWAP_DISK,
 		SWAP_SIZE:    SWAP_SIZE,

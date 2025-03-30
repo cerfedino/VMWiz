@@ -59,7 +59,7 @@ type form_allowed_values struct {
 }
 
 var ALLOWED_VALUES form_allowed_values = form_allowed_values{
-	Images: []string{"Ubuntu", "Debian"},
+	Images: []string{proxmox.IMAGE_UBUNTU_22_04, proxmox.IMAGE_UBUNTU_24_04, proxmox.IMAGE_DEBIAN_12, proxmox.IMAGE_DEBIAN_11},
 	Cores:  minmax{Min: 1, Max: 8},
 	RamGB:  minmax{Min: 2, Max: 16},
 	DiskGB: minmax{Min: 15, Max: 100},

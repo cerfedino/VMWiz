@@ -43,6 +43,7 @@ services:
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
     env_file:
+      - ../.env
       - ../.db.env
       - ../.pve.env
     depends_on:

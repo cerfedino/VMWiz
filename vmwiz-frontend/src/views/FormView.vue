@@ -327,7 +327,7 @@ export default {
                     orgName: "",
 
                     hostname: "",
-                    image: "Debian",
+                    image: "Ubuntu 24.04 - Noble Numbat",
                     cores: 2,
                     ramGB: 2,
                     diskGB: 15,

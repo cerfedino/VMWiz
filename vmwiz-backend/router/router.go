@@ -9,6 +9,7 @@ import (
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/form"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/notifier"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 	"github.com/gorilla/mux"
 )
@@ -59,7 +60,7 @@ func Router() *mux.Router {
 	}))
 
 	r.Methods("GET").Path("/api/requests").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		vmRequests, err := storage.DB.GetAllVMsRequest()
+		vmRequests, err := storage.DB.GetAllVMRequests()
 		if err != nil {
 			log.Printf("Failed to get VM requests: %v", err)
 			http.Error(w, "Failed to get VM requests", http.StatusInternalServerError)
@@ -74,9 +75,68 @@ func Router() *mux.Router {
 		w.Write(resp)
 	})))
 
+	r.Methods("POST").Path("/api/requests/accept").Subrouter().NewRoute().Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		type bodyS struct {
+			ID int `json:"id"`
+		}
+		var body bodyS
+		err := json.NewDecoder(r.Body).Decode(&body)
+		if err != nil {
+			log.Printf("Error decoding JSON: %v", err)
+			http.Error(w, "Invalid request payload", http.StatusBadRequest)
+			return
+		}
+
+		request, err := storage.DB.GetVMRequest(int64(body.ID))
+		if err != nil {
+			log.Printf("Error getting VM request: %v", err)
+			http.Error(w, "Failed to fetch VM request", http.StatusInternalServerError)
+			return
+		}
+
+		opts := request.ToVMOptions()
+
+		storage.DB.UpdateVMRequestStatus(int64(body.ID), storage.STATUS_APPROVED)
+		_, err = proxmox.CreateVM(*opts)
+		if err != nil {
+			log.Printf("Error creating VM: %v", err)
+			http.Error(w, "Failed to create VM", http.StatusInternalServerError)
+			return
+		}
+
+	}))
+
+	// Authentication routes
 	r.Methods("GET").Path("/api/auth/start").HandlerFunc(auth.RedirectToKeycloak)
 	r.Methods("GET").Path("/api/auth/callback").HandlerFunc(auth.HandleKeycloakCallback)
 
+	// r.Methods("POST").Path("/api/auth/login").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// 	// Retrieve soseth_username and soseth_password from the request body
+	// 	var credentials struct {
+	// 		Username string `json:"soseth_username"`
+	// 		Password string `json:"soseth_password"`
+	// 	}
+
+	// 	err := json.NewDecoder(r.Body).Decode(&credentials)
+	// 	if err != nil {
+	// 		log.Printf("Error decoding JSON: %v", err)
+	// 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+	// 		return
+	// 	}
+
+	// 	// Authenticate the user
+	// 	user, err := auth.Authenticate(credentials.Username, credentials.Password)
+	// 	if err != nil {
+	// 		log.Printf("Authentication error: %v", err)
+	// 		http.Error(w, "Authentication failed", http.StatusUnauthorized)
+	// 		return
+	// 	}
+
+	// 	auth.SetAuthHeaders(w, *user)
+	// 	// Write token in body
+	// 	resp, err := json.Marshal(user)
+
+	// }))
 
 	return r
 }

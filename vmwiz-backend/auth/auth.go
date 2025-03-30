@@ -127,11 +127,6 @@ func HandleKeycloakCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if oauth2.StaticTokenSource(oauth2Token) == nil {
-		http.Error(w, "oauth2.StaticTokenSource is nil", http.StatusInternalServerError)
-		return
-	}
-
 	// Parse and verify token
 	userInfo, err := provider.UserInfo(ctx, oauth2.StaticTokenSource(oauth2Token))
 	if err != nil {

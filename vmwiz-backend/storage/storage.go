@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/form"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -15,20 +16,43 @@ import (
 	_ "github.com/lib/pq"
 )
 
+const (
+	STATUS_PENDING  = "pending"
+	STATUS_APPROVED = "approved"
+	STATUS_REJECTED = "rejected"
+)
+
 type SQLVMRequest struct {
-	ID             int64     `db:"id"`
-	CreatedAt      time.Time `db:"created"`
-	Email          string    `db:"email"`
-	PersonalEmail  string    `db:"personalEmail"`
-	IsOrganization bool      `db:"isOrganization"`
-	OrgName        string    `db:"orgName"`
-	Hostname       string    `db:"hostname"`
-	Image          string    `db:"image"`
-	Cores          int       `db:"cores"`
-	RamGB          int       `db:"ramGB"`
-	DiskGB         int       `db:"diskGB"`
-	SshPubkeys     []string  `db:"sshPubkeys"`
-	Comments       string    `db:"comments"`
+	ID               int64     `db:"requestId"`
+	RequestCreatedAt time.Time `db:"requestCreatedAt"`
+	RequestStatus    string    `db:"requestStatus"`
+	Email            string    `db:"email"`
+	PersonalEmail    string    `db:"personalEmail"`
+	IsOrganization   bool      `db:"isOrganization"`
+	OrgName          string    `db:"orgName"`
+	Hostname         string    `db:"hostname"`
+	Image            string    `db:"image"`
+	Cores            int       `db:"cores"`
+	RamGB            int       `db:"ramGB"`
+	DiskGB           int       `db:"diskGB"`
+	SshPubkeys       []string  `db:"sshPubkeys"`
+	Comments         string    `db:"comments"`
+}
+
+func (s *SQLVMRequest) ToVMOptions() *proxmox.VMCreationOptions {
+	return &proxmox.VMCreationOptions{
+		Template:   s.Image,
+		FQDN:       s.Hostname,
+		Reinstall:  false,
+		Cores_CPU:  s.Cores,
+		RAM_MB:     int64(s.RamGB * 1024),
+		Disk_GB:    int64(s.DiskGB),
+		SSHPubkeys: s.SshPubkeys,
+		// TODO: Proper handling of notes
+		Notes: fmt.Sprintf(""),
+
+		UseQemuAgent: false,
+	}
 }
 
 type Storage interface {
@@ -108,7 +132,7 @@ func (s *postgresstorage) StoreVMRequest(req *form.Form) error {
 	_, err := DB.db.Exec(`INSERT INTO request
 		(email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-		req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, req.Hostname, req.Image, req.Cores, req.RamGB, req.DiskGB, pq.Array(req.SshPubkeys), req.Comments)
+		req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, fmt.Sprintf("%v.vsos.ethz.ch", req.Hostname), req.Image, req.Cores, req.RamGB, req.DiskGB, pq.Array(req.SshPubkeys), req.Comments)
 	if err != nil {
 		log.Printf("Error inserting into SQL: \n%s", err)
 	}
@@ -118,8 +142,8 @@ func (s *postgresstorage) StoreVMRequest(req *form.Form) error {
 func (s *postgresstorage) GetVMRequest(id int64) (*SQLVMRequest, error) {
 	var req SQLVMRequest
 	err := DB.db.QueryRow(`SELECT 
-	ID, created, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments
-	FROM request WHERE id=$1`, id).Scan(&req.ID, &req.CreatedAt, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
+	requestID,requestCreatedAt, requestStatus, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments
+	FROM request WHERE requestID=$1`, id).Scan(&req.ID, &req.RequestCreatedAt, &req.RequestStatus, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
 	if err != nil {
 		log.Printf("Error getting from SQL: \n%s", err)
 		return nil, err
@@ -127,8 +151,16 @@ func (s *postgresstorage) GetVMRequest(id int64) (*SQLVMRequest, error) {
 	return &req, nil
 }
 
-func (s *postgresstorage) GetAllVMsRequest() ([]*SQLVMRequest, error) {
-	rows, err := DB.db.Query(`SELECT ID FROM request`)
+func (s *postgresstorage) UpdateVMRequestStatus(id int64, status string) error {
+	_, err := DB.db.Exec(`UPDATE request SET requestStatus=$1 WHERE id=$2`, status, id)
+	if err != nil {
+		log.Printf("Error updating SQL: \n%s", err)
+	}
+	return nil
+}
+
+func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
+	rows, err := DB.db.Query(`SELECT requestID FROM request`)
 	if err != nil {
 		log.Printf("Error getting from SQL: \n%s", err)
 		return nil, err

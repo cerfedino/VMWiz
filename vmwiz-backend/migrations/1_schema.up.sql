@@ -1,6 +1,10 @@
+CREATE TYPE request_status AS ENUM ('accepted', 'rejected', 'pending');
+
+
 CREATE TABLE request(
-  ID BIGSERIAL PRIMARY KEY,
-  created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  requestID BIGSERIAL PRIMARY KEY,
+  requestCreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  requestStatus request_status NOT NULL DEFAULT 'pending',
   email text NOT NULL,
   personalEmail text NOT NULL,
   isOrganization boolean,
