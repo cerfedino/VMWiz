@@ -131,6 +131,8 @@ func HandleKeycloakCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	oauth2Config.Client(ctx, oauth2Token)
+
 	// Parse and verify token
 	userInfo, err := provider.UserInfo(ctx, oauth2.StaticTokenSource(oauth2Token))
 	if err != nil {
