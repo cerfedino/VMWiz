@@ -67,7 +67,7 @@
             </table>
 
             <div class="d-flex flex-column">
-                <v-btn class="mt-4" :color="submit_color" @click="submit">
+                <v-btn class="mt-4" :color="submit_color" @click="submit(request.ID)">
                     <b>Accept request</b>
                 </v-btn>
             </div>
@@ -77,6 +77,26 @@
 </template>
 
 <script>
+
+function submit(id) {
+    fetch("/api/accept", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id }),
+    })
+        .then((response) => {
+            if (response.ok) {
+                console.log("Request accepted");
+            } else {
+                console.error("Error accepting request");
+            }
+        })
+        .catch((error) => {
+            console.error("Error:", error);
+        });
+}
 export default {
     name: "AdminView",
     data() {
