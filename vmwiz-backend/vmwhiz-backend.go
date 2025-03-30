@@ -78,10 +78,12 @@ func main() {
 		log.Println(err)
 	}
 
-	// _, err = proxmox.CreateVM(proxmox.VMCreationOptions{
-	// 	Template:     "noble",
+	// _, err := proxmox.CreateVM(proxmox.VMCreationOptions{
+	// 	Template:     proxmox.IMAGE_UBUNTU_24_04,
 	// 	FQDN:         "vmwiz-test.vsos.ethz.ch",
 	// 	Reinstall:    false,
+	// 	Cores_CPU:    5,
+	// 	Tags:         []string{"created-by-vmwiz"},
 	// 	RAM_MB:       1024,
 	// 	Disk_GB:      10,
 	// 	UseQemuAgent: true,
@@ -91,6 +93,7 @@ func main() {
 	// if err != nil {
 	// 	log.Println(err)
 	// }
+	// fmt.Println((*vm).Tags)
 
 	cors := cors.New(cors.Options{
 		// Allowing the Vue frontend to access the API

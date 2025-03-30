@@ -307,6 +307,7 @@ type VMCreationOptions struct {
 	RAM_MB       int64
 	Disk_GB      int64
 	UseQemuAgent bool
+	Tags         []string
 	Notes        string
 	SSHPubkeys   []string
 }
@@ -657,6 +658,7 @@ Reinstall: %v
 		RAM_SIZE     string
 		SWAP_DISK    string
 		SWAP_SIZE    string
+		TAGS         string
 		UUIDV7       string
 		VM_GATEWAY_4 string
 		IPV4S_STR0   string
@@ -673,6 +675,7 @@ Reinstall: %v
 		RAM_SIZE:     RAM_SIZE,
 		SWAP_DISK:    SWAP_DISK,
 		SWAP_SIZE:    SWAP_SIZE,
+		TAGS:         strings.Join(options.Tags, ";"),
 		UUIDV7:       uuidv7.String(),
 		VM_GATEWAY_4: VM_GATEWAY_4,
 		IPV4S_STR0:   ipv4s_str[0],

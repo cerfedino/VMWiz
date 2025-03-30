@@ -13,6 +13,7 @@ numa: 0
 ostype: l26
 scsi1: {{.CEPH_POOL}}:{{.SWAP_DISK}},size={{.SWAP_SIZE}},discard=on
 scsihw: virtio-scsi-pci
+tags: {{.TAGS}}
 searchdomain: ethz.ch
 serial0: socket
 smbios1: uuid={{.UUIDV7}},base64=1,manufacturer=U09TRVRIIC8gc29zLmV0aHouY2g=,product=VlNPUyB2U2VydmVy,version=Mi4w,sku=RGVmYXVsdA==,family=TEVFIFZNcw==

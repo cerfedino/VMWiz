@@ -50,6 +50,7 @@ func (s *SQLVMRequest) ToVMOptions() *proxmox.VMCreationOptions {
 		SSHPubkeys: s.SshPubkeys,
 		// TODO: Proper handling of notes
 		Notes: fmt.Sprintf(""),
+		Tags:  []string{},
 
 		UseQemuAgent: false,
 	}

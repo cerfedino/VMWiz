@@ -96,6 +96,7 @@ func Router() *mux.Router {
 		}
 
 		opts := request.ToVMOptions()
+		opts.Tags = append(opts.Tags, "created-by-vmwiz")
 
 		storage.DB.UpdateVMRequestStatus(int64(body.ID), storage.STATUS_APPROVED)
 		_, err = proxmox.CreateVM(*opts)
