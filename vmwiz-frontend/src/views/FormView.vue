@@ -109,7 +109,7 @@
                     <v-number-input
                         style="width: 90px"
                         control-variant="stacked"
-                        min="0"
+                        :min="0"
                         hide-details
                         single-line
                         variant="outlined"
@@ -137,7 +137,7 @@
                     <v-number-input
                         style="width: 90px"
                         control-variant="stacked"
-                        min="0"
+                        :min="0"
                         hide-details
                         single-line
                         variant="outlined"
@@ -166,7 +166,7 @@
                     <v-number-input
                         style="width: 90px"
                         control-variant="stacked"
-                        min="0"
+                        :min="0"
                         hide-details
                         variant="outlined"
                         density="compact"
