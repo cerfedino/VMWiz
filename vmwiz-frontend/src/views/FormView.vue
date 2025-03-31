@@ -93,6 +93,7 @@
             <v-slider
                 show-ticks="always"
                 step="1"
+                type="number"
                 thumb-label
                 thumb-size="16"
                 tick-size="4"
@@ -105,9 +106,10 @@
                 :rules="[() => form_values.validation_errors.cores || true]"
             >
                 <template v-slot:prepend>
-                    <v-text-field
-                        style="width: 80px"
-                        type="number"
+                    <v-number-input
+                        style="width: 90px"
+                        control-variant="stacked"
+                        min="0"
                         hide-details
                         single-line
                         variant="outlined"
@@ -119,6 +121,7 @@
             <v-slider
                 show-ticks="always"
                 step="1"
+                type="number"
                 thumb-label
                 thumb-size="16"
                 tick-size="4"
@@ -131,9 +134,10 @@
                 :rules="[() => form_values.validation_errors.ramGB || true]"
             >
                 <template v-slot:prepend>
-                    <v-text-field
-                        style="width: 80px"
-                        type="number"
+                    <v-number-input
+                        style="width: 90px"
+                        control-variant="stacked"
+                        min="0"
                         hide-details
                         single-line
                         variant="outlined"
@@ -147,6 +151,7 @@
             <v-slider
                 step="1"
                 thumb-label
+                type="number"
                 thumb-size="16"
                 tick-size="4"
                 variant="outlined"
@@ -158,9 +163,10 @@
                 :rules="[() => form_values.validation_errors.diskGB || true]"
             >
                 <template v-slot:prepend>
-                    <v-text-field
-                        style="width: 80px"
-                        type="number"
+                    <v-number-input
+                        style="width: 90px"
+                        control-variant="stacked"
+                        min="0"
                         hide-details
                         variant="outlined"
                         density="compact"
