@@ -87,7 +87,7 @@ func CheckAuthenticated(next http.Handler) http.Handler {
 		err = idToken.Claims(&claims)
 		for _, group := range claims.Groups {
 			// TODO: Add groups to env
-			if strings.TrimPrefix(group, "/") == "vsos-team" {
+			if strings.TrimPrefix(group, "/") == "vsos_team" {
 				// Attach claims to the request context.
 				ctxWithClaims := context.WithValue(r.Context(), "user", claims)
 				next.ServeHTTP(w, r.WithContext(ctxWithClaims))

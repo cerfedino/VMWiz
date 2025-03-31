@@ -76,7 +76,7 @@ func Router() *mux.Router {
 		w.Write(resp)
 	})))
 
-	r.Methods("POST").Path("/api/requests/accept").Subrouter().NewRoute().Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/requests/accept").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
 			ID int `json:"id"`
 		}
@@ -106,9 +106,9 @@ func Router() *mux.Router {
 			return
 		}
 
-	}))
+	})))
 
-	r.Methods("POST").Path("/api/requests/reject").Subrouter().NewRoute().Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/requests/reject").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
 			ID int `json:"id"`
 		}
@@ -127,9 +127,9 @@ func Router() *mux.Router {
 			http.Error(w, "Failed to update VM request status", http.StatusInternalServerError)
 			return
 		}
-	}))
+	})))
 
-	r.Methods("POST").Path("/api/vm/deleteByName").Subrouter().NewRoute().Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/vm/deleteByName").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
 			Name string `json:"vmName"`
 		}
@@ -162,9 +162,9 @@ func Router() *mux.Router {
 		}
 
 		w.WriteHeader(http.StatusOK)
-	}))
+	})))
 
-	r.Methods("POST").Path("/api/dns/deleteByHostname").Subrouter().NewRoute().Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/dns/deleteByHostname").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
 			Hostname string `json:"hostname"`
 		}
@@ -185,7 +185,7 @@ func Router() *mux.Router {
 		}
 
 		w.WriteHeader(http.StatusOK)
-	}))
+	})))
 
 	// Authentication routes
 	r.Methods("GET").Path("/api/auth/start").HandlerFunc(auth.RedirectToKeycloak)
