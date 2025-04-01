@@ -600,18 +600,21 @@ Reinstall: %v
 
 	//! Generate MAC address
 	// TODO: Fix collisions by ensuring we are taking a free mac addr
-	r := regexp.MustCompile("^(..)(..)(..)(..)(..)(..).*$")
+	r := regexp.MustCompile("^(..)(..)(..)(..)(..).*$")
 
 	digest := md5.Sum([]byte(VM_FQDN))
 	hex_digest := hex.EncodeToString(digest[:])
 
-	matches := r.FindAllStringSubmatch(hex_digest, 6)[0][1:]
+	matches := r.FindAllStringSubmatch(hex_digest, 5)[0][1:]
 
-	if len(matches) != 6 {
-		return nil, fmt.Errorf("Failed to create VM: Failed to generate MAC address: Length of generated MAC address is not 6")
+	// Mac addresses have to start with 02 because they are unicast and locally administrated.
+	// If it doesnt start with 02, Proxmox might remove the network interface from the VM.
+	VM_MACADDR := fmt.Sprintf("02:%s:%s:%s:%s:%s", matches[0], matches[1], matches[2], matches[3], matches[4])
+
+	if len(matches) != 5 {
+		return nil, fmt.Errorf("Failed to create VM: Failed to generate MAC address: Generated MAC address is not 12 bytes long")
 	}
 
-	VM_MACADDR := fmt.Sprintf("%s:%s:%s:%s:%s:%s", matches[0], matches[1], matches[2], matches[3], matches[4], matches[5])
 	log.Printf("\t[-] Generated MAC address: %v\n", VM_MACADDR)
 
 	//! Create disks
