@@ -934,11 +934,11 @@ Reinstall: %v
 			if err != nil {
 				return nil, fmt.Errorf("Failed to create VM: Generating VM SSH fingerprints: Failed to get fingerprint: %v", err)
 			}
-			vm_fingerprints = append(vm_fingerprints, fmt.Sprintf("%v: %v", hash_algo, strings.Trim(string(stdout), " \n")))
+
+			pubkey_type := strings.Fields(pubkey)[0]
+			vm_fingerprints = append(vm_fingerprints, fmt.Sprintf("%v %v", pubkey_type, strings.Trim(string(stdout), " \n")))
 		}
 	}
-
-	fmt.Println(strings.Join(vm_fingerprints, "\n"))
 
 	//! Prepare VM post-install script
 	POST_INSTALL_SCRIPT_TEMPLATE_PATH := "proxmox/vm_finish_script.sh.tmpl"
@@ -1035,13 +1035,15 @@ Reinstall: %v
 	}
 
 	log.Println(`[+] Created VM ` + string(vm.Vmid) + ` on node ` + comp_node_name + `
-	 FQDN: ` + options.FQDN + `
-	 IPv4[0]:` + ipv4s_str[0] + `
-	 IPv6[0]:` + ipv6s_str[0] + `
-	 Image: ` + options.Template + `
-	 CPU: ` + strconv.FormatFloat(vm.Cpus, 'f', -1, 64) + `
-	 RAM: ` + strconv.Itoa(vm.Maxmem) + `
-	 Disk: ` + strconv.Itoa(vm.Maxdisk))
+` + ssh_user + `@` + options.FQDN + `
+IPv4[0]:` + ipv4s_str[0] + `
+IPv6[0]:` + ipv6s_str[0] + `
+Image: ` + options.Template + `
+CPU: ` + strconv.FormatFloat(vm.Cpus, 'f', -1, 64) + `
+RAM: ` + strconv.Itoa(vm.Maxmem) + `
+Disk: ` + strconv.Itoa(vm.Maxdisk) + `
+Fingerprints:
+` + "\t" + strings.Join(vm_fingerprints, "\n\t"))
 
 	return vm, nil
 }
