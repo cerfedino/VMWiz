@@ -154,7 +154,15 @@ func Router() *mux.Router {
 			return
 		}
 		vm := (*vms)[0]
-		err = proxmox.DeleteNodeVM("comp-epyc-lee-3.sos.ethz.ch", vm.Vmid, true, true, false)
+
+		err = proxmox.ForceStopNodeVM("comp-epyc-lee-3", vm.Vmid)
+		if err != nil {
+			log.Printf("Error stopping VM: %v", err)
+			http.Error(w, "Failed to stop VM", http.StatusInternalServerError)
+			return
+		}
+
+		err = proxmox.DeleteNodeVM("comp-epyc-lee-3", vm.Vmid, true, true, false)
 		if err != nil {
 			log.Printf("Error deleting VM: %v", err)
 			http.Error(w, "Failed to delete VM", http.StatusInternalServerError)
