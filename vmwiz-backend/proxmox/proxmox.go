@@ -573,12 +573,10 @@ Reinstall: %v
 		AGENT = 0
 	}
 	SWAP_SIZE := VM_SWAP_SIZE
-	ROOT_SIZE := VM_DEFAULT_ROOT_SIZE
-	RAM_SIZE := VM_DEFAULT_RAM_SIZE
 
-	EFI_DISK := fmt.Sprintf("vm-%v-efivars", VM_ID)
-	SWAP_DISK := fmt.Sprintf("vm-%v-disk-0", VM_ID)
-	MAIN_DISK := fmt.Sprintf("vm-%v-disk-1", VM_ID)
+	EFI_DISK_NAME := fmt.Sprintf("vm-%v-efivars", VM_ID)
+	SWAP_DISK_NAME := fmt.Sprintf("vm-%v-disk-0", VM_ID)
+	MAIN_DISK_NAME := fmt.Sprintf("vm-%v-disk-1", VM_ID)
 
 	//! Verify that configured Comp node SSH host is actually a compute node
 	log.Println("\t[-] Checking if compute SSH session is actually on a compute node")
@@ -621,7 +619,7 @@ Reinstall: %v
 	log.Printf("\t[-] Creating disks\n")
 
 	// Create swap disk
-	command := fmt.Sprintf("rbd -p \"%v\" create --size \"%v\" \"%v\"", CEPH_POOL, SWAP_SIZE, SWAP_DISK)
+	command := fmt.Sprintf("rbd -p \"%v\" create --size \"%v\" \"%v\"", CEPH_POOL, SWAP_SIZE, SWAP_DISK_NAME)
 	log.Printf("\t\t[-] Creating SWAP disk\n")
 	log.Printf("\t\t> %v", command)
 	stdout, err = comp_ssh.Run(command)
@@ -630,7 +628,7 @@ Reinstall: %v
 	}
 
 	// Create EFI disk
-	command = fmt.Sprintf("rbd -p \"%v\" create --size \"4M\" \"%v\"", CEPH_POOL, EFI_DISK)
+	command = fmt.Sprintf("rbd -p \"%v\" create --size \"4M\" \"%v\"", CEPH_POOL, EFI_DISK_NAME)
 	log.Printf("\t\t[-] Creating EFI disk\n")
 	log.Printf("\t\t> %v\n", command)
 	stdout, err = comp_ssh.Run(command)
@@ -658,7 +656,7 @@ Reinstall: %v
 		CEPH_POOL    string
 		EFI_DISK     string
 		CPU_CORES    int
-		RAM_SIZE     string
+		RAM_SIZE     int
 		SWAP_DISK    string
 		SWAP_SIZE    string
 		TAGS         string
@@ -673,10 +671,10 @@ Reinstall: %v
 		VM_DESC:      VM_DESC,
 		VM_FQDN:      VM_FQDN,
 		CEPH_POOL:    CEPH_POOL,
-		EFI_DISK:     EFI_DISK,
+		EFI_DISK:     EFI_DISK_NAME,
 		CPU_CORES:    options.Cores_CPU,
-		RAM_SIZE:     RAM_SIZE,
-		SWAP_DISK:    SWAP_DISK,
+		RAM_SIZE:     int(options.RAM_MB),
+		SWAP_DISK:    SWAP_DISK_NAME,
 		SWAP_SIZE:    SWAP_SIZE,
 		TAGS:         strings.Join(options.Tags, ";"),
 		UUIDV7:       uuidv7.String(),
@@ -718,7 +716,7 @@ Reinstall: %v
 
 	//! Attaching disk to VM
 	log.Printf("\t[-] Attaching disk to VM\n")
-	command = fmt.Sprintf("qm set \"%v\" --scsi0 \"%v:%v,discard=on\"", VM_ID, CEPH_POOL, MAIN_DISK)
+	command = fmt.Sprintf("qm set \"%v\" --scsi0 \"%v:%v,discard=on\"", VM_ID, CEPH_POOL, MAIN_DISK_NAME)
 	log.Printf("\t\t> %v \n", command)
 
 	stdout, err = comp_ssh.Run(command)
@@ -728,7 +726,7 @@ Reinstall: %v
 
 	//! Resizing VM root disk to target size
 	log.Printf("\t[-] Resizing VM root disk to target size\n")
-	command = fmt.Sprintf("qm resize \"%v\" scsi0 \"%v\"", VM_ID, ROOT_SIZE)
+	command = fmt.Sprintf("qm resize \"%v\" scsi0 \"%v\"", VM_ID, fmt.Sprintf("%vG", options.Disk_GB))
 	log.Printf("\t\t> %v \n", command)
 
 	stdout, err = comp_ssh.Run(command)
@@ -1026,11 +1024,9 @@ Reinstall: %v
 	_ = FIRST_BOOT_LINE
 	_ = VM_DESC
 	_ = SWAP_SIZE
-	_ = ROOT_SIZE
-	_ = RAM_SIZE
-	_ = EFI_DISK
-	_ = SWAP_DISK
-	_ = MAIN_DISK
+	_ = EFI_DISK_NAME
+	_ = SWAP_DISK_NAME
+	_ = MAIN_DISK_NAME
 
 	//! Get VM data
 	vm, err := GetNodeVM(comp_node_name, VM_ID)
