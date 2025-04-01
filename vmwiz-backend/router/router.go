@@ -196,36 +196,8 @@ func Router() *mux.Router {
 	})))
 
 	// Authentication routes
-	r.Methods("GET").Path("/api/auth/start").HandlerFunc(auth.RedirectToKeycloak)
+	r.Methods("GET").Path("/api/auth/start").HandlerFunc(auth.StartKeycloakAuthFlow)
 	r.Methods("GET").Path("/api/auth/callback").HandlerFunc(auth.HandleKeycloakCallback)
-
-	// r.Methods("POST").Path("/api/auth/login").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	// 	// Retrieve soseth_username and soseth_password from the request body
-	// 	var credentials struct {
-	// 		Username string `json:"soseth_username"`
-	// 		Password string `json:"soseth_password"`
-	// 	}
-
-	// 	err := json.NewDecoder(r.Body).Decode(&credentials)
-	// 	if err != nil {
-	// 		log.Printf("Error decoding JSON: %v", err)
-	// 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
-	// 		return
-	// 	}
-
-	// 	// Authenticate the user
-	// 	user, err := auth.Authenticate(credentials.Username, credentials.Password)
-	// 	if err != nil {
-	// 		log.Printf("Authentication error: %v", err)
-	// 		http.Error(w, "Authentication failed", http.StatusUnauthorized)
-	// 		return
-	// 	}
-
-	// 	auth.SetAuthHeaders(w, *user)
-	// 	// Write token in body
-	// 	resp, err := json.Marshal(user)
-
-	// }))
 
 	return r
 }

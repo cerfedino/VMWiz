@@ -64,14 +64,15 @@ func setCookie(w http.ResponseWriter, r *http.Request, name, value string) {
 func CheckAuthenticated(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenCookie, err := r.Cookie("auth_token")
+
 		if err != nil {
 			fmt.Println("Error getting token cookie:", err)
-			http.Redirect(w, r, "/api/auth/start", http.StatusFound)
+			StartKeycloakAuthFlow(w, r)
 			return
 		}
 		if tokenCookie == nil {
 			fmt.Println("Token cookie is nil")
-			http.Redirect(w, r, "/api/auth/start", http.StatusFound)
+			StartKeycloakAuthFlow(w, r)
 			return
 		}
 
@@ -79,7 +80,7 @@ func CheckAuthenticated(next http.Handler) http.Handler {
 		idToken, err := verifier.Verify(ctx, tokenCookie.Value)
 		if err != nil {
 			fmt.Println("Error verifying token:", err)
-			http.Redirect(w, r, "/api/auth/start", http.StatusFound)
+			StartKeycloakAuthFlow(w, r)
 			return
 		}
 
@@ -99,7 +100,7 @@ func CheckAuthenticated(next http.Handler) http.Handler {
 	})
 }
 
-func RedirectToKeycloak(w http.ResponseWriter, r *http.Request) {
+func StartKeycloakAuthFlow(w http.ResponseWriter, r *http.Request) {
 	uuid, err := uuid.NewRandom()
 	if err != nil {
 		log.Fatalf("Failed to generate UUID: %v", err)
@@ -108,7 +109,12 @@ func RedirectToKeycloak(w http.ResponseWriter, r *http.Request) {
 
 	setCookie(w, r, "session_state", state)
 
-	http.Redirect(w, r, oauth2Config.AuthCodeURL(state), http.StatusFound)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusUnauthorized)
+	http.Error(w, fmt.Sprintf(`{"redirectUrl": "%v"}`, oauth2Config.AuthCodeURL(state)), http.StatusUnauthorized)
+
+	// http.Redirect(w, r, oauth2Config.AuthCodeURL(state), http.StatusFound)
+	return
 }
 
 func HandleKeycloakCallback(w http.ResponseWriter, r *http.Request) {
