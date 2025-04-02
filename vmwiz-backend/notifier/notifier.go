@@ -34,7 +34,7 @@ func NotifyVMRequestStatusChanged(req storage.SQLVMRequest) error {
 	case storage.STATUS_ACCEPTED:
 		return useNotifier("vmrequest_accepted", THREAD_TITLE, fmt.Sprintf("Request %v approved !", req.ID))
 	case storage.STATUS_REJECTED:
-		return useNotifier("vmrequest_denied", THREAD_TITLE, fmt.Sprintf("Request %v denied !", req.ID))
+		return useNotifier("vmrequest_rejected", THREAD_TITLE, fmt.Sprintf("Request %v denied !", req.ID))
 	}
 
 	return nil
