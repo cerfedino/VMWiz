@@ -4,3 +4,7 @@
 urls:
   # - zulip://vmwiz-bot@chat.sos.ethz.ch/JN7XHKJ3zmWAM6T33QIWslaJtekrF9xD/vsos:
   #   - tag: new_vmrequest
+  # - zulip://vmwiz-bot@chat.sos.ethz.ch/JN7XHKJ3zmWAM6T33QIWslaJtekrF9xD/vsos:
+  #   - tag: vmrequest_accepted
+  # - zulip://vmwiz-bot@chat.sos.ethz.ch/JN7XHKJ3zmWAM6T33QIWslaJtekrF9xD/vsos:
+  #   - tag: vmrequest_rejected

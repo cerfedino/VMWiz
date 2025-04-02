@@ -6,6 +6,7 @@ import (
 	"net/url"
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/form"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 )
 
 func useNotifier(tags string, title string, body string) error {
@@ -25,6 +26,17 @@ func useNotifier(tags string, title string, body string) error {
 
 func NotifyVMRequest(f form.Form) error {
 	return useNotifier("new_vmrequest", fmt.Sprintf("[VMWIZ] %v", f.Email), f.ToString())
+}
+
+func NotifyVMRequestStatusChanged(req storage.SQLVMRequest) error {
+	switch req.RequestStatus {
+	case storage.STATUS_ACCEPTED:
+		return useNotifier("vmrequest_accepted", fmt.Sprintf("[VMWIZ] %v", req.Email), "Request approved !")
+	case storage.STATUS_REJECTED:
+		return useNotifier("vmrequest_denied", fmt.Sprintf("[VMWIZ] %v", req.Email), "Request denied !")
+	}
+
+	return nil
 }
 
 func SendTestNotification(body string) error {
