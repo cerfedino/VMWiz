@@ -18,7 +18,7 @@ import (
 
 const (
 	STATUS_PENDING  = "pending"
-	STATUS_APPROVED = "approved"
+	STATUS_ACCEPTED = "accepted"
 	STATUS_REJECTED = "rejected"
 )
 
@@ -49,7 +49,7 @@ func (s *SQLVMRequest) ToVMOptions() *proxmox.VMCreationOptions {
 		Disk_GB:    int64(s.DiskGB),
 		SSHPubkeys: s.SshPubkeys,
 		// TODO: Proper handling of notes
-		Notes: fmt.Sprintf(""),
+		Notes: "",
 		Tags:  []string{},
 
 		UseQemuAgent: false,
@@ -150,6 +150,17 @@ func (s *postgresstorage) GetVMRequest(id int64) (*SQLVMRequest, error) {
 		return nil, err
 	}
 	return &req, nil
+}
+
+func (s *postgresstorage) UpdateVMRequest(req SQLVMRequest) error {
+	_, err := DB.db.Exec(`UPDATE request SET requestCreatedAt=$1, requestStatus=$2, email=$3, personalEmail=$4, isOrganization=$5, orgName=$6, hostname=$7, image=$8, cores=$9, ramGB=$10, diskGB=$11, sshPubkeys=$12, comments=$13 WHERE requestID=$14`,
+		req.RequestCreatedAt, req.RequestStatus, req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, req.Hostname, req.Image, req.Cores, req.RamGB, req.DiskGB, pq.Array(req.SshPubkeys), req.Comments, req.ID)
+	if err != nil {
+		log.Printf("Error updating SQL: \n%s", err)
+		return err
+	}
+
+	return nil
 }
 
 func (s *postgresstorage) UpdateVMRequestStatus(id int64, status string) error {

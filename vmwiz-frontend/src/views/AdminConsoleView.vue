@@ -11,12 +11,16 @@
                     <td>{{ request.ID }}</td>
                 </tr>
                 <tr>
-                    <td>Created</td>
-                    <td>{{ request.CreatedAt }}</td>
+                    <td>Created At</td>
+                    <td>{{ request.RequestCreatedAt }}</td>
                 </tr>
                 <tr>
                     <td>Email</td>
                     <td>{{ request.Email }}</td>
+                </tr>
+                <tr>
+                    <td>Personal Email</td>
+                    <td>{{ request.PersonalEmail }}</td>
                 </tr>
 
                 <tr v-if="request.IsOrganization">
@@ -165,7 +169,9 @@ export default {
                 },
                 JSON.stringify({
                     id: id,
-                    ...payload,
+                    cores_cpu: payload.Cores,
+                    ram_gb: payload.RamGB,
+                    storage_db: payload.DiskGB,
                 })
             );
         },
@@ -176,6 +182,7 @@ export default {
             .then((response) => response.json())
             .then((data) => {
                 this.$data.requests = data;
+                console.log(data);
             });
     },
     components: {},
