@@ -45,7 +45,7 @@ services:
     env_file:
       - ../.env
       - ../.db.env
-      - ../.pve.env
+      - ../.backend.env
     depends_on:
       vmwiz-db:
         condition: service_healthy

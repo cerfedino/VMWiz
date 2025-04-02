@@ -9,27 +9,28 @@
 | --- | ----------- |
 | **vmwiz-caddy** | Entry point of the application. Proxies all requests matching `/api/*` to `vmwiz-backend` and the rest to `vmwiz-frontend`. Employs HTTPS by default. |
 | **vmwiz-frontend** | Vue3 frontend application |
-| **vmwiz-backend** | Go backend. Handles all requests matching `/api/*`. Note: The backend uses the [Air](https://github.com/air-verse/air) utility in development for for hot-reloading upon changes to the source code. |
+| **vmwiz-backend** | Go backend. Handles all requests matching `/api/*`. Note: The backend uses the [Air](https://github.com/air-verse/air) utility in development for hot-reloading. |
 | **vmwiz-db** | Postgres database for the backend |
-| **vmwiz-notifier** | [caronc/Apprise](https://github.com/caronc/apprise) container allowing us to easily send notifications to a multitude of services.
+| **vmwiz-notifier** | [Apprise](https://github.com/caronc/apprise) service allowing us to send notifications to a multitude of services.
 
 
 ## Bringing up the stack
 1. **Change `POSTGRES_PASSWORD` in [.db.env](/.db.env)**
-2. (Optional) **Modify values inside [.env](.env)**
-3. (Optional) **Add a notification endpoint into [notifier_config.yml](/docker/notifier_config.yml) such that you also get notifications.**
-4. **Modify PVE values inside [.pve.env](.pve.env)**
-5. **Setup SSH**\
+2. (Optional) **Add a notification endpoint into [notifier_config.yml](/docker/notifier_config.yml) such that you also get notifications.**
+3. **Modify PVE values inside [.backend.env](.backend.env)**
+4. **Setup SSH**\
 The backend estabilishes SSH sessions to the Cluster management (CM) node and the Compute node (CN). To that end, you need to supply valid SSH credentials.\
   **5.1 Cluster Management node and Compute node**\
   Populate [docker/ssh/cm_pkey.key](docker/ssh/cm_pkey.key) and [docker/ssh/comp_pkey.key](docker/ssh/comp_pkey.key) with valid private keys for the root user.
-  Add the CM and Comp host fingerprints to the [docker/ssh/known_hosts](docker/ssh/known_hosts) file. Finally, adjust the environment variables inside of [.pve.env](.pve.env).\
+  Add the CM and Comp host fingerprints to the [docker/ssh/known_hosts](docker/ssh/known_hosts) file. Finally, adjust the related environment variables in [.backend.env](.backend.env).\
   **5.2 Default VM credentials**\
   Each VM created through VMWiz will both accept the public key supplied by the requesting student/organization and another "universal" public key shared by every VM.
   Populate [docker/ssh/vm_univ_pubkey.pkey](docker/ssh/vm_univ_pubkey.pkey) and [docker/ssh/vm_univ_privkey.key](docker/ssh/vm_univ_privkey.pkey) with a valid key pair.
-1. **Modify Netcenter values inside of [.pve.env](.pve.env)**\
+5. **Modify Netcenter values inside of [.backend.env](.backend.env)**\
 The backend uses the Netcenter HTTP API, which requires authentication. To that end, insert the credentials of a valid user. 
-1. **Bring up the stack**\
+6. **Modify Keycloak values inside of [.backend.env](.backend.env)**\
+The backend has an OpenID client to authenticate SOSETH users. To that end, adjust the Keycloak-related environment variables in [.backend.env](.backend.env).
+7. **Bring up the stack**\
 `cd docker && docker compose up`\
 You should now be able to navigate to https://localhost and access the frontend UI.
 
@@ -47,7 +48,7 @@ VMWIZ_PORT=443
 
 All the above variables are read both by Caddy and by the frontend for generating the base URL of the instance.
 
-3. [.pve.env](.pve.env) - PVE-related environment variables\
+3. [.backend.env](.backend.env) - Backend-specific environment variables\
 The file should look something like this:
 ```env
 # PVE API authentication
@@ -73,6 +74,11 @@ SSH_COMP_PKEY_PASSPHRASE=
 NETCENTER_HOST=https://www.netcenter.ethz.ch
 NETCENTER_USER=sys-sos-vm-service
 NETCENTER_PWD=
+
+
+KEYCLOAK_ISSUER_URL="https://auth.sos.ethz.ch/auth/realms/master"
+KEYCLOAK_CLIENT_ID="vmwiz-dev"
+KEYCLOAK_CLIENT_SECRET=""
 ```
 
 The PVE variables should be set according to a valid PVE API key of the form `<PVE_USER>!<PVE_TOKENID>=<PVE_UUID>`
