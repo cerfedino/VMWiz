@@ -7,7 +7,6 @@ import Vuex from "vuex";
 import "vuetify/styles";
 import { createVuetify } from "vuetify";
 import * as components from "vuetify/components";
-import { VNumberInput } from "vuetify/labs/VNumberInput";
 import * as directives from "vuetify/directives";
 
 const app = createApp(App);
@@ -17,7 +16,6 @@ import { aliases, mdi } from "vuetify/iconsets/mdi-svg";
 const vuetify = createVuetify({
     components: {
         ...components,
-        VNumberInput,
     },
     directives,
     icons: {
