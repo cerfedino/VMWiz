@@ -11,8 +11,6 @@ import (
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
-	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
-	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/router"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/startupcheck"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
@@ -63,28 +61,28 @@ func main() {
 
 	auth.Init()
 
-	nodes, err := proxmox.GetAllNodeVMsByName("comp-epyc-lee-3", "vmwiz-test.vsos.ethz.ch")
-	if err != nil {
-		log.Println(err)
-	} else {
-		if len(*nodes) > 0 {
-			err = proxmox.ForceStopNodeVM("comp-epyc-lee-3", (*nodes)[0].Vmid)
-			if err != nil {
-				log.Println(err)
-			}
-			err = proxmox.DeleteNodeVM("comp-epyc-lee-3", (*nodes)[0].Vmid, true, true, false)
-			if err != nil {
-				log.Println(err)
-			}
-		}
-	}
+	// nodes, err := proxmox.GetAllNodeVMsByName("comp-epyc-lee-3", "vmwiz-test.vsos.ethz.ch")
+	// if err != nil {
+	// 	log.Println(err)
+	// } else {
+	// 	if len(*nodes) > 0 {
+	// 		err = proxmox.ForceStopNodeVM("comp-epyc-lee-3", (*nodes)[0].Vmid)
+	// 		if err != nil {
+	// 			log.Println(err)
+	// 		}
+	// 		err = proxmox.DeleteNodeVM("comp-epyc-lee-3", (*nodes)[0].Vmid, true, true, false)
+	// 		if err != nil {
+	// 			log.Println(err)
+	// 		}
+	// 	}
+	// }
 
-	err = netcenter.DeleteDNSEntryByHostname("vmwiz-test.vsos.ethz.ch")
-	if err != nil {
-		log.Println(err)
-	}
+	// err = netcenter.DeleteDNSEntryByHostname("vmwiz-test.vsos.ethz.ch")
+	// if err != nil {
+	// 	log.Println(err)
+	// }
 
-	// _, err := proxmox.CreateVM(proxmox.VMCreationOptions{
+	// vm, err := proxmox.CreateVM(proxmox.VMCreationOptions{
 	// 	Template:     proxmox.IMAGE_UBUNTU_24_04,
 	// 	FQDN:         "vmwiz-test.vsos.ethz.ch",
 	// 	Reinstall:    false,

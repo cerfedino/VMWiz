@@ -11,5 +11,6 @@ module.exports = defineConfig({
     devServer: {
         // Enables/disables HTTPS based on the VMWIZ_SCHEME environment variable
         server: process.env.VUE_APP_VMWIZ_SCHEME,
+        host: process.env.VUE_APP_VMWIZ_HOSTNAME,
     },
 });

@@ -11,11 +11,11 @@
 
   reverse_proxy /api/* http://vmwiz-backend:8081
 
-  reverse_proxy {$VMWIZ_SCHEME}://vmwiz-frontend:8080 {
+  reverse_proxy http://vmwiz-frontend:8080 {
 		# Comment out if you are NOT setting VMWIZ_SCHEME to https
-		transport http {
-			tls
-			tls_insecure_skip_verify
-		}
+		#transport http {
+		#	tls
+		#	tls_insecure_skip_verify
+		#}
 	}
 }

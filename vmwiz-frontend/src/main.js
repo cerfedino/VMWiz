@@ -29,7 +29,7 @@ const vuetify = createVuetify({
 
 const store = new Vuex.Store({
     state: {
-        baseUrl: `${process.env.VUE_APP_VMWIZ_SCHEME}://${process.env.VUE_APP_VMWIZ_HOSTNAME}:${process.env.VUE_APP_VMWIZ_PORT}`,
+        baseUrl: `https://vmwiz.vsos.ethz.ch:443`,
     },
     getters: {
         fetchBackend: (state) => (fullPath, method, headers, body) => {
