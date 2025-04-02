@@ -106,6 +106,13 @@ func Router() *mux.Router {
 			return
 		}
 
+		err = notifier.NotifyVMRequestStatusChanged(*request)
+		if err != nil {
+			log.Printf("Failed to notify VM request status change: %v", err)
+			http.Error(w, "Failed to notify VM request status change", http.StatusInternalServerError)
+			return
+		}
+
 	})))
 
 	r.Methods("POST").Path("/api/requests/reject").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -127,6 +134,21 @@ func Router() *mux.Router {
 			http.Error(w, "Failed to update VM request status", http.StatusInternalServerError)
 			return
 		}
+
+		request, err := storage.DB.GetVMRequest(int64(body.ID))
+		if err != nil {
+			log.Printf("Error getting VM request: %v", err)
+			http.Error(w, "Failed to fetch VM request", http.StatusInternalServerError)
+			return
+		}
+
+		err = notifier.NotifyVMRequestStatusChanged(*request)
+		if err != nil {
+			log.Printf("Failed to notify VM request status change: %v", err)
+			http.Error(w, "Failed to notify VM request status change", http.StatusInternalServerError)
+			return
+		}
+
 	})))
 
 	r.Methods("POST").Path("/api/requests/edit").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
