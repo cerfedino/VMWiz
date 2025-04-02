@@ -34,20 +34,42 @@ const store = new Vuex.Store({
         baseUrl: `${process.env.VUE_APP_VMWIZ_SCHEME}://${process.env.VUE_APP_VMWIZ_HOSTNAME}:${process.env.VUE_APP_VMWIZ_PORT}`,
     },
     getters: {
-        fetchVMOptions: (state) => () => {
-            return fetch(`${state.baseUrl}/api/vmoptions`);
+        fetchBackend: (state) => (fullPath, method, headers, body) => {
+            return fetch(`${state.baseUrl}${fullPath}`, {
+                method: method,
+                headers: headers,
+                body: body,
+            }).then((response) => {
+                if (response.status == 401) {
+                    return response.json().then((data) => {
+                        if (data.redirectUrl != undefined) {
+                            window.location.href = data.redirectUrl;
+                        }
+                    });
+                } else {
+                    return response;
+                }
+            });
         },
-        fetchRequests: (state) => () => {
-            return fetch(`${state.baseUrl}/api/requests`);
+        fetchVMOptions: (state, getters) => () => {
+            return getters.fetchBackend("/api/vmoptions", "GET", {
+                "Content-Type": "application/json",
+            });
         },
-        fetchSendVMRequest: (state) => (formData) => {
-            return fetch(`${state.baseUrl}/api/vmrequest`, {
-                method: "POST",
-                headers: {
+        fetchRequests: (state, getters) => () => {
+            return getters.fetchBackend("/api/requests", "GET", {
+                "Content-Type": "application/json",
+            });
+        },
+        fetchSendVMRequest: (state, getters) => (formData) => {
+            return getters.fetchBackend(
+                "/api/vmrequest",
+                "POST",
+                {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify(formData),
-            });
+                JSON.stringify(formData)
+            );
         },
     },
 });

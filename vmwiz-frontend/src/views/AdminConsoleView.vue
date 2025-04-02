@@ -25,7 +25,7 @@
                 </tr>
             </table>
 
-            <h1 class="text-h6 font-weight-bold mt-4">VM specification</h1>
+            <h1 class="text-h6 font-weight-bold mt-6">VM specification</h1>
 
             <table>
                 <tr>
@@ -93,21 +93,28 @@
                 <v-btn
                     class="mt-4"
                     :color="submit_color"
-                    @click="accept(request.ID)"
+                    @click="acceptRequest(request.ID)"
                 >
                     <b>Accept request</b>
                 </v-btn>
                 <v-btn
                     class="mt-4"
                     :color="edit_color"
-                    @click="edit(request.ID, request.Hostname, request.Cores, request.RamGB, request.DiskGB)"
+                    @click="
+                        editRequest(request.ID, {
+                            Hostname: request.Hostname,
+                            Cores: request.Cores,
+                            RamGB: request.RamGB,
+                            DiskGB: request.DiskGB,
+                        })
+                    "
                 >
                     <b>Edit request</b>
                 </v-btn>
                 <v-btn
                     class="mt-4"
                     :color="reject_color"
-                    @click="reject(request.ID)"
+                    @click="rejectRequest(request.ID)"
                 >
                     <b>Reject request</b>
                 </v-btn>
@@ -117,44 +124,6 @@
 </template>
 
 <script>
-function handleRequest(action, payload) {
-    const endpoints = {
-        accept: "/api/request/accept/",
-        reject: "/api/request/reject/",
-        edit: "/api/request/edit/",
-    };
-
-    fetch(endpoints[action], {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-    })
-        .then((response) => {
-            if (response.ok) {
-                console.log(`Request ${action}ed successfully`);
-            } else {
-                console.error(`Error ${action}ing request`);
-            }
-        })
-        .catch((error) => {
-            console.error("Error:", error);
-        });
-}
-
-function accept(id) {
-    handleRequest("accept", { id });
-}
-
-function reject(id) {
-    handleRequest("reject", { id });
-}
-
-function edit(id, hostname, cores, ram, disk) {
-    handleRequest("edit", { id, hostname, cores, ram, disk });
-}
-
 export default {
     name: "AdminView",
     data() {
@@ -162,7 +131,45 @@ export default {
             requests: [],
         };
     },
-    methods: {},
+    methods: {
+        acceptRequest(id) {
+            this.$store.getters.fetchBackend(
+                "/api/requests/accept",
+                "POST",
+                {
+                    "Content-Type": "application/json",
+                },
+                JSON.stringify({
+                    id: id,
+                })
+            );
+        },
+        rejectRequest(id) {
+            this.$store.getters.fetchBackend(
+                "/api/requests/reject",
+                "POST",
+                {
+                    "Content-Type": "application/json",
+                },
+                JSON.stringify({
+                    id: id,
+                })
+            );
+        },
+        editRequest(id, payload) {
+            this.$store.getters.fetchBackend(
+                "/api/requests/edit",
+                "POST",
+                {
+                    "Content-Type": "application/json",
+                },
+                JSON.stringify({
+                    id: id,
+                    ...payload,
+                })
+            );
+        },
+    },
     mounted() {
         this.$store.getters
             .fetchRequests()
