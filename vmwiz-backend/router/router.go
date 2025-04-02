@@ -98,11 +98,11 @@ func Router() *mux.Router {
 		opts := request.ToVMOptions()
 		opts.Tags = append(opts.Tags, "created-by-vmwiz")
 
-		storage.DB.UpdateVMRequestStatus(int64(body.ID), storage.STATUS_APPROVED)
+		storage.DB.UpdateVMRequestStatus(int64(body.ID), storage.STATUS_ACCEPTED)
 		_, err = proxmox.CreateVM(*opts)
 		if err != nil {
 			log.Printf("Error creating VM: %v", err)
-			http.Error(w, "Failed to create VM", http.StatusInternalServerError)
+			http.Error(w, "Failed to create VM:\n"+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -127,6 +127,48 @@ func Router() *mux.Router {
 			http.Error(w, "Failed to update VM request status", http.StatusInternalServerError)
 			return
 		}
+	})))
+
+	r.Methods("POST").Path("/api/requests/edit").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		type bodyS struct {
+			ID         int `json:"id"`
+			Cores_cpu  int `json:"cores_cpu"`
+			Ram_gb     int `json:"ram_gb"`
+			Storage_gb int `json:"storage_gb"`
+		}
+
+		var body bodyS
+		err := json.NewDecoder(r.Body).Decode(&body)
+		if err != nil {
+			log.Printf("Error decoding JSON: %v", err)
+			http.Error(w, "Invalid request payload", http.StatusBadRequest)
+			return
+		}
+
+		request, err := storage.DB.GetVMRequest(int64(body.ID))
+		if err != nil {
+			log.Printf("Error getting VM request: %v", err)
+			http.Error(w, "Failed to fetch VM request", http.StatusInternalServerError)
+			return
+		}
+
+		if body.Cores_cpu != 0 {
+			request.Cores = body.Cores_cpu
+		}
+		if body.Ram_gb != 0 {
+			request.RamGB = body.Ram_gb
+		}
+		if body.Storage_gb != 0 {
+			request.DiskGB = body.Storage_gb
+		}
+
+		err = storage.DB.UpdateVMRequest(*request)
+		if err != nil {
+			log.Printf("Error updating VM request: %v", err)
+			http.Error(w, "Failed to update VM request", http.StatusInternalServerError)
+			return
+		}
+
 	})))
 
 	r.Methods("POST").Path("/api/vm/deleteByName").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
