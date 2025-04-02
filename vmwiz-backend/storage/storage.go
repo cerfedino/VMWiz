@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/form"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"github.com/golang-migrate/migrate/v4"
@@ -75,9 +75,9 @@ func buildConnectionString(POSTGRES_USER string, POSTGRES_PASSWORD string, POSTG
 }
 
 func (s *postgresstorage) CreateConnection() error {
-	POSTGRES_USER := os.Getenv("POSTGRES_USER")
-	POSTGRES_PASSWORD := os.Getenv("POSTGRES_PASSWORD")
-	POSTGRES_DB := os.Getenv("POSTGRES_DB")
+	POSTGRES_USER := config.AppConfig.POSTGRES_USER
+	POSTGRES_PASSWORD := config.AppConfig.POSTGRES_PASSWORD
+	POSTGRES_DB := config.AppConfig.POSTGRES_DB
 
 	if s.db != nil {
 		s.db.Close()
@@ -101,7 +101,7 @@ func (s *postgresstorage) InitMigrations() error {
 		s.migration.Close()
 		s.migration = nil
 	}
-	m, err := migrate.New("file://migrations/", buildConnectionString(os.Getenv("POSTGRES_USER"), os.Getenv("POSTGRES_PASSWORD"), os.Getenv("POSTGRES_DB")))
+	m, err := migrate.New("file://migrations/", buildConnectionString(config.AppConfig.POSTGRES_USER, config.AppConfig.POSTGRES_PASSWORD, config.AppConfig.POSTGRES_DB))
 	if err != nil {
 		return fmt.Errorf("Couldn't initialize migrations: %v", err.Error())
 	}

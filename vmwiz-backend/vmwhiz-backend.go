@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/router"
@@ -44,13 +45,18 @@ func main() {
 	// rand.Seed(uint64((time.Now().UnixNano())))
 	rand.Seed(uint64(42))
 
+	err := config.AppConfig.Init()
+	if err != nil {
+		log.Fatalf("Failed to parse config: %v", err.Error())
+	}
+
 	if startupcheck.DoAllStartupChecks() {
 		log.Fatalf("Startup checks failed. Exiting ...")
 	} else {
 		log.Println("Startup checks passed.")
 	}
 
-	err := storage.DB.Init()
+	err = storage.DB.Init()
 	if err != nil {
 		log.Fatalf("Error on startup: %v", err.Error())
 	}

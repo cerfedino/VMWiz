@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
 	"github.com/coreos/go-oidc"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
@@ -27,20 +27,20 @@ type KeycloakUser struct {
 func Init() {
 	ctx = context.Background()
 
-	newprovider, err := oidc.NewProvider(ctx, os.Getenv("KEYCLOAK_ISSUER_URL"))
+	newprovider, err := oidc.NewProvider(ctx, config.AppConfig.KEYCLOAK_ISSUER_URL)
 	if err != nil {
 		log.Fatalf("Failed to create provider: %v", err)
 	}
 
 	provider = newprovider
 
-	verifier = provider.Verifier(&oidc.Config{ClientID: os.Getenv("KEYCLOAK_CLIENT_ID")})
+	verifier = provider.Verifier(&oidc.Config{ClientID: config.AppConfig.KEYCLOAK_CLIENT_ID})
 
 	// Configure an OpenID Connect aware OAuth2 client.
 	oauth2Config = oauth2.Config{
-		ClientID:     os.Getenv("KEYCLOAK_CLIENT_ID"),
-		ClientSecret: os.Getenv("KEYCLOAK_CLIENT_SECRET"),
-		RedirectURL:  os.Getenv("VMWIZ_SCHEME") + "://" + os.Getenv("VMWIZ_HOSTNAME") + "/api/auth/callback",
+		ClientID:     config.AppConfig.KEYCLOAK_CLIENT_ID,
+		ClientSecret: config.AppConfig.KEYCLOAK_CLIENT_SECRET,
+		RedirectURL:  config.AppConfig.VMWIZ_SCHEME + "://" + config.AppConfig.VMWIZ_HOSTNAME + "/api/auth/callback",
 
 		Endpoint: provider.Endpoint(),
 

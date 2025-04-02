@@ -23,6 +23,7 @@ import (
 	"text/template"
 	"time"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"github.com/google/uuid"
 	"github.com/melbahja/goph"
@@ -30,7 +31,7 @@ import (
 )
 
 func proxmoxMakeRequest(method string, path string, body []byte) (*http.Request, *http.Client, error) {
-	url, err := url.Parse(fmt.Sprintf("%v%v", os.Getenv("PVE_HOST"), path))
+	url, err := url.Parse(fmt.Sprintf("%v%v", config.AppConfig.PVE_HOST, path))
 	if err != nil {
 		return nil, nil, fmt.Errorf("Making request: Parsing URL: %v", err.Error())
 	}
@@ -40,7 +41,7 @@ func proxmoxMakeRequest(method string, path string, body []byte) (*http.Request,
 		return nil, nil, fmt.Errorf("Making request %v %v: %v", method, url, err.Error())
 	}
 
-	req.Header.Add("Authorization", fmt.Sprintf("PVEAPIToken=%v!%v=%v", os.Getenv("PVE_USER"), os.Getenv("PVE_TOKENID"), os.Getenv("PVE_UUID")))
+	req.Header.Add("Authorization", fmt.Sprintf("PVEAPIToken=%v!%v=%v", config.AppConfig.PVE_USER, config.AppConfig.PVE_TOKENID, config.AppConfig.PVE_UUID))
 
 	return req, &http.Client{Timeout: time.Second * 10}, nil
 }
@@ -342,8 +343,8 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, error) {
 
 	//! Prepare default/hardcoded parameters
 
-	comp_node := os.Getenv("SSH_COMP_HOST")
-	comp_node_name := os.Getenv("COMP_NAME")
+	comp_node := config.AppConfig.SSH_COMP_HOST
+	comp_node_name := config.AppConfig.COMP_NAME
 	example_fqdn := "example.vsos.ethz.ch"
 	net := "vm"
 	CEPH_POOL := "ssd"
@@ -1079,7 +1080,7 @@ func createSSHClient(pkey_path string, pkey_passphrase string, user string, host
 
 func createCMSSHClient() (*goph.Client, error) {
 	// Start new ssh connection with private key.
-	client, err := createSSHClient("/root/.ssh/cm_pkey.key", os.Getenv("SSH_CM_PKEY_PASSPHRASE"), os.Getenv("SSH_CM_USER"), os.Getenv("SSH_CM_HOST"))
+	client, err := createSSHClient("/root/.ssh/cm_pkey.key", config.AppConfig.SSH_CM_PKEY_PASSPHRASE, config.AppConfig.SSH_CM_USER, config.AppConfig.SSH_CM_HOST)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create CM node SSH client: %v", err.Error())
 	}
@@ -1089,7 +1090,7 @@ func createCMSSHClient() (*goph.Client, error) {
 
 func createCompSSHClient() (*goph.Client, error) {
 	// Start new ssh connection with private key.
-	client, err := createSSHClient("/root/.ssh/comp_pkey.key", os.Getenv("SSH_COMP_PKEY_PASSPHRASE"), os.Getenv("SSH_COMP_USER"), os.Getenv("SSH_COMP_HOST"))
+	client, err := createSSHClient("/root/.ssh/comp_pkey.key", config.AppConfig.SSH_COMP_PKEY_PASSPHRASE, config.AppConfig.SSH_COMP_USER, config.AppConfig.SSH_COMP_HOST)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create CM node SSH client: %v", err.Error())
 	}

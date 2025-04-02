@@ -10,10 +10,10 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
 	"github.com/seancfoley/ipaddress-go/ipaddr"
 )
 
@@ -167,7 +167,7 @@ var VM_SUBNET NetcenterSubnet = NewNetcenterSubnet("vm",
 const ISG_GROUP string = "adm-soseth"
 
 func netcenterMakeRequest(method string, path string, body []byte) (*http.Request, *http.Client, error) {
-	url, err := url.Parse(fmt.Sprintf("%v%v", os.Getenv("NETCENTER_HOST"), path))
+	url, err := url.Parse(fmt.Sprintf("%v%v", config.AppConfig.NETCENTER_HOST, path))
 	if err != nil {
 		return nil, nil, fmt.Errorf("Creating request: Parsing URL: %v", err.Error())
 	}
@@ -208,7 +208,7 @@ func netcenterDoRequest(req *http.Request, client *http.Client) ([]byte, error) 
 }
 
 func addAuthHeaders(req *http.Request, via []*http.Request) error {
-	req.Header.Set("authorization", fmt.Sprintf("Basic %v", base64.StdEncoding.EncodeToString([]byte(os.Getenv("NETCENTER_USER")+":"+os.Getenv("NETCENTER_PWD")))))
+	req.Header.Set("authorization", fmt.Sprintf("Basic %v", base64.StdEncoding.EncodeToString([]byte(config.AppConfig.NETCENTER_USER+":"+config.AppConfig.NETCENTER_PWD))))
 	return nil
 }
 

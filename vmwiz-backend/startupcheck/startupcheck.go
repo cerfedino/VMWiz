@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"log"
 	"net/url"
-	"os"
 	"os/exec"
 	"slices"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
@@ -86,15 +86,13 @@ func DoNetcenterStartupChecks() []*StartupCheck {
 
 	checks = append(checks, &env_check)
 	required_env := []string{"NETCENTER_HOST", "NETCENTER_USER", "NETCENTER_PWD"}
-	for _, env := range required_env {
-		if os.Getenv(env) == "" {
+	values := []string{config.AppConfig.NETCENTER_HOST, config.AppConfig.NETCENTER_USER, config.AppConfig.NETCENTER_PWD}
+	for i, env := range required_env {
+		if values[i] == "" {
 			env_check.AddError(fmt.Errorf("%v is not set", env))
 		} else {
 			env_check.AddSuccess(fmt.Sprintf("%v is set", env))
 		}
-	}
-	if len(env_check.Errors) > 0 {
-		return checks
 	}
 
 	// Make sure Netcenter is reachable
@@ -152,8 +150,9 @@ func DoProxmoxStartupChecks() []*StartupCheck {
 	}
 	checks = append(checks, &env_check)
 	required_pve_env := []string{"PVE_HOST", "PVE_USER", "PVE_TOKENID", "PVE_UUID"}
-	for _, env := range required_pve_env {
-		if os.Getenv(env) == "" {
+	values := []string{config.AppConfig.PVE_HOST, config.AppConfig.PVE_USER, config.AppConfig.PVE_TOKENID, config.AppConfig.PVE_UUID}
+	for i, env := range required_pve_env {
+		if values[i] == "" {
 			env_check.AddError(fmt.Errorf("%v is not set", env))
 		} else {
 			env_check.AddSuccess(fmt.Sprintf("%v is set", env))
@@ -167,7 +166,7 @@ func DoProxmoxStartupChecks() []*StartupCheck {
 		Name: "PVE ping test",
 	}
 	checks = append(checks, &ping_check)
-	pve_url, err := url.Parse(os.Getenv("PVE_HOST"))
+	pve_url, err := url.Parse(config.AppConfig.PVE_HOST)
 	if err != nil {
 		ping_check.AddError(fmt.Errorf("Couldn't parse PVE_HOST: %v", err.Error()))
 	}
@@ -200,8 +199,9 @@ func DoProxmoxStartupChecks() []*StartupCheck {
 	}
 	checks = append(checks, &ssh_env_check)
 	required_cm_env := []string{"SSH_CM_HOST", "SSH_CM_USER"}
-	for _, env := range required_cm_env {
-		if os.Getenv(env) == "" {
+	values = []string{config.AppConfig.SSH_CM_HOST, config.AppConfig.SSH_CM_USER}
+	for i, env := range required_cm_env {
+		if values[i] == "" {
 			ssh_env_check.AddError(fmt.Errorf("%v is not set", env))
 		} else {
 			ssh_env_check.AddSuccess(fmt.Sprintf("%v is set", env))
@@ -233,8 +233,9 @@ func DoDatabaseStartupChecks() []*StartupCheck {
 	}
 	checks = append(checks, &env_check)
 	required_pve_env := []string{"POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB"}
-	for _, env := range required_pve_env {
-		if os.Getenv(env) == "" {
+	values := []string{config.AppConfig.POSTGRES_USER, config.AppConfig.POSTGRES_PASSWORD, config.AppConfig.POSTGRES_DB}
+	for i, env := range required_pve_env {
+		if values[i] == "" {
 			env_check.AddError(fmt.Errorf("%v is not set", env))
 		} else {
 			env_check.AddSuccess(fmt.Sprintf("%v is set", env))
