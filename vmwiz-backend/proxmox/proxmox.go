@@ -1035,7 +1035,7 @@ Reinstall: %v
 		return nil, fmt.Errorf("Failed to create VM: %v", err)
 	}
 
-	log.Println(`[+] Created VM ` + string(vm.Vmid) + ` on node ` + comp_node_name + `
+	log.Println(`[+] Created VM ` + strconv.Itoa(vm.Vmid) + ` on node ` + comp_node_name + `
 ` + ssh_user + `@` + options.FQDN + `
 IPv4[0]:` + ipv4s_str[0] + `
 IPv6[0]:` + ipv6s_str[0] + `
