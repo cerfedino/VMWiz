@@ -39,6 +39,25 @@ type SQLVMRequest struct {
 	Comments         string    `db:"comments"`
 }
 
+func (f *SQLVMRequest) ToString() string {
+	return `
+ID: ` + fmt.Sprintf("%v", f.ID) + `
+RequestCreatedAt: ` + fmt.Sprintf("%v", f.RequestCreatedAt) + `
+RequestStatus: ` + fmt.Sprintf("%v", f.RequestStatus) + `
+Email: ` + fmt.Sprintf("%v", f.Email) + `
+PersonalEmail: ` + fmt.Sprintf("%v", f.PersonalEmail) + `
+IsOrganization: ` + fmt.Sprintf("%v", f.IsOrganization) + `
+OrgName: ` + fmt.Sprintf("%v", f.OrgName) + `
+Hostname: ` + fmt.Sprintf("%v", f.Hostname) + `
+Image: ` + fmt.Sprintf("%v", f.Image) + `
+Cores: ` + fmt.Sprintf("%v", f.Cores) + `
+RamGB: ` + fmt.Sprintf("%v", f.RamGB) + `
+DiskGB: ` + fmt.Sprintf("%v", f.DiskGB) + `
+SshPubkeys: ` + fmt.Sprintf("%v", f.SshPubkeys) + `
+Comments: ` + fmt.Sprintf("%v", f.Comments) + `
+`
+}
+
 func (s *SQLVMRequest) ToVMOptions() *proxmox.VMCreationOptions {
 	return &proxmox.VMCreationOptions{
 		Template:   s.Image,
@@ -128,16 +147,21 @@ func (s *postgresstorage) Init() error {
 	return nil
 }
 
-func (s *postgresstorage) StoreVMRequest(req *form.Form) error {
+func (s *postgresstorage) StoreVMRequest(req *form.Form) (*int64, error) {
 
-	_, err := DB.db.Exec(`INSERT INTO request
+	res := DB.db.QueryRow(`INSERT INTO request
 		(email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING requestID`,
 		req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, fmt.Sprintf("%v.vsos.ethz.ch", req.Hostname), req.Image, req.Cores, req.RamGB, req.DiskGB, pq.Array(req.SshPubkeys), req.Comments)
+	// Get the last inserted ID
+	var id int64
+	err := res.Scan(&id)
 	if err != nil {
-		log.Printf("Error inserting into SQL: \n%s", err)
+		log.Printf("Error getting last insert ID: \n%s", err)
+		return nil, err
 	}
-	return nil
+
+	return &id, nil
 }
 
 func (s *postgresstorage) GetVMRequest(id int64) (*SQLVMRequest, error) {

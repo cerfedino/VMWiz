@@ -65,10 +65,6 @@ var ALLOWED_VALUES form_allowed_values = form_allowed_values{
 	DiskGB: minmax{Min: 15, Max: 100},
 }
 
-func (f *Form) ToString() string {
-	return fmt.Sprintf("\n  **Email**: %v\n **Personal Email**: %v\n **IsOrganization**: %v\n **OrgName**: %v\n **Hostname**: %v\n **Image**: %v\n **Cores**: %v\n **Ram**: %v\n **Disk**: %v\n **SSH Pubkey**: %v\n **Comments**: %v\n", f.Email, f.PersonalEmail, f.IsOrganization, f.OrgName, f.Hostname, f.Image, f.Cores, f.RamGB, f.DiskGB, f.SshPubkeys, f.Comments)
-}
-
 func (f *Form) Validate() (Form_validation, bool) {
 	var validation Form_validation
 	var err bool = false

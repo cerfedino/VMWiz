@@ -47,12 +47,27 @@ func Router() *mux.Router {
 
 		w.WriteHeader(http.StatusOK)
 
-		err = notifier.NotifyVMRequest(f)
+		id, err := storage.DB.StoreVMRequest(&f)
 		if err != nil {
-			log.Printf("Failed to notify VM request: %v", err)
+			log.Printf("Failed to store VM request: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
 		}
 
-		storage.DB.StoreVMRequest(&f)
+		req, err := storage.DB.GetVMRequest(*id)
+		if err != nil {
+			log.Printf("Failed to get VM request: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		err = notifier.NotifyVMRequest(*req)
+		if err != nil {
+			log.Printf("Failed to send notification: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
 	}))
 
 	r.Methods("GET").Path("/api/vmoptions").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
