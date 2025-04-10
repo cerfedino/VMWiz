@@ -1046,7 +1046,8 @@ Disk: ` + strconv.Itoa(vm.Maxdisk) + `
 Fingerprints:
 ` + "\t" + strings.Join(vm_fingerprints, "\n\t"))
 
-	return vm, nil
+	err = AddVmToResourcePool(strconv.Itoa(VM_ID))
+	return vm, err
 }
 
 func ExistsVMName(hostname string) (bool, error) {
@@ -1150,5 +1151,21 @@ func TestCMConnection() error {
 		return fmt.Errorf("Testing CM connection: %v", err.Error())
 	}
 
+	return nil
+}
+
+func AddVmToResourcePool(vm_id string) error {
+	req, client, err := proxmoxMakeRequest(http.MethodPut, "/api2/json/pools/vsos", []byte(fmt.Sprintf("{\"vms\": \"%s\"}", vm_id)))
+	if err != nil {
+		return fmt.Errorf("Failed to put vm into VSOS resource Pool: %v\n", err.Error())
+	}
+	q := req.URL.Query()
+	// q.Set("type", "node")
+	req.URL.RawQuery = q.Encode()
+
+	_, err = proxmoxDoRequest(req, client)
+	if err != nil {
+		return fmt.Errorf("Failed to put vm into VSOS resource Pool: %v", err.Error())
+	}
 	return nil
 }
