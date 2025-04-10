@@ -68,7 +68,7 @@ func (s *SQLVMRequest) ToVMOptions() *proxmox.VMCreationOptions {
 		Disk_GB:    int64(s.DiskGB),
 		SSHPubkeys: s.SshPubkeys,
 		// TODO: Proper handling of notes
-		Notes: fmt.Sprintf("nethz=TODO  \nuni_contact=%s  \ncontact=%s\n", s.PersonalEmail, s.Email),
+		Notes: fmt.Sprintf("nethz=TODO  uni_contact=%s  contact=%s", s.PersonalEmail, s.Email),
 		Tags:  []string{},
 
 		UseQemuAgent: false,
