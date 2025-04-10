@@ -1154,6 +1154,7 @@ func TestCMConnection() error {
 	return nil
 }
 
+// todo: add check if Org add to vsos-org instead
 func AddVmToResourcePool(vm_id string) error {
 	req, client, err := proxmoxMakeRequest(http.MethodPut, "/api2/json/pools/vsos", []byte(fmt.Sprintf("{\"vms\": \"%s\"}", vm_id)))
 	if err != nil {
