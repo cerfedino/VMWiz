@@ -17,3 +17,17 @@ CREATE TABLE request(
   sshPubkeys text[] NOT NULL,
   comments text
 )
+
+CREATE TABLE survey(
+  id SERIAL PRIMARY KEY,
+  date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+)
+
+CREATE TABLE survey_question(
+  id SERIAL PRIMARY KEY,
+  vmid INT NOT NULL,
+  hostname text NOT NULL,
+  surveyID INT REFERENCES survey(id),
+  uuid text NOT NULL,
+  still_used boolean
+)

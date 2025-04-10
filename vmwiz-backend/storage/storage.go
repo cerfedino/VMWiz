@@ -227,3 +227,32 @@ func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
 
 	return reqs, nil
 }
+
+func (s *postgresstorage) AddSurvey() (int, error) {
+	// insert date into survey table
+	var surveyId int
+	err := DB.db.QueryRow(`INSERT INTO survey () VALUES () RETURNING id`).Scan(&surveyId)
+	if err != nil {
+		log.Printf("Error inserting into SQL: \n%s", err)
+		return 0, err
+	}
+	return surveyId, nil
+}
+
+func (s *postgresstorage) StoreSurveyId(vmid int, hostname string, surveyid int, uuid string) error {
+	_, err := DB.db.Exec(`INSERT INTO survey (vmid, hostname, surveyid, uuid) VALUES ($1, $2, $3, $4)`, vmid, hostname, surveyid, uuid)
+	if err != nil {
+		log.Printf("Error inserting into SQL: \n%s", err)
+		return err
+	}
+	return nil
+}
+
+func (s *postgresstorage) SetSurveyResponse(uuid string, response bool) error {
+	_, err := DB.db.Exec(`UPDATE survey SET response = $1 WHERE uuid = $2`, response, uuid)
+	if err != nil {
+		log.Printf("Error inserting into SQL: \n%s", err)
+		return err
+	}
+	return nil
+}

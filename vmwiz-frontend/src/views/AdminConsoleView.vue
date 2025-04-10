@@ -2,6 +2,12 @@
     <div class="w-75 pa-6 ma-auto border-t-sm" style="max-width: 700px">
         <h1 class="text-h4 text-center font-weight-bold mb-3">VM Requests</h1>
 
+        <v-btn @click="startSurvey">
+            <b>Start Survey</b>
+        </v-btn>
+        <p v-if="clickCount < 3">Click {{ 3 - clickCount }} more time(s) to start the survey.</p>
+        <p v-else>Survey started!</p>
+
         <div v-for="request in requests" :key="request.ID">
             <h1 class="text-h6 font-weight-bold mb-3">General Information</h1>
 
@@ -133,6 +139,7 @@ export default {
     data() {
         return {
             requests: [],
+            clickCount: 0,
         };
     },
     methods: {
@@ -175,7 +182,14 @@ export default {
                 })
             );
         },
+        startSurvey() {
+            this.clickCount++;
+            if (this.clickCount >= 3) {
+                this.$store.getters.fetchBackend("/api/survey/start", "GET",);
+            }
+        },
     },
+
     mounted() {
         this.$store.getters
             .fetchRequests()

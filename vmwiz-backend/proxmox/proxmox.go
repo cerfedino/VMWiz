@@ -1170,3 +1170,79 @@ func AddVmToResourcePool(vm_id string) error {
 	}
 	return nil
 }
+
+type SurveyVM struct {
+	Nethz        string
+	Mail         string
+	ExternalMail string
+	Hostname     string
+	VMID         int
+}
+
+type pveVmConfig struct {
+	Description string `json:"description"`
+}
+
+func GetMailAndId() ([]SurveyVM, error) {
+	vms, err := GetAllClusterVMs()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get VM list: %v", err.Error())
+	}
+
+	surveyList := make([]SurveyVM, 0)
+	// .get(format!("/nodes/{}/qemu/{}/config", self.node, self.vmid))
+	for _, m := range *vms {
+		//request config
+		req, client, err := proxmoxMakeRequest("GET", fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", m.Node, m.Vmid), nil)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to get VM config: %v", err.Error())
+		}
+		q := req.URL.Query()
+		q.Set("type", "node")
+		req.URL.RawQuery = q.Encode()
+		body, err := proxmoxDoRequest(req, client)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to retrieve Configs: %v", err.Error())
+		}
+
+		var vmConfig pveVmConfig
+		err = json.Unmarshal(body, &vmConfig)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to retrieve Configs: %v", err.Error())
+		}
+
+		nethz, err := getDescriptionField(vmConfig.Description, "nethz=")
+		if err != nil {
+			log.Printf("Failed to get nethz field: %v", err.Error())
+		}
+		mail, err := getDescriptionField(vmConfig.Description, "uni_contact=")
+		if err != nil {
+			log.Printf("Failed to get uni_contact field: %v", err.Error())
+		}
+		externalMail, err := getDescriptionField(vmConfig.Description, "contact=")
+		if err != nil {
+			log.Printf("Failed to get contact field: %v", err.Error())
+		}
+
+		vm := SurveyVM{
+			Hostname:     m.Name,
+			VMID:         m.Vmid,
+			Nethz:        nethz,
+			Mail:         mail,
+			ExternalMail: externalMail,
+		}
+		surveyList = append(surveyList, vm)
+	}
+
+	return surveyList, nil
+}
+
+func getDescriptionField(description string, field string) (string, error) {
+	lines := strings.Split(description, "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, field) {
+			return strings.TrimSpace(strings.TrimPrefix(line, field)), nil
+		}
+	}
+	return "", fmt.Errorf("Field '%s' not found in description", field)
+}

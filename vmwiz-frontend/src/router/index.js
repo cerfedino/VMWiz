@@ -15,6 +15,12 @@ const routes = [
         component: () =>
             import(/* webpackChunkName: "about" */ "../views/FormView.vue"),
     },
+    {
+        path: "/",
+        name: "survey",
+        component: () =>
+            import("../views/PollView.vue"),
+    },
 ];
 
 const router = createRouter({
