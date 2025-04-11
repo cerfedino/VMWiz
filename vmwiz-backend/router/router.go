@@ -62,7 +62,7 @@ func Router() *mux.Router {
 			return
 		}
 
-		err = notifier.NotifyVMRequest(*req)
+		err = NotifyVMRequest(*req)
 		if err != nil {
 			log.Printf("Failed to send notification: %v", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -122,7 +122,7 @@ func Router() *mux.Router {
 			return
 		}
 
-		err = notifier.NotifyVMRequestStatusChanged(*request)
+		err = NotifyVMRequestStatusChanged(*request)
 		if err != nil {
 			log.Printf("Failed to notify VM request status change: %v", err)
 			http.Error(w, "Failed to notify VM request status change", http.StatusInternalServerError)
@@ -158,7 +158,7 @@ func Router() *mux.Router {
 			return
 		}
 
-		err = notifier.NotifyVMRequestStatusChanged(*request)
+		err = NotifyVMRequestStatusChanged(*request)
 		if err != nil {
 			log.Printf("Failed to notify VM request status change: %v", err)
 			http.Error(w, "Failed to notify VM request status change", http.StatusInternalServerError)
@@ -316,4 +316,19 @@ func Router() *mux.Router {
 	r.Methods("GET").Path("/api/auth/callback").HandlerFunc(auth.HandleKeycloakCallback)
 
 	return r
+}
+
+func NotifyVMRequest(req storage.SQLVMRequest) error {
+	return notifier.UseNotifier("new_vmrequest", req.ToString())
+}
+
+func NotifyVMRequestStatusChanged(req storage.SQLVMRequest) error {
+	switch req.RequestStatus {
+	case storage.STATUS_ACCEPTED:
+		return notifier.UseNotifier("vmrequest_accepted", fmt.Sprintf("Request %v approved !", req.ID))
+	case storage.STATUS_REJECTED:
+		return notifier.UseNotifier("vmrequest_rejected", fmt.Sprintf("Request %v denied !", req.ID))
+	}
+
+	return nil
 }

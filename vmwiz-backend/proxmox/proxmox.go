@@ -25,6 +25,7 @@ import (
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/notifier"
 	"github.com/google/uuid"
 	"github.com/melbahja/goph"
 	"github.com/pkg/sftp"
@@ -1047,7 +1048,18 @@ Fingerprints:
 ` + "\t" + strings.Join(vm_fingerprints, "\n\t"))
 
 	err = AddVmToResourcePool(strconv.Itoa(VM_ID))
-	return vm, err
+	if err != nil {
+		log.Printf("Failed to add VM to resource pool: %v", err)
+	}
+	// todo: in future send mail directly to the user without Zulip
+	mail_template := createMailTemplate(vm, ipv4s_str[0], ipv6s_str[0], vm_fingerprints, ssh_user, options.FQDN)
+	err = notifier.UseNotifier("new_vmrequest", mail_template)
+	if err != nil {
+		log.Printf("Failed to send mail: %v", err)
+		log.Printf("Mail: %v", mail_template)
+	}
+
+	return vm, nil
 }
 
 func ExistsVMName(hostname string) (bool, error) {
@@ -1245,4 +1257,30 @@ func getDescriptionField(description string, field string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("Field '%s' not found in description", field)
+}
+
+func createMailTemplate(vm *PVENodeVM, ipv4 string, ipv6 string, fingerprints []string, ssh_user string, fqdn string) string {
+	var builder strings.Builder
+
+	builder.WriteString("#############################\n")
+	builder.WriteString("# Completed without errors. #\n")
+	builder.WriteString("#############################\n\n")
+
+	builder.WriteString(fmt.Sprintf("VM ID: %d\n\n", vm.Vmid))
+
+	builder.WriteString("Summary\n")
+	builder.WriteString("-------\n")
+	builder.WriteString(fmt.Sprintf("Hostname: %s\n", fqdn))
+	builder.WriteString(fmt.Sprintf("IPv4: %s\n", ipv4))
+	builder.WriteString(fmt.Sprintf("IPv6: %s\n", ipv6))
+	builder.WriteString("SSH fingerprints:\n")
+	for _, fingerprint := range fingerprints {
+		builder.WriteString(fmt.Sprintf("      %s\n", fingerprint))
+	}
+	builder.WriteString("\n")
+	builder.WriteString(fmt.Sprintf("Login with: 'ssh %s@%s'\n\n", ssh_user, fqdn))
+	builder.WriteString("If you have any questions or need more resources, please contact us at vsos-support@sos.ethz.ch.\n\n")
+	builder.WriteString("Done. Have Fun!\n")
+
+	return builder.String()
 }
