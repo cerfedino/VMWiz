@@ -1155,7 +1155,7 @@ func TestCMConnection() error {
 	return nil
 }
 
-// PUT /api2/json/pools/?poolid={pool}
+// PUT /api2/json/pools/{pool}
 func AddVMToResourcePool(vm_id int, pool string) error {
 	type bodyS struct {
 		Vms int `json:"vms"`
