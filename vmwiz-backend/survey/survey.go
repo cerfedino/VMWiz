@@ -80,6 +80,11 @@ func CreateVMUsageSurvey() error {
 			return fmt.Errorf("Failed create VM usage survey: Failed to execute email template: %v", err)
 		}
 
+		if !config.AppConfig.SMTP_ENABLE {
+			emails_sent++
+			continue
+		}
+
 		// Authentication.
 		// fmt.Println(config.AppConfig.SMTP_USER, config.AppConfig.SMTP_PASSWORD, config.AppConfig.SMTP_HOST, config.AppConfig.SMTP_PORT)
 		// TODO: Add startup check
@@ -93,7 +98,13 @@ func CreateVMUsageSurvey() error {
 		emails_sent++
 	}
 
-	err = notifier.NotifyVMUsageSurvey(surveyID, fmt.Sprintf("Sent %d emails for VM usage survey", emails_sent))
+	var msg string
+	if config.AppConfig.SMTP_ENABLE {
+		msg = fmt.Sprintf("Sent %d emails for VM usage survey", emails_sent)
+	} else {
+		msg = fmt.Sprintf("Dry-run Sent %d emails for VM usage survey (SMTP disabled)", emails_sent)
+	}
+	err = notifier.NotifyVMUsageSurvey(surveyID, msg)
 	if err != nil {
 		return fmt.Errorf("Failed to send VM usage survey notification: %v", err)
 	}
