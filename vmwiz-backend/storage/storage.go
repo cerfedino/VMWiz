@@ -260,7 +260,7 @@ func (s *postgresstorage) SurveyQuestionStore(surveyID int64, vmid int, hostname
 }
 
 func (s *postgresstorage) SurveyQuestionUpdate(uuid string, response bool) error {
-	_, err := s.db.Exec(`UPDATE survey SET response = $1 WHERE uuid = $2`, response, uuid)
+	_, err := s.db.Exec(`UPDATE survey_question SET response = $1 WHERE uuid = $2`, response, uuid)
 	if err != nil {
 		log.Printf("Error updating survey response:\n%s", err)
 		return err
