@@ -1032,7 +1032,7 @@ Reinstall: %v
 	//! Get VM data
 	vm, err := GetNodeVM(comp_node_name, VM_ID)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create VM: %v", err)
+		return nil, fmt.Errorf("Failed to create VM: Retrieving newly created VM failed: %v", err)
 	}
 
 	log.Println(`[+] Created VM ` + strconv.Itoa(vm.Vmid) + ` on node ` + comp_node_name + `
@@ -1046,7 +1046,8 @@ Disk: ` + strconv.Itoa(vm.Maxdisk) + `
 Fingerprints:
 ` + "\t" + strings.Join(vm_fingerprints, "\n\t"))
 
-	err = AddVmToResourcePool(strconv.Itoa(VM_ID))
+	// todo: add check if Org add to vsos-org instead
+	err = AddVMToResourcePool(vm.Vmid, "vsos")
 	return vm, err
 }
 
@@ -1154,19 +1155,31 @@ func TestCMConnection() error {
 	return nil
 }
 
-// todo: add check if Org add to vsos-org instead
-func AddVmToResourcePool(vm_id string) error {
-	req, client, err := proxmoxMakeRequest(http.MethodPut, "/api2/json/pools/vsos", []byte(fmt.Sprintf("{\"vms\": \"%s\"}", vm_id)))
-	if err != nil {
-		return fmt.Errorf("Failed to put vm into VSOS resource Pool: %v\n", err.Error())
+// PUT /api2/json/pools/?poolid={pool}
+func AddVMToResourcePool(vm_id int, pool string) error {
+	type bodyS struct {
+		Vms int `json:"vms"`
 	}
+	body := bodyS{
+		Vms: vm_id,
+	}
+	bodyB, err := json.Marshal(&body)
+	if err != nil {
+		return fmt.Errorf("Failed to add VM '%v' to resource pool '%v': %v", vm_id, pool, err.Error())
+	}
+
+	req, client, err := proxmoxMakeRequest(http.MethodPut, fmt.Sprintf("/api2/json/pools/%v", pool), bodyB)
+	if err != nil {
+		return fmt.Errorf("Failed to add VM '%v' to resource pool '%v': %v", vm_id, pool, err.Error())
+	}
+	req.Header.Set("Content-Type", "application/json")
 	q := req.URL.Query()
-	// q.Set("type", "node")
+
 	req.URL.RawQuery = q.Encode()
 
 	_, err = proxmoxDoRequest(req, client)
 	if err != nil {
-		return fmt.Errorf("Failed to put vm into VSOS resource Pool: %v", err.Error())
+		return fmt.Errorf("Failed to add VM '%v' to resource pool '%v': %v", vm_id, pool, err.Error())
 	}
 	return nil
 }
