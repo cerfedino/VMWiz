@@ -69,7 +69,7 @@ func (s *SQLVMRequest) ToVMOptions() *proxmox.VMCreationOptions {
 		SSHPubkeys: s.SshPubkeys,
 		// TODO: Proper handling of notes
 		Notes: fmt.Sprintf("nethz=TODO  uni_contact=%s  contact=%s", s.PersonalEmail, s.Email),
-		Tags:  []string{},
+		Tags:  []string{"created-by-vmwiz"},
 
 		UseQemuAgent: false,
 	}

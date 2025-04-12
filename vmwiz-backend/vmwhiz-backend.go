@@ -84,7 +84,7 @@ func main() {
 		log.Println(err)
 	}
 
-	// _, err := proxmox.CreateVM(proxmox.VMCreationOptions{
+	// _, _, err = proxmox.CreateVM(proxmox.VMCreationOptions{
 	// 	Template:     proxmox.IMAGE_UBUNTU_24_04,
 	// 	FQDN:         "vmwiz-test.vsos.ethz.ch",
 	// 	Reinstall:    false,
