@@ -79,7 +79,14 @@ type Storage interface {
 	CreateConnection() error
 	InitMigrations() error
 	Init(dataSourceName string)
+
 	StoreVMRequest(req *form.Form) error
+	GetVMRequest(id int64) (*SQLVMRequest, error)
+	UpdateVMRequest(req SQLVMRequest) error
+	UpdateVMRequestStatus(id int64, status string) error
+	GetAllVMRequests() ([]*SQLVMRequest, error)
+	SurveyStore(vmid int, hostname string, uuid string) (int64, error)
+	SurveyResponseUpdate(uuid string, response bool) error
 }
 
 type postgresstorage struct {
@@ -149,7 +156,7 @@ func (s *postgresstorage) Init() error {
 
 func (s *postgresstorage) StoreVMRequest(req *form.Form) (*int64, error) {
 
-	res := DB.db.QueryRow(`INSERT INTO request
+	res := s.db.QueryRow(`INSERT INTO request
 		(email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING requestID`,
 		req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, fmt.Sprintf("%v.vsos.ethz.ch", req.Hostname), req.Image, req.Cores, req.RamGB, req.DiskGB, pq.Array(req.SshPubkeys), req.Comments)
@@ -166,7 +173,7 @@ func (s *postgresstorage) StoreVMRequest(req *form.Form) (*int64, error) {
 
 func (s *postgresstorage) GetVMRequest(id int64) (*SQLVMRequest, error) {
 	var req SQLVMRequest
-	err := DB.db.QueryRow(`SELECT 
+	err := s.db.QueryRow(`SELECT 
 	requestID,requestCreatedAt, requestStatus, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments
 	FROM request WHERE requestID=$1`, id).Scan(&req.ID, &req.RequestCreatedAt, &req.RequestStatus, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
 	if err != nil {
@@ -177,7 +184,7 @@ func (s *postgresstorage) GetVMRequest(id int64) (*SQLVMRequest, error) {
 }
 
 func (s *postgresstorage) UpdateVMRequest(req SQLVMRequest) error {
-	_, err := DB.db.Exec(`UPDATE request SET requestCreatedAt=$1, requestStatus=$2, email=$3, personalEmail=$4, isOrganization=$5, orgName=$6, hostname=$7, image=$8, cores=$9, ramGB=$10, diskGB=$11, sshPubkeys=$12, comments=$13 WHERE requestID=$14`,
+	_, err := s.db.Exec(`UPDATE request SET requestCreatedAt=$1, requestStatus=$2, email=$3, personalEmail=$4, isOrganization=$5, orgName=$6, hostname=$7, image=$8, cores=$9, ramGB=$10, diskGB=$11, sshPubkeys=$12, comments=$13 WHERE requestID=$14`,
 		req.RequestCreatedAt, req.RequestStatus, req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, req.Hostname, req.Image, req.Cores, req.RamGB, req.DiskGB, pq.Array(req.SshPubkeys), req.Comments, req.ID)
 	if err != nil {
 		log.Printf("Error updating SQL: \n%s", err)
@@ -188,7 +195,7 @@ func (s *postgresstorage) UpdateVMRequest(req SQLVMRequest) error {
 }
 
 func (s *postgresstorage) UpdateVMRequestStatus(id int64, status string) error {
-	_, err := DB.db.Exec(`UPDATE request SET requestStatus=$1 WHERE requestID=$2`, status, id)
+	_, err := s.db.Exec(`UPDATE request SET requestStatus=$1 WHERE requestID=$2`, status, id)
 	if err != nil {
 		log.Printf("Error updating SQL: \n%s", err)
 	}
@@ -196,7 +203,7 @@ func (s *postgresstorage) UpdateVMRequestStatus(id int64, status string) error {
 }
 
 func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
-	rows, err := DB.db.Query(`SELECT requestID FROM request`)
+	rows, err := s.db.Query(`SELECT requestID FROM request`)
 	if err != nil {
 		log.Printf("Error getting from SQL: \n%s", err)
 		return nil, err
@@ -228,30 +235,34 @@ func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
 	return reqs, nil
 }
 
-func (s *postgresstorage) AddSurvey() (int, error) {
-	// insert date into survey table
-	var surveyId int
-	err := DB.db.QueryRow(`INSERT INTO survey () VALUES () RETURNING id`).Scan(&surveyId)
+func (s *postgresstorage) SurveyStore() (int64, error) {
+	res := s.db.QueryRow(`INSERT INTO survey DEFAULT VALUES RETURNING id`)
+	// Get the last inserted ID
+	var id int64
+	err := res.Scan(&id)
 	if err != nil {
-		log.Printf("Error inserting into SQL: \n%s", err)
-		return 0, err
+		log.Printf("Error getting last insert ID: \n%s", err)
+		return -1, err
 	}
-	return surveyId, nil
+	return id, nil
 }
 
-func (s *postgresstorage) StoreSurveyId(vmid int, hostname string, surveyid int, uuid string) error {
-	_, err := DB.db.Exec(`INSERT INTO survey (vmid, hostname, surveyid, uuid) VALUES ($1, $2, $3, $4)`, vmid, hostname, surveyid, uuid)
+func (s *postgresstorage) SurveyQuestionStore(surveyID int64, vmid int, hostname string, uuid string) (int64, error) {
+	res := s.db.QueryRow(`INSERT INTO survey_question (vmid, surveyID, hostname, uuid) VALUES ($1, $2, $3, $4) RETURNING id`, vmid, surveyID, hostname, uuid)
+	// Get the last inserted ID
+	var id int64
+	err := res.Scan(&id)
 	if err != nil {
-		log.Printf("Error inserting into SQL: \n%s", err)
-		return err
+		log.Printf("Error getting last insert ID: \n%s", err)
+		return -1, err
 	}
-	return nil
+	return id, nil
 }
 
-func (s *postgresstorage) SetSurveyResponse(uuid string, response bool) error {
-	_, err := DB.db.Exec(`UPDATE survey SET response = $1 WHERE uuid = $2`, response, uuid)
+func (s *postgresstorage) SurveyQuestionUpdate(uuid string, response bool) error {
+	_, err := s.db.Exec(`UPDATE survey SET response = $1 WHERE uuid = $2`, response, uuid)
 	if err != nil {
-		log.Printf("Error inserting into SQL: \n%s", err)
+		log.Printf("Error updating survey response:\n%s", err)
 		return err
 	}
 	return nil

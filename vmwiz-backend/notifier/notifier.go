@@ -47,3 +47,7 @@ func NotifyVMRequestStatusChanged(req storage.SQLVMRequest, additional_text stri
 func NotifyVMCreationUpdate(msg string) error {
 	return useNotifier("vmcreation_update", msg)
 }
+
+func NotifyVMUsageSurvey(surveyID int64, msg string) error {
+	return useNotifier("vmusagesurvey", fmt.Sprintf("VM Usage survey %v: %v", surveyID, msg))
+}

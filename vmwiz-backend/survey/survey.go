@@ -1,73 +1,153 @@
 package survey
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
+	"log"
 	"net/smtp"
+	"strconv"
+	"strings"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/notifier"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 	"github.com/google/uuid"
 )
 
-// this needs to get all VMs from VSOS pool
-// create a unique id for each VM
-// save that id with VM id in DB
+type SurveyVM struct {
+	Nethz        string
+	Mail         string
+	ExternalMail string
+	Hostname     string
+	VMID         int
+}
 
-// send mail to user with url+id
-
-// .get("/cluster/resources")
-// .get(format!("/nodes/{}/qemu/{}/config", self.node, self.vmid))
-
-func SendSurvey() error {
-	vms, err := proxmox.GetMailAndId()
+func CreateVMUsageSurvey() error {
+	vms, err := generateSurveys()
 	if err != nil {
 		return err
 	}
 
+	surveyID, err := storage.DB.SurveyStore()
+	if err != nil {
+		return err
+	}
+
+	err = notifier.NotifyVMUsageSurvey(surveyID, fmt.Sprintf("Created new VM usage survey with ID %d", surveyID))
+	if err != nil {
+		return fmt.Errorf("Failed create VM usage survey: %v", err)
+	}
+
+	emails_sent := 0
 	for _, vm := range vms {
-		// send mail to user with url+uuid
-		// create uniqe uuid
-		id := uuid.New()
-		uuidString := id.String()
-		// save id with vm id in DB
-		surveyId, err := storage.DB.AddSurvey()
+
+		uuidString := uuid.New().String()
+
+		_, err := storage.DB.SurveyQuestionStore(surveyID, vm.VMID, vm.Hostname, uuidString)
 		if err != nil {
-			return err
-		}
-		err = storage.DB.StoreSurveyId(vm.VMID, vm.Hostname, surveyId, uuidString)
-		if err != nil {
-			return err
+			return fmt.Errorf("Failed create VM usage survey: %v", err)
 		}
 
-		url := "https://vmwiz.vsos.ethz.ch/survey?id=" + uuidString
-
-		smtpHost := "mail.sos.ethz.ch"
-		smtpPort := "587"
-		//todo: actual account / password
-		sender := "vm-wizard@sos.ethz.ch"
-		password := "your-password"
+		url := config.AppConfig.VMWIZ_SCHEME + "://" + config.AppConfig.VMWIZ_HOSTNAME + ":" + strconv.Itoa(config.AppConfig.VMWIZ_PORT) + "/survey?id=" + uuidString
 
 		// Receiver email address.
-		// to := []string{vm.Mail}
-		to := []string{""} //todo: change to actual email addresses and not a test one
+		receivers := []string{}
+		if config.AppConfig.SMTP_RECEIVER_OVERRIDE != "" {
+			// Override the receiver email address with the one from the config if present
+			receivers = []string{config.AppConfig.SMTP_RECEIVER_OVERRIDE}
+		} else {
+			receivers = []string{}
+		}
 
-		// Message.
-		subject := "Subject: VSOS VM Usage Survey: Response needed\n"
-		body := "You have a VM with us: " + vm.Hostname + "\n" +
-			"Please state if you still use your VM." + url + "\n" +
-			"If you do not fill out the link we will send follow up mails and shutdown your VM.\n"
-		message := []byte(subject + "\n" + body)
+		VMUSAGE_SURVEY_TEMPLATE_PATH := "survey/vmusage_survey.tmpl"
+		mail_content := new(bytes.Buffer)
+		vmusage_survey_template, err := template.ParseFiles(VMUSAGE_SURVEY_TEMPLATE_PATH)
+		if err != nil {
+			return fmt.Errorf("Failed create VM usage survey: Failed to parse email template: %v", err)
+		}
+		err = vmusage_survey_template.Execute(mail_content, struct {
+			HOSTNAME  string
+			URL       string
+			RECIPIENT string
+		}{
+			HOSTNAME:  vm.Hostname,
+			URL:       url,
+			RECIPIENT: receivers[0],
+		})
+		if err != nil {
+			return fmt.Errorf("Failed create VM usage survey: Failed to execute email template: %v", err)
+		}
 
 		// Authentication.
-		auth := smtp.PlainAuth("", sender, password, smtpHost)
+		// fmt.Println(config.AppConfig.SMTP_USER, config.AppConfig.SMTP_PASSWORD, config.AppConfig.SMTP_HOST, config.AppConfig.SMTP_PORT)
+		// TODO: Add startup check
+		auth := smtp.PlainAuth("", config.AppConfig.SMTP_USER, config.AppConfig.SMTP_PASSWORD, config.AppConfig.SMTP_HOST)
 
 		// Sending email.
-		err = smtp.SendMail(smtpHost+":"+smtpPort, auth, sender, to, message)
+		err = smtp.SendMail(config.AppConfig.SMTP_HOST+":"+config.AppConfig.SMTP_PORT, auth, config.AppConfig.SMTP_SENDER, receivers, mail_content.Bytes())
 		if err != nil {
-			fmt.Println("Error sending email:", err)
-			return err
+			return fmt.Errorf("Failed create VM usage survey: Failed to send email: %v", err)
 		}
-		fmt.Println("Email sent successfully")
+		emails_sent++
+	}
+
+	err = notifier.NotifyVMUsageSurvey(surveyID, fmt.Sprintf("Sent %d emails for VM usage survey", emails_sent))
+	if err != nil {
+		return fmt.Errorf("Failed to send VM usage survey notification: %v", err)
 	}
 	return nil
+}
+
+func generateSurveys() ([]SurveyVM, error) {
+	vms, err := proxmox.GetAllClusterVMs()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get VM list: %v", err.Error())
+	}
+
+	surveyList := make([]SurveyVM, 0)
+
+	for _, m := range *vms {
+
+		vmConfig, err := proxmox.GetNodeVMConfig(m.Node, m.Vmid)
+		if err != nil {
+			log.Printf("Failed to get VM config for VM %d: %v", m.Vmid, err.Error())
+			continue
+		}
+
+		nethz, err := getDescriptionField(vmConfig.Description, "nethz=")
+		if err != nil {
+			log.Printf("Failed to get nethz field: %v", err.Error())
+		}
+		mail, err := getDescriptionField(vmConfig.Description, "uni_contact=")
+		if err != nil {
+			log.Printf("Failed to get uni_contact field: %v", err.Error())
+		}
+		externalMail, err := getDescriptionField(vmConfig.Description, "contact=")
+		if err != nil {
+			log.Printf("Failed to get contact field: %v", err.Error())
+		}
+
+		vm := SurveyVM{
+			Hostname:     m.Name,
+			VMID:         m.Vmid,
+			Nethz:        nethz,
+			Mail:         mail,
+			ExternalMail: externalMail,
+		}
+		surveyList = append(surveyList, vm)
+	}
+
+	return surveyList, nil
+}
+
+func getDescriptionField(description string, field string) (string, error) {
+	lines := strings.Split(description, "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, field) {
+			return strings.TrimSpace(strings.TrimPrefix(line, field)), nil
+		}
+	}
+	return "", fmt.Errorf("Field '%s' not found in description", field)
 }

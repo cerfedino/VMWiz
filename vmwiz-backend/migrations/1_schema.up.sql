@@ -16,18 +16,18 @@ CREATE TABLE request(
   diskGB int NOT NULL,
   sshPubkeys text[] NOT NULL,
   comments text
-)
+);
 
 CREATE TABLE survey(
-  id SERIAL PRIMARY KEY,
-  date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-)
+  id BIGSERIAL PRIMARY KEY,
+  date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE survey_question(
-  id SERIAL PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
+  surveyID BIGSERIAL REFERENCES survey(id),
   vmid INT NOT NULL,
   hostname text NOT NULL,
-  surveyID INT REFERENCES survey(id),
   uuid text NOT NULL,
   still_used boolean
-)
+);

@@ -1220,104 +1220,32 @@ func AddVMToResourcePool(vm_id int, pool string) error {
 	return nil
 }
 
-type SurveyVM struct {
-	Nethz        string
-	Mail         string
-	ExternalMail string
-	Hostname     string
-	VMID         int
-}
-
-type pveVmConfig struct {
+type PVENodeVMConfig struct {
 	Description string `json:"description"`
 }
 
-func GetMailAndId() ([]SurveyVM, error) {
-	vms, err := GetAllClusterVMs()
+// GET /nodes/{node}/qemu/{vmid}/config
+func GetNodeVMConfig(node string, vmid int) (*PVENodeVMConfig, error) {
+	req, client, err := proxmoxMakeRequest("GET", fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid), nil)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get VM list: %v", err.Error())
+		return nil, fmt.Errorf("Failed to get VM config: %v", err.Error())
+	}
+	q := req.URL.Query()
+
+	req.URL.RawQuery = q.Encode()
+	body, err := proxmoxDoRequest(req, client)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get VM config: %v", err.Error())
 	}
 
-	surveyList := make([]SurveyVM, 0)
-	// .get(format!("/nodes/{}/qemu/{}/config", self.node, self.vmid))
-	for _, m := range *vms {
-		//request config
-		req, client, err := proxmoxMakeRequest("GET", fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", m.Node, m.Vmid), nil)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to get VM config: %v", err.Error())
-		}
-		q := req.URL.Query()
-		q.Set("type", "node")
-		req.URL.RawQuery = q.Encode()
-		body, err := proxmoxDoRequest(req, client)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to retrieve Configs: %v", err.Error())
-		}
-
-		var vmConfig pveVmConfig
-		err = json.Unmarshal(body, &vmConfig)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to retrieve Configs: %v", err.Error())
-		}
-
-		nethz, err := getDescriptionField(vmConfig.Description, "nethz=")
-		if err != nil {
-			log.Printf("Failed to get nethz field: %v", err.Error())
-		}
-		mail, err := getDescriptionField(vmConfig.Description, "uni_contact=")
-		if err != nil {
-			log.Printf("Failed to get uni_contact field: %v", err.Error())
-		}
-		externalMail, err := getDescriptionField(vmConfig.Description, "contact=")
-		if err != nil {
-			log.Printf("Failed to get contact field: %v", err.Error())
-		}
-
-		vm := SurveyVM{
-			Hostname:     m.Name,
-			VMID:         m.Vmid,
-			Nethz:        nethz,
-			Mail:         mail,
-			ExternalMail: externalMail,
-		}
-		surveyList = append(surveyList, vm)
+	type vmConfig struct {
+		Data PVENodeVMConfig `json:"data"`
+	}
+	var config vmConfig
+	err = json.Unmarshal(body, &config)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get VM config: %v", err.Error())
 	}
 
-	return surveyList, nil
-}
-
-func getDescriptionField(description string, field string) (string, error) {
-	lines := strings.Split(description, "\n")
-	for _, line := range lines {
-		if strings.HasPrefix(line, field) {
-			return strings.TrimSpace(strings.TrimPrefix(line, field)), nil
-		}
-	}
-	return "", fmt.Errorf("Field '%s' not found in description", field)
-}
-
-func createMailTemplate(vm *PVENodeVM, ipv4 string, ipv6 string, fingerprints []string, ssh_user string, fqdn string) string {
-	var builder strings.Builder
-
-	builder.WriteString("#############################\n")
-	builder.WriteString("# Completed without errors. #\n")
-	builder.WriteString("#############################\n\n")
-
-	builder.WriteString(fmt.Sprintf("VM ID: %d\n\n", vm.Vmid))
-
-	builder.WriteString("Summary\n")
-	builder.WriteString("-------\n")
-	builder.WriteString(fmt.Sprintf("Hostname: %s\n", fqdn))
-	builder.WriteString(fmt.Sprintf("IPv4: %s\n", ipv4))
-	builder.WriteString(fmt.Sprintf("IPv6: %s\n", ipv6))
-	builder.WriteString("SSH fingerprints:\n")
-	for _, fingerprint := range fingerprints {
-		builder.WriteString(fmt.Sprintf("      %s\n", fingerprint))
-	}
-	builder.WriteString("\n")
-	builder.WriteString(fmt.Sprintf("Login with: 'ssh %s@%s'\n\n", ssh_user, fqdn))
-	builder.WriteString("If you have any questions or need more resources, please contact us at vsos-support@sos.ethz.ch.\n\n")
-	builder.WriteString("Done. Have Fun!\n")
-
-	return builder.String()
+	return &config.Data, nil
 }

@@ -265,16 +265,6 @@ func Router() *mux.Router {
 		w.WriteHeader(http.StatusOK)
 	})))
 
-	r.Methods("GET").Path("/api/poll/start").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		err := survey.SendSurvey()
-		if err != nil {
-			log.Printf("Error sending survey: %v", err)
-			http.Error(w, "Failed to send survey", http.StatusInternalServerError)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-	})))
-
 	r.Methods("POST").Path("/api/dns/deleteByHostname").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
 			Hostname string `json:"hostname"`
@@ -297,10 +287,17 @@ func Router() *mux.Router {
 
 		w.WriteHeader(http.StatusOK)
 	})))
-	// const response = await axios.post('/api/poll/', {
-	// 	id: this.pollId,
-	// 	keep: false,
-	// });
+
+	r.Methods("GET").Path("/api/poll/start").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		err := survey.CreateVMUsageSurvey()
+		if err != nil {
+			log.Printf("Error sending survey: %v", err)
+			http.Error(w, "Failed to send survey", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})))
+
 	r.Methods("POST").Path("/api/poll/set").Subrouter().NewRoute().Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
 			ID   string `json:"id"`
@@ -315,7 +312,7 @@ func Router() *mux.Router {
 			return
 		}
 
-		err = storage.DB.SetSurveyResponse(body.ID, body.Keep)
+		err = storage.DB.SurveyQuestionUpdate(body.ID, body.Keep)
 		if err != nil {
 			log.Printf("Error setting survey response: %v", err)
 			http.Error(w, "Failed to set survey response", http.StatusInternalServerError)
