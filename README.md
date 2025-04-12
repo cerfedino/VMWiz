@@ -25,7 +25,7 @@ The backend estabilishes SSH sessions to the Cluster management (CM) node and th
   Add the CM and Comp host fingerprints to the [docker/ssh/known_hosts](docker/ssh/known_hosts) file. Finally, adjust the related environment variables in [.backend.env](.backend.env).\
   **5.2 Default VM credentials**\
   Each VM created through VMWiz will both accept the public key supplied by the requesting student/organization and another "universal" public key shared by every VM.
-  Populate [docker/ssh/vm_univ_pubkey.pkey](docker/ssh/vm_univ_pubkey.pkey) and [docker/ssh/vm_univ_privkey.key](docker/ssh/vm_univ_privkey.pkey) with a valid key pair.
+  Populate [docker/ssh/vm_univ_pubkey.key](docker/ssh/vm_univ_pubkey.key) and [docker/ssh/vm_univ_privkey.key](docker/ssh/vm_univ_privkey.key) with a valid key pair.
 5. **Modify Netcenter values inside of [.backend.env](.backend.env)**\
 The backend uses the Netcenter HTTP API, which requires authentication. To that end, insert the credentials of a valid user. 
 6. **Modify Keycloak values inside of [.backend.env](.backend.env)**\
