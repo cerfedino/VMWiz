@@ -5,7 +5,9 @@
         <v-btn @click="startSurvey">
             <b>Start Survey</b>
         </v-btn>
-        <p v-if="clickCount < 3">Click {{ 3 - clickCount }} more time(s) to start the survey.</p>
+        <p v-if="clickCount < 3">
+            Click {{ 3 - clickCount }} more time(s) to start the survey.
+        </p>
         <p v-else>Survey started!</p>
 
         <div v-for="request in requests" :key="request.ID">
@@ -185,7 +187,7 @@ export default {
         startSurvey() {
             this.clickCount++;
             if (this.clickCount >= 3) {
-                this.$store.getters.fetchBackend("/api/survey/start", "GET",);
+                this.$store.getters.fetchBackend("/api/survey/start", "GET");
             }
         },
     },
