@@ -2,9 +2,13 @@
 # You can see the available services on the apprise repo [See https://github.com/caronc/apprise#supported-notifications]
 
 urls:
+  # The Zulip tokens are just placeholders
   # - zulip://vmwiz-bot@chat.sos.ethz.ch/JN7XHKJ3zmWAM6T33QIWslaJtekrF9xD/vsos:
-  #   - tag: new_vmrequest
+  # - tag: new_vmrequest
   # - zulip://vmwiz-bot@chat.sos.ethz.ch/JN7XHKJ3zmWAM6T33QIWslaJtekrF9xD/vsos:
-  #   - tag: vmrequest_accepted
+  # - tag: vmrequest_accepted
   # - zulip://vmwiz-bot@chat.sos.ethz.ch/JN7XHKJ3zmWAM6T33QIWslaJtekrF9xD/vsos:
-  #   - tag: vmrequest_rejected
+  # - tag: vmrequest_rejected
+  # - zulip://vmwiz-bot@chat.sos.ethz.ch/JN7XHKJ3zmWAM6T33QIWslaJtekrF9xD/vsos:
+  # - tag: vmcreation_update
+

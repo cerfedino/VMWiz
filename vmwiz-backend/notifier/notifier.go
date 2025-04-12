@@ -8,11 +8,13 @@ import (
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 )
 
-func useNotifier(tags string, title string, body string) error {
+var THREAD_TITLE = "VM Request Notifications"
+
+func useNotifier(tags string, body string) error {
 
 	fmt.Println("[-] Sending notification to vmwiz-notifier")
 	v := url.Values{}
-	v.Add("title", title)
+	v.Add("title", THREAD_TITLE)
 	v.Add("tags", tags)
 	v.Add("body", body)
 
@@ -23,23 +25,25 @@ func useNotifier(tags string, title string, body string) error {
 	return nil
 }
 
-var THREAD_TITLE = "VM Request Notifications"
-
-func NotifyVMRequest(req storage.SQLVMRequest) error {
-	return useNotifier("new_vmrequest", THREAD_TITLE, req.ToString())
+func SendTestNotification(body string) error {
+	return useNotifier("test", body)
 }
 
-func NotifyVMRequestStatusChanged(req storage.SQLVMRequest) error {
+func NotifyVMRequest(req storage.SQLVMRequest) error {
+	return useNotifier("new_vmrequest", "```\n"+req.ToString()+"\n```")
+}
+
+func NotifyVMRequestStatusChanged(req storage.SQLVMRequest, additional_text string) error {
 	switch req.RequestStatus {
 	case storage.STATUS_ACCEPTED:
-		return useNotifier("vmrequest_accepted", THREAD_TITLE, fmt.Sprintf("Request %v approved !", req.ID))
+		return useNotifier("vmrequest_accepted", fmt.Sprintf("Request %v approved ! %v", req.ID, additional_text))
 	case storage.STATUS_REJECTED:
-		return useNotifier("vmrequest_rejected", THREAD_TITLE, fmt.Sprintf("Request %v denied !", req.ID))
+		return useNotifier("vmrequest_rejected", fmt.Sprintf("Request %v denied ! %v", req.ID, additional_text))
 	}
 
 	return nil
 }
 
-func SendTestNotification(body string) error {
-	return useNotifier("test", "VMWIZ notification test", body)
+func NotifyVMCreationUpdate(msg string) error {
+	return useNotifier("vmcreation_update", msg)
 }

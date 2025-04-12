@@ -111,21 +111,34 @@ func Router() *mux.Router {
 			return
 		}
 
+		err = notifier.NotifyVMRequestStatusChanged(*request, "Creating VM now, it'll take a while ...")
+		if err != nil {
+			log.Printf("Failed to notify VM request status change: %v", err)
+			http.Error(w, "Failed to notify VM request status change", http.StatusInternalServerError)
+			return
+		}
+
 		opts := request.ToVMOptions()
-		opts.Tags = append(opts.Tags, "created-by-vmwiz")
+		opts.ResourcePool = "vsos"
 
 		storage.DB.UpdateVMRequestStatus(int64(body.ID), storage.STATUS_ACCEPTED)
-		_, err = proxmox.CreateVM(*opts)
+		_, summary, err := proxmox.CreateVM(*opts)
 		if err != nil {
 			log.Printf("Error creating VM: %v", err)
+			err2 := notifier.NotifyVMCreationUpdate(fmt.Sprintf("Error creating VM from request %d:\n%v", body.ID, "```\n"+err.Error()+"\n```"))
+			if err2 != nil {
+				log.Printf("Failed to notify VM creation update: %v", err2)
+				http.Error(w, "Failed to notify VM creation update", http.StatusInternalServerError)
+				return
+			}
 			http.Error(w, "Failed to create VM:\n"+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		err = notifier.NotifyVMRequestStatusChanged(*request)
+		err = notifier.NotifyVMCreationUpdate(fmt.Sprintf("VM %s created successfully:\n%s", opts.FQDN, "```\n"+summary.String()+"\n```"))
 		if err != nil {
-			log.Printf("Failed to notify VM request status change: %v", err)
-			http.Error(w, "Failed to notify VM request status change", http.StatusInternalServerError)
+			log.Printf("Failed to notify VM creation update: %v", err)
+			http.Error(w, "Failed to notify VM creation update", http.StatusInternalServerError)
 			return
 		}
 
@@ -158,7 +171,7 @@ func Router() *mux.Router {
 			return
 		}
 
-		err = notifier.NotifyVMRequestStatusChanged(*request)
+		err = notifier.NotifyVMRequestStatusChanged(*request, "")
 		if err != nil {
 			log.Printf("Failed to notify VM request status change: %v", err)
 			http.Error(w, "Failed to notify VM request status change", http.StatusInternalServerError)
