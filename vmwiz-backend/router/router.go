@@ -289,7 +289,7 @@ func Router() *mux.Router {
 	})))
 
 	r.Methods("GET").Path("/api/poll/start").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		err := survey.CreateVMUsageSurvey()
+		err := survey.CreateVMUsageSurvey([]string{"vsos"})
 		if err != nil {
 			log.Printf("Error sending survey: %v", err)
 			http.Error(w, "Failed to send survey", http.StatusInternalServerError)

@@ -12,6 +12,7 @@ import (
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/notifier"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/router"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/startupcheck"
@@ -49,6 +50,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to parse config: %v", err.Error())
 	}
+
+	notifier.InitSMTP()
 
 	if startupcheck.DoAllStartupChecks() {
 		log.Fatalf("Startup checks failed. Exiting ...")
