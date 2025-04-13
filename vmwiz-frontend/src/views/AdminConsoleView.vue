@@ -25,6 +25,28 @@
             <v-btn @click="getSurveyResponseNegative(surveyId)">
                 <b>Get Negative Responses</b>
             </v-btn>
+            <div v-if="surveyDataNeg != null">
+                <h1 class="text-h6 font-weight-bold mb-3">
+                    Not needed anymore:
+                </h1>
+                <table>
+                    <!-- survey data is a string array -->
+                    <tr v-for="(item, index) in surveyDataNeg" :key="index">
+                        <td>{{ item }}</td>
+                    </tr>
+                </table>
+            </div>
+            <div v-if="surveyDataNone != null">
+                <h1 class="text-h6 font-weight-bold mb-3">
+                    Not responded yet:
+                </h1>
+                <table>
+                    <!-- survey data is a string array -->
+                    <tr v-for="(item, index) in surveyDataNone" :key="index">
+                        <td>{{ item }}</td>
+                    </tr>
+                </table>
+            </div>
         </div>
 
         <div v-for="request in requests" :key="request.ID">
@@ -160,6 +182,8 @@ export default {
             requests: [],
             clickCount: 0,
             surveyId: 0,
+            surveyDataNeg: null,
+            surveyDataNone: null,
         };
     },
     methods: {
@@ -221,6 +245,7 @@ export default {
                 .fetchBackend(`/api/poll/responses/none?id=${id}`, "GET")
                 .then((response) => response.json())
                 .then((data) => {
+                    this.surveyDataNone = data;
                     console.log(data);
                     //todo: display data in a table
                 });
@@ -230,6 +255,7 @@ export default {
                 .fetchBackend(`/api/poll/responses/negative?id=${id}`, "GET")
                 .then((response) => response.json())
                 .then((data) => {
+                    this.surveyDataNeg = data;
                     console.log(data);
                     //todo: display data in a table
                 });

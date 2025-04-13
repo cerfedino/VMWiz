@@ -304,6 +304,9 @@ func (s *postgresstorage) SurveyQuestionNegative(survey_id int) ([]string, error
 		log.Printf("Error getting from SQL: \n%s", err)
 		return nil, err
 	}
+	if hostnames == nil {
+		hostnames = []string{}
+	}
 	return hostnames, nil
 }
 
@@ -316,7 +319,6 @@ func (s *postgresstorage) SurveyQuestionNotResponded(survey_id int) ([]string, e
 	defer res.Close()
 	var hostnames []string
 	for res.Next() {
-
 		var hostname string
 		err = res.Scan(&hostname)
 		if err != nil {
@@ -328,6 +330,9 @@ func (s *postgresstorage) SurveyQuestionNotResponded(survey_id int) ([]string, e
 	if err = res.Err(); err != nil {
 		log.Printf("Error getting from SQL: \n%s", err)
 		return nil, err
+	}
+	if hostnames == nil {
+		hostnames = []string{}
 	}
 	return hostnames, nil
 }
