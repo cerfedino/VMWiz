@@ -39,7 +39,7 @@ export default {
     methods: {
         async keep() {
             try {
-                const response = await axios.post("/api/poll/set", {
+                const response = await axios.post("/api/usagesurvey/set", {
                     id: this.pollId,
                     keep: true,
                 });
@@ -54,7 +54,7 @@ export default {
         async confirmRemove() {
             this.showConfirmation = false;
             try {
-                const response = await axios.post("/api/poll/set", {
+                const response = await axios.post("/api/usagesurvey/set", {
                     id: this.pollId,
                     keep: false,
                 });

@@ -229,12 +229,15 @@ export default {
         startSurvey() {
             this.clickCount++;
             if (this.clickCount >= 3) {
-                this.$store.getters.fetchBackend("/api/poll/start", "GET");
+                this.$store.getters.fetchBackend(
+                    "/api/usagesurvey/start",
+                    "GET"
+                );
             }
         },
         getLastSurveyId() {
             this.$store.getters
-                .fetchBackend("/api/poll/lastsurvey", "GET")
+                .fetchBackend("/api/usagesurvey/lastsurvey", "GET")
                 .then((response) => response.json())
                 .then((data) => {
                     this.surveyId = data;
@@ -242,7 +245,7 @@ export default {
         },
         getSurveyNoneResponse(id) {
             this.$store.getters
-                .fetchBackend(`/api/poll/responses/none?id=${id}`, "GET")
+                .fetchBackend(`/api/usagesurvey/responses/none?id=${id}`, "GET")
                 .then((response) => response.json())
                 .then((data) => {
                     this.surveyDataNone = data;
@@ -252,7 +255,10 @@ export default {
         },
         getSurveyResponseNegative(id) {
             this.$store.getters
-                .fetchBackend(`/api/poll/responses/negative?id=${id}`, "GET")
+                .fetchBackend(
+                    `/api/usagesurvey/responses/negative?id=${id}`,
+                    "GET"
+                )
                 .then((response) => response.json())
                 .then((data) => {
                     this.surveyDataNeg = data;
