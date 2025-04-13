@@ -165,7 +165,7 @@ export default {
     methods: {
         acceptRequest(id) {
             this.$store.getters.fetchBackend(
-                "/api/requests/accept",
+                "/api/vmrequest/accept",
                 "POST",
                 {
                     "Content-Type": "application/json",
@@ -177,7 +177,7 @@ export default {
         },
         rejectRequest(id) {
             this.$store.getters.fetchBackend(
-                "/api/requests/reject",
+                "/api/vmrequest/reject",
                 "POST",
                 {
                     "Content-Type": "application/json",
@@ -189,7 +189,7 @@ export default {
         },
         editRequest(id, payload) {
             this.$store.getters.fetchBackend(
-                "/api/requests/edit",
+                "/api/vmrequest/edit",
                 "POST",
                 {
                     "Content-Type": "application/json",

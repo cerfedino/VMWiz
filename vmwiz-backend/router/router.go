@@ -72,12 +72,12 @@ func Router() *mux.Router {
 
 	}))
 
-	r.Methods("GET").Path("/api/vmoptions").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("GET").Path("/api/vmrequest/options").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp, _ := json.Marshal(form.ALLOWED_VALUES)
 		w.Write(resp)
 	}))
 
-	r.Methods("GET").Path("/api/requests").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("GET").Path("/api/vmrequest").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		vmRequests, err := storage.DB.GetAllVMRequests()
 		if err != nil {
 			log.Printf("Failed to get VM requests: %v", err)
@@ -93,7 +93,7 @@ func Router() *mux.Router {
 		w.Write(resp)
 	})))
 
-	r.Methods("POST").Path("/api/requests/accept").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/vmrequest/accept").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
 			ID int `json:"id"`
 		}
@@ -145,7 +145,7 @@ func Router() *mux.Router {
 
 	})))
 
-	r.Methods("POST").Path("/api/requests/reject").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/vmrequest/reject").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
 			ID int `json:"id"`
 		}
@@ -181,7 +181,7 @@ func Router() *mux.Router {
 
 	})))
 
-	r.Methods("POST").Path("/api/requests/edit").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/vmrequest/edit").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
 			ID         int `json:"id"`
 			Cores_cpu  int `json:"cores_cpu"`
