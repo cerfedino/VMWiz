@@ -42,7 +42,12 @@ func CreateVMUsageSurvey(restrict_pool []string) error {
 	emails_sent := 0
 	for _, vm := range vms {
 		if emails_sent%10 == 0 {
-			log.Printf("Sending emails ... (%v / %v)", emails_sent, len(vms))
+			// TODO: Startup check if production + SMTP disabled
+			if config.AppConfig.SMTP_ENABLE {
+				log.Printf("Sending emails ... (%v / %v)", emails_sent, len(vms))
+			} else {
+				log.Printf("Dry-run Sending emails ... (%v / %v) (SMTP disabled)", emails_sent, len(vms))
+			}
 		}
 
 		uuidString := uuid.New().String()
@@ -76,11 +81,6 @@ func CreateVMUsageSurvey(restrict_pool []string) error {
 		})
 		if err != nil {
 			return fmt.Errorf("Failed create VM usage survey: Failed to execute email template: %v", err)
-		}
-
-		if !config.AppConfig.SMTP_ENABLE {
-			emails_sent++
-			continue
 		}
 
 		// Authentication.

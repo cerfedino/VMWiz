@@ -1,19 +1,30 @@
 package notifier
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/smtp"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
+
+	"golang.org/x/time/rate"
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 )
 
 var APPRISE_THREAD_TITLE = "VM Request Notifications"
-var SMTP_AUTH smtp.Auth
+
+type SMTP struct {
+	rate_limit *rate.Limiter
+	mutex      sync.Mutex
+	smtp_auth  smtp.Auth
+}
+
+var SMTP_CLIENT SMTP
 
 func useNotifier(tags string, body string) error {
 
@@ -58,10 +69,12 @@ func NotifyVMUsageSurvey(surveyID int64, msg string) error {
 }
 
 func InitSMTP() error {
-	// SMTP is not used in this notifier
-	SMTP_AUTH = smtp.PlainAuth("", config.AppConfig.SMTP_USER, config.AppConfig.SMTP_PASSWORD, config.AppConfig.SMTP_HOST)
+	SMTP_CLIENT.rate_limit = rate.NewLimiter(rate.Every(time.Second*2), 1)
+
+	SMTP_CLIENT.smtp_auth = smtp.PlainAuth("", config.AppConfig.SMTP_USER, config.AppConfig.SMTP_PASSWORD, config.AppConfig.SMTP_HOST)
+
 	// Sends an email to no one to test the SMTP connection
-	err := smtp.SendMail("Test", SMTP_AUTH, config.AppConfig.SMTP_SENDER, []string{}, []byte("Test"))
+	err := SendEmail("Test", []byte{}, []string{})
 	if err != nil {
 		return fmt.Errorf("Failed to send test email: %v", err)
 	}
@@ -69,19 +82,20 @@ func InitSMTP() error {
 }
 
 func SendEmail(subject string, body []byte, to []string) error {
-	if config.AppConfig.SMTP_ENABLE == false {
-		return nil
+	// Rate limit
+	SMTP_CLIENT.mutex.Lock()
+	defer SMTP_CLIENT.mutex.Unlock()
+	err := SMTP_CLIENT.rate_limit.Wait(context.Background())
+	if err != nil {
+		return fmt.Errorf("Failed to wait for rate limit: %v", err)
 	}
-	if SMTP_AUTH == nil {
+
+	if SMTP_CLIENT.smtp_auth == nil {
 		return fmt.Errorf("SMTP not initialized")
 	}
-
-	// Rate limit
-	time.Sleep(time.Second * 2)
-
 	// Body is formatted according to RFC 822
 	mailbody := fmt.Sprintf("Subject: %s\r\nTo: %s\r\n%s\r\n", subject, strings.Join(to, ","), body)
-	err := smtp.SendMail(config.AppConfig.SMTP_HOST+":"+config.AppConfig.SMTP_PORT, SMTP_AUTH, config.AppConfig.SMTP_SENDER, to, []byte(mailbody))
+	err = smtp.SendMail(config.AppConfig.SMTP_HOST+":"+config.AppConfig.SMTP_PORT, SMTP_CLIENT.smtp_auth, config.AppConfig.SMTP_SENDER, to, []byte(mailbody))
 	if err != nil {
 		return fmt.Errorf("Failed to send email: %v", err)
 	}
