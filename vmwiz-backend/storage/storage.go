@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	STATUS_PENDING  = "pending"
-	STATUS_ACCEPTED = "accepted"
-	STATUS_REJECTED = "rejected"
+	REQUEST_STATUS_PENDING  = "pending"
+	REQUEST_STATUS_ACCEPTED = "accepted"
+	REQUEST_STATUS_REJECTED = "rejected"
 )
 
 type SQLVMRequest struct {
@@ -164,7 +164,7 @@ func (s *postgresstorage) StoreVMRequest(req *form.Form) (*int64, error) {
 	var id int64
 	err := res.Scan(&id)
 	if err != nil {
-		log.Printf("Error getting last insert ID: \n%s", err)
+		log.Printf("StoreVMRequest: Error getting last insert ID: %s", err)
 		return nil, err
 	}
 
@@ -177,7 +177,7 @@ func (s *postgresstorage) GetVMRequest(id int64) (*SQLVMRequest, error) {
 	requestID,requestCreatedAt, requestStatus, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments
 	FROM request WHERE requestID=$1`, id).Scan(&req.ID, &req.RequestCreatedAt, &req.RequestStatus, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
 	if err != nil {
-		log.Printf("Error getting from SQL: \n%s", err)
+		log.Printf("GetVMRequest: Error when executing query: %s", err)
 		return nil, err
 	}
 	return &req, nil
@@ -187,7 +187,7 @@ func (s *postgresstorage) UpdateVMRequest(req SQLVMRequest) error {
 	_, err := s.db.Exec(`UPDATE request SET requestCreatedAt=$1, requestStatus=$2, email=$3, personalEmail=$4, isOrganization=$5, orgName=$6, hostname=$7, image=$8, cores=$9, ramGB=$10, diskGB=$11, sshPubkeys=$12, comments=$13 WHERE requestID=$14`,
 		req.RequestCreatedAt, req.RequestStatus, req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, req.Hostname, req.Image, req.Cores, req.RamGB, req.DiskGB, pq.Array(req.SshPubkeys), req.Comments, req.ID)
 	if err != nil {
-		log.Printf("Error updating SQL: \n%s", err)
+		log.Printf("UpdateVMRequest: Error updating SQL: %s", err)
 		return err
 	}
 
@@ -197,7 +197,7 @@ func (s *postgresstorage) UpdateVMRequest(req SQLVMRequest) error {
 func (s *postgresstorage) UpdateVMRequestStatus(id int64, status string) error {
 	_, err := s.db.Exec(`UPDATE request SET requestStatus=$1 WHERE requestID=$2`, status, id)
 	if err != nil {
-		log.Printf("Error updating SQL: \n%s", err)
+		log.Printf("UpdateVMRequestStatus: Error updating SQL: %s", err)
 	}
 	return nil
 }
@@ -205,7 +205,7 @@ func (s *postgresstorage) UpdateVMRequestStatus(id int64, status string) error {
 func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
 	rows, err := s.db.Query(`SELECT requestID FROM request`)
 	if err != nil {
-		log.Printf("Error getting from SQL: \n%s", err)
+		log.Printf("GetAllVMRequests: Error when executing query: %s", err)
 		return nil, err
 	}
 	// Store all IDs
@@ -214,7 +214,7 @@ func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
 		var id int64
 		err = rows.Scan(&id)
 		if err != nil {
-			log.Printf("Error getting from SQL: \n%s", err)
+			log.Printf("GetAllVMRequests: Error while scanning rows: %s", err)
 			return nil, err
 		}
 		ids = append(ids, &id)
@@ -226,7 +226,7 @@ func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
 		var req *SQLVMRequest
 		req, err := s.GetVMRequest(*id)
 		if err != nil {
-			log.Printf("Error getting from SQL: \n%s", err)
+			log.Printf("GetAllVMRequests: %s", err)
 			return nil, err
 		}
 		reqs = append(reqs, req)
@@ -235,40 +235,105 @@ func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
 	return reqs, nil
 }
 
-func (s *postgresstorage) SurveyStore() (int64, error) {
+type SQLUsageSurveyEmail struct {
+	Id         int64  `db:"id"`
+	Recipient  string `db:"recipient"`
+	SurveyId   int64  `db:"surveyId"`
+	Vmid       int    `db:"vmid"`
+	Hostname   string `db:"hostname"`
+	Uuid       string `db:"uuid"`
+	Email_sent bool   `db:"email_sent"`
+	Still_used *bool  `db:"still_used"`
+}
+
+type SQLUsageSurvey struct {
+	id   int64     `db:"id"`
+	date time.Time `db:"date"`
+}
+
+func (s *postgresstorage) SurveyCreateNew() (int64, error) {
 	res := s.db.QueryRow(`INSERT INTO survey DEFAULT VALUES RETURNING id`)
 	// Get the last inserted ID
 	var id int64
 	err := res.Scan(&id)
 	if err != nil {
-		log.Printf("Error getting last insert ID: \n%s", err)
-		return -1, err
+		return -1, fmt.Errorf("SurveyCreateNew: Error getting last insert ID: %s", err)
 	}
 	return id, nil
 }
 
-func (s *postgresstorage) SurveyQuestionStore(surveyID int64, vmid int, hostname string, uuid string) (int64, error) {
-	res := s.db.QueryRow(`INSERT INTO survey_question (vmid, surveyID, hostname, uuid) VALUES ($1, $2, $3, $4) RETURNING id`, vmid, surveyID, hostname, uuid)
+func (s *postgresstorage) SurveyEmailStore(recipient string, surveyId int64, vmid int, hostname string, uuid string, email_sent bool, still_used *bool) (int64, error) {
+	res := s.db.QueryRow(`INSERT INTO survey_email (recipient, vmid, surveyId, hostname, uuid, email_sent, still_used) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`, recipient, vmid, surveyId, hostname, uuid, email_sent, still_used)
 	// Get the last inserted ID
-	var id int64
-	err := res.Scan(&id)
+	var insertedID int64
+	err := res.Scan(&insertedID)
 	if err != nil {
-		log.Printf("Error getting last insert ID: \n%s", err)
-		return -1, err
+		return -1, fmt.Errorf("SurveyEmailStore: Error getting last insert ID: %s", err)
 	}
-	return id, nil
+	return insertedID, nil
 }
 
-func (s *postgresstorage) SurveyQuestionUpdate(uuid string, response bool) error {
-	_, err := s.db.Exec(`UPDATE survey_question SET still_used = $1 WHERE uuid = $2`, response, uuid)
+func (s *postgresstorage) SurveyEmailUpdateResponse(uuid string, response bool) error {
+	_, err := s.db.Exec(`UPDATE survey_email SET still_used = $1 WHERE uuid = $2`, response, uuid)
 	if err != nil {
-		log.Printf("Error updating survey response:\n%s", err)
-		return err
+		return fmt.Errorf("SurveyEmailUpdate: Error updating survey response:\n%s", err)
 	}
 	return nil
 }
 
-func (s *postgresstorage) GetLastSurveyId() (int, error) {
+func (s *postgresstorage) SurveyEmailMarkAsSent(uuid string) error {
+	_, err := s.db.Exec(`UPDATE survey_email SET email_sent = $1 WHERE uuid = $2`, true, uuid)
+	if err != nil {
+		return fmt.Errorf("SurveyEmailMarkAsSent: Error updating survey email sent status: %s", err)
+	}
+	return nil
+}
+
+func (s *postgresstorage) SurveyGetAllIDs() ([]int64, error) {
+	res, err := s.db.Query(`SELECT id FROM survey`)
+	if err != nil {
+		return nil, fmt.Errorf("SurveyGetAllIDs: Error executing query: %s", err)
+	}
+	defer res.Close()
+
+	var ids []int64
+	for res.Next() {
+		if err = res.Err(); err == sql.ErrNoRows {
+			return ids, nil
+		}
+
+		var id int64
+		err = res.Scan(&id)
+		if err != nil {
+			return nil, fmt.Errorf("Error while scanning rows: %s", err)
+		}
+
+		ids = append(ids, id)
+	}
+
+	return ids, nil
+}
+
+func (s *postgresstorage) SurveyEmailGetAllBySurveyID(surveyId int64) (*[]SQLUsageSurveyEmail, error) {
+	var surveyEmails []SQLUsageSurveyEmail
+	rows, err := s.db.Query(`SELECT id, recipient, surveyId, vmid, hostname, uuid, email_sent, still_used FROM survey_email WHERE surveyId=$1`, surveyId)
+	if err != nil {
+		return nil, fmt.Errorf("SurveyEmailGetAllBySurveyID: Error while executing query: %s", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var surveyEmail SQLUsageSurveyEmail
+		err = rows.Scan(&surveyEmail.Id, &surveyEmail.Recipient, &surveyEmail.SurveyId, &surveyEmail.Vmid, &surveyEmail.Hostname, &surveyEmail.Uuid, &surveyEmail.Email_sent, &surveyEmail.Still_used)
+		if err != nil {
+			return nil, fmt.Errorf("SurveyEmailGetAllBySurveyID: Error while scanning rows: %s", err)
+		}
+		surveyEmails = append(surveyEmails, surveyEmail)
+	}
+
+	return &surveyEmails, nil
+}
+
+func (s *postgresstorage) SurveyGetLastId() (int, error) {
 	// Get the last inserted ID
 	var id int
 	err := s.db.QueryRow(`SELECT id FROM survey ORDER BY date DESC LIMIT 1`).Scan(&id)
@@ -277,17 +342,15 @@ func (s *postgresstorage) GetLastSurveyId() (int, error) {
 		err = nil
 	}
 	if err != nil {
-		log.Printf("Error getting last insert ID: \n%s", err)
-		return -1, err
+		return -1, fmt.Errorf("SurveyGetLastId: Error getting last insert ID: %s", err)
 	}
 	return id, nil
 }
 
-func (s *postgresstorage) SurveyQuestionNegative(survey_id int) ([]string, error) {
-	res, err := s.db.Query(`SELECT hostname FROM survey_question WHERE still_used = false AND surveyID = $1`, survey_id)
+func (s *postgresstorage) SurveyEmailNegative(surveyId int) ([]string, error) {
+	res, err := s.db.Query(`SELECT hostname FROM survey_email WHERE still_used = false AND surveyId = $1`, surveyId)
 	if err != nil {
-		log.Printf("Error getting from SQL: \n%s", err)
-		return nil, err
+		return nil, fmt.Errorf("SurveyEmailNegative: Error executing query: %s", err)
 	}
 	defer res.Close()
 	var hostnames []string
@@ -295,14 +358,12 @@ func (s *postgresstorage) SurveyQuestionNegative(survey_id int) ([]string, error
 		var hostname string
 		err = res.Scan(&hostname)
 		if err != nil {
-			log.Printf("Error getting from SQL: \n%s", err)
-			return nil, err
+			return nil, fmt.Errorf("SurveyEmailNegative: Error while scanning rows: %s", err)
 		}
 		hostnames = append(hostnames, hostname)
 	}
 	if err = res.Err(); err != nil {
-		log.Printf("Error getting from SQL: \n%s", err)
-		return nil, err
+		return nil, fmt.Errorf("SurveyEmailNegative: Error while scanning rows: %s", err)
 	}
 	if hostnames == nil {
 		hostnames = []string{}
@@ -310,11 +371,10 @@ func (s *postgresstorage) SurveyQuestionNegative(survey_id int) ([]string, error
 	return hostnames, nil
 }
 
-func (s *postgresstorage) SurveyQuestionNotResponded(survey_id int) ([]string, error) {
-	res, err := s.db.Query(`SELECT hostname FROM survey_question WHERE still_used IS NULL AND surveyID = $1`, survey_id)
+func (s *postgresstorage) SurveyEmailNotResponded(surveyId int) ([]string, error) {
+	res, err := s.db.Query(`SELECT hostname FROM survey_email WHERE still_used IS NULL AND surveyId = $1`, surveyId)
 	if err != nil {
-		log.Printf("Error getting from SQL: \n%s", err)
-		return nil, err
+		return nil, fmt.Errorf("SurveyEmailNotResponded: Error executing query: %s", err)
 	}
 	defer res.Close()
 	var hostnames []string
@@ -322,14 +382,12 @@ func (s *postgresstorage) SurveyQuestionNotResponded(survey_id int) ([]string, e
 		var hostname string
 		err = res.Scan(&hostname)
 		if err != nil {
-			log.Printf("Error getting from SQL: \n%s", err)
-			return nil, err
+			return nil, fmt.Errorf("SurveyEmailNotResponded: Error while scanning rows: %s", err)
 		}
 		hostnames = append(hostnames, hostname)
 	}
 	if err = res.Err(); err != nil {
-		log.Printf("Error getting from SQL: \n%s", err)
-		return nil, err
+		return nil, fmt.Errorf("SurveyEmailNotResponded: Error while scanning rows: %s", err)
 	}
 	if hostnames == nil {
 		hostnames = []string{}

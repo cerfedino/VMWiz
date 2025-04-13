@@ -112,7 +112,7 @@ func addVMRequestRoutes(r *mux.Router) {
 		opts := request.ToVMOptions()
 		opts.ResourcePool = "vsos"
 
-		storage.DB.UpdateVMRequestStatus(int64(body.ID), storage.STATUS_ACCEPTED)
+		storage.DB.UpdateVMRequestStatus(int64(body.ID), storage.REQUEST_STATUS_ACCEPTED)
 		_, summary, err := proxmox.CreateVM(*opts)
 		if err != nil {
 			log.Printf("Error creating VM: %v", err)
@@ -148,7 +148,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		err = storage.DB.UpdateVMRequestStatus(int64(body.ID), storage.STATUS_REJECTED)
+		err = storage.DB.UpdateVMRequestStatus(int64(body.ID), storage.REQUEST_STATUS_REJECTED)
 		if err != nil {
 			log.Printf("Error updating VM request status: %v", err)
 			http.Error(w, "Failed to update VM request status", http.StatusInternalServerError)

@@ -51,9 +51,9 @@ func NotifyVMRequest(req storage.SQLVMRequest) error {
 
 func NotifyVMRequestStatusChanged(req storage.SQLVMRequest, additional_text string) error {
 	switch req.RequestStatus {
-	case storage.STATUS_ACCEPTED:
+	case storage.REQUEST_STATUS_ACCEPTED:
 		return useNotifier("vmrequest_accepted", fmt.Sprintf("Request %v approved ! %v", req.ID, additional_text))
-	case storage.STATUS_REJECTED:
+	case storage.REQUEST_STATUS_REJECTED:
 		return useNotifier("vmrequest_rejected", fmt.Sprintf("Request %v denied ! %v", req.ID, additional_text))
 	}
 
@@ -64,8 +64,8 @@ func NotifyVMCreationUpdate(msg string) error {
 	return useNotifier("vmcreation_update", msg)
 }
 
-func NotifyVMUsageSurvey(surveyID int64, msg string) error {
-	return useNotifier("vmusagesurvey", fmt.Sprintf("VM Usage survey %v: %v", surveyID, msg))
+func NotifyVMUsageSurvey(surveyId int64, msg string) error {
+	return useNotifier("vmusagesurvey", fmt.Sprintf("VM Usage survey %v: %v", surveyId, msg))
 }
 
 func InitSMTP() error {
@@ -82,6 +82,10 @@ func InitSMTP() error {
 }
 
 func SendEmail(subject string, body []byte, to []string) error {
+	if config.AppConfig.SMTP_ENABLE == false {
+		return nil
+	}
+
 	// Rate limit
 	SMTP_CLIENT.mutex.Lock()
 	defer SMTP_CLIENT.mutex.Unlock()

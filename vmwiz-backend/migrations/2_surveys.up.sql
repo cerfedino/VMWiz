@@ -3,11 +3,13 @@ CREATE TABLE survey(
   date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE survey_question(
+CREATE TABLE survey_email(
   id BIGSERIAL PRIMARY KEY,
-  surveyID BIGSERIAL REFERENCES survey(id),
+  recipient text NOT NULL,
+  surveyId BIGSERIAL REFERENCES survey(id),
   vmid INT NOT NULL,
   hostname text NOT NULL,
   uuid text NOT NULL,
+  email_sent boolean DEFAULT false,
   still_used boolean
 );
