@@ -3,7 +3,6 @@ package storage
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"time"
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
@@ -164,8 +163,7 @@ func (s *postgresstorage) StoreVMRequest(req *form.Form) (*int64, error) {
 	var id int64
 	err := res.Scan(&id)
 	if err != nil {
-		log.Printf("StoreVMRequest: Error getting last insert ID: %s", err)
-		return nil, err
+		return nil, fmt.Errorf("StoreVMRequest: Error getting last insert ID: %s", err)
 	}
 
 	return &id, nil
@@ -177,8 +175,7 @@ func (s *postgresstorage) GetVMRequest(id int64) (*SQLVMRequest, error) {
 	requestID,requestCreatedAt, requestStatus, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments
 	FROM request WHERE requestID=$1`, id).Scan(&req.ID, &req.RequestCreatedAt, &req.RequestStatus, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
 	if err != nil {
-		log.Printf("GetVMRequest: Error when executing query: %s", err)
-		return nil, err
+		return nil, fmt.Errorf("GetVMRequest: Error when executing query: %s", err)
 	}
 	return &req, nil
 }
@@ -187,8 +184,7 @@ func (s *postgresstorage) UpdateVMRequest(req SQLVMRequest) error {
 	_, err := s.db.Exec(`UPDATE request SET requestCreatedAt=$1, requestStatus=$2, email=$3, personalEmail=$4, isOrganization=$5, orgName=$6, hostname=$7, image=$8, cores=$9, ramGB=$10, diskGB=$11, sshPubkeys=$12, comments=$13 WHERE requestID=$14`,
 		req.RequestCreatedAt, req.RequestStatus, req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, req.Hostname, req.Image, req.Cores, req.RamGB, req.DiskGB, pq.Array(req.SshPubkeys), req.Comments, req.ID)
 	if err != nil {
-		log.Printf("UpdateVMRequest: Error updating SQL: %s", err)
-		return err
+		return fmt.Errorf("UpdateVMRequest: Error updating SQL: %s", err)
 	}
 
 	return nil
@@ -197,7 +193,7 @@ func (s *postgresstorage) UpdateVMRequest(req SQLVMRequest) error {
 func (s *postgresstorage) UpdateVMRequestStatus(id int64, status string) error {
 	_, err := s.db.Exec(`UPDATE request SET requestStatus=$1 WHERE requestID=$2`, status, id)
 	if err != nil {
-		log.Printf("UpdateVMRequestStatus: Error updating SQL: %s", err)
+		return fmt.Errorf("UpdateVMRequestStatus: Error updating SQL: %s", err)
 	}
 	return nil
 }
@@ -205,8 +201,7 @@ func (s *postgresstorage) UpdateVMRequestStatus(id int64, status string) error {
 func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
 	rows, err := s.db.Query(`SELECT requestID FROM request`)
 	if err != nil {
-		log.Printf("GetAllVMRequests: Error when executing query: %s", err)
-		return nil, err
+		return nil, fmt.Errorf("GetAllVMRequests: Error when executing query: %s", err)
 	}
 	// Store all IDs
 	var ids []*int64
@@ -214,8 +209,7 @@ func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
 		var id int64
 		err = rows.Scan(&id)
 		if err != nil {
-			log.Printf("GetAllVMRequests: Error while scanning rows: %s", err)
-			return nil, err
+			return nil, fmt.Errorf("GetAllVMRequests: Error while scanning rows: %s", err)
 		}
 		ids = append(ids, &id)
 	}
@@ -226,8 +220,7 @@ func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
 		var req *SQLVMRequest
 		req, err := s.GetVMRequest(*id)
 		if err != nil {
-			log.Printf("GetAllVMRequests: %s", err)
-			return nil, err
+			return nil, fmt.Errorf("GetAllVMRequests: %s", err)
 		}
 		reqs = append(reqs, req)
 	}
