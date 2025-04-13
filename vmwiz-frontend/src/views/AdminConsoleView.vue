@@ -10,6 +10,23 @@
         </p>
         <p v-else>Survey started!</p>
 
+        <div class="ma-auto pa-2 mb-4">
+            <div>
+                <v-text-field
+                    class="ma-auto pa-2"
+                    label="Last Survey ID:"
+                    v-model="surveyId"
+                    outlined
+                ></v-text-field>
+            </div>
+            <v-btn @click="getSurveyNoneResponse(surveyId)">
+                <b>Get None Responses</b>
+            </v-btn>
+            <v-btn @click="getSurveyResponseNegative(surveyId)">
+                <b>Get Negative Responses</b>
+            </v-btn>
+        </div>
+
         <div v-for="request in requests" :key="request.ID">
             <h1 class="text-h6 font-weight-bold mb-3">General Information</h1>
 
@@ -142,6 +159,7 @@ export default {
         return {
             requests: [],
             clickCount: 0,
+            surveyId: 0,
         };
     },
     methods: {
@@ -187,8 +205,34 @@ export default {
         startSurvey() {
             this.clickCount++;
             if (this.clickCount >= 3) {
-                this.$store.getters.fetchBackend("/api/survey/start", "GET");
+                this.$store.getters.fetchBackend("/api/poll/start", "GET");
             }
+        },
+        getLastSurveyId() {
+            this.$store.getters
+                .fetchBackend("/api/poll/lastsurvey", "GET")
+                .then((response) => response.json())
+                .then((data) => {
+                    this.surveyId = data;
+                });
+        },
+        getSurveyNoneResponse(id) {
+            this.$store.getters
+                .fetchBackend(`/api/poll/responses/none?id=${id}`, "GET")
+                .then((response) => response.json())
+                .then((data) => {
+                    console.log(data);
+                    //todo: display data in a table
+                });
+        },
+        getSurveyResponseNegative(id) {
+            this.$store.getters
+                .fetchBackend(`/api/poll/responses/negative?id=${id}`, "GET")
+                .then((response) => response.json())
+                .then((data) => {
+                    console.log(data);
+                    //todo: display data in a table
+                });
         },
     },
 
@@ -200,6 +244,7 @@ export default {
                 this.$data.requests = data;
                 console.log(data);
             });
+        this.getLastSurveyId();
     },
     components: {},
 };

@@ -260,10 +260,74 @@ func (s *postgresstorage) SurveyQuestionStore(surveyID int64, vmid int, hostname
 }
 
 func (s *postgresstorage) SurveyQuestionUpdate(uuid string, response bool) error {
-	_, err := s.db.Exec(`UPDATE survey_question SET response = $1 WHERE uuid = $2`, response, uuid)
+	_, err := s.db.Exec(`UPDATE survey_question SET still_used = $1 WHERE uuid = $2`, response, uuid)
 	if err != nil {
 		log.Printf("Error updating survey response:\n%s", err)
 		return err
 	}
 	return nil
+}
+
+func (s *postgresstorage) GetLastSurveyId() (int, error) {
+	// Get the last inserted ID
+	var id int
+	err := s.db.QueryRow(`SELECT id FROM survey ORDER BY date DESC LIMIT 1`).Scan(&id)
+	if err == sql.ErrNoRows {
+		id = 0
+		err = nil
+	}
+	if err != nil {
+		log.Printf("Error getting last insert ID: \n%s", err)
+		return -1, err
+	}
+	return id, nil
+}
+
+func (s *postgresstorage) SurveyQuestionNegative(survey_id int) ([]string, error) {
+	res, err := s.db.Query(`SELECT hostname FROM survey_question WHERE still_used = false AND surveyID = $1`, survey_id)
+	if err != nil {
+		log.Printf("Error getting from SQL: \n%s", err)
+		return nil, err
+	}
+	defer res.Close()
+	var hostnames []string
+	for res.Next() {
+		var hostname string
+		err = res.Scan(&hostname)
+		if err != nil {
+			log.Printf("Error getting from SQL: \n%s", err)
+			return nil, err
+		}
+		hostnames = append(hostnames, hostname)
+	}
+	if err = res.Err(); err != nil {
+		log.Printf("Error getting from SQL: \n%s", err)
+		return nil, err
+	}
+	return hostnames, nil
+}
+
+func (s *postgresstorage) SurveyQuestionNotResponded(survey_id int) ([]string, error) {
+	res, err := s.db.Query(`SELECT hostname FROM survey_question WHERE still_used IS NULL AND surveyID = $1`, survey_id)
+	if err != nil {
+		log.Printf("Error getting from SQL: \n%s", err)
+		return nil, err
+	}
+	defer res.Close()
+	var hostnames []string
+	for res.Next() {
+
+		var hostname string
+		err = res.Scan(&hostname)
+		if err != nil {
+			log.Printf("Error getting from SQL: \n%s", err)
+			return nil, err
+		}
+		hostnames = append(hostnames, hostname)
+	}
+	if err = res.Err(); err != nil {
+		log.Printf("Error getting from SQL: \n%s", err)
+		return nil, err
+	}
+	return hostnames, nil
 }
