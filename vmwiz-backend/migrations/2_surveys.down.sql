@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS survey_email;
+
+DROP TABLE IF EXISTS survey;

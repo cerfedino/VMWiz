@@ -1,58 +1,133 @@
 <template>
-    <div>
-        <h1>Poll Actions</h1>
-            <p>Do you still need/use your Virtual Machine?</p>
-            <button @click="keep">Yes</button>
-            <button @click="showConfirmation = true">No</button>
-            <div v-if="showConfirmation" class="confirmation-popup">
-                <p>Are you sure you want to remove the service?</p>
-                <button @click="confirmRemove">Yes</button>
-                <button @click="showConfirmation = false">No</button>
-            </div>
-            <p v-if="submitted">Your response has been submitted.</p>
-            <p v-if="error">An error occurred while submitting your response. Please try again and if it keeps on not working, please just write us a mail!</p>
+    <v-dialog :persistent="submitted" v-model="showSubmitted">
+        <v-card class="ma-auto" max-width="50%">
+            <v-card-text>
+                <template v-if="submitted">
+                    <h2 class="text-center">Thank you!</h2>
+                    <p class="text-center mt-8 mb-8">
+                        Your response has been submitted. You can close this
+                        window.
+                    </p>
+                </template>
+                <template v-if="error">
+                    <h1 class="text-center">Error</h1>
+                    <p class="text-center mt-8 mb-8">
+                        An error occurred while submitting your response.<br />Please
+                        try again later. If the problem persists, please write
+                        us an email !
+                    </p>
+                </template>
+            </v-card-text>
+            <template v-slot:actions v-if="error">
+                <v-btn
+                    class="mt-4"
+                    variant="outlined"
+                    @click="showSubmitted = false"
+                >
+                    Close
+                </v-btn>
+            </template>
+        </v-card>
+    </v-dialog>
+    <v-dialog v-model="showConfirmation">
+        <v-card :loading="dialogLoading" max-width="50%" class="ma-auto">
+            <template v-slot:loader="{ isActive }">
+                <v-progress-linear
+                    :active="isActive"
+                    :color="dialogLoaderColor || 'primary'"
+                    height="4"
+                    indeterminate
+                ></v-progress-linear>
+            </template>
+            <template v-slot:title>
+                <span class="font-weight-black">VM Deletion Confirmation</span>
+            </template>
+
+            <template v-slot:actions>
+                <div class="w-100 d-flex flex-row justify-center">
+                    <v-btn
+                        text="Yes"
+                        @click="() => submitChoice(false)"
+                    ></v-btn>
+                    <v-btn text="No" @click="showConfirmation = false"></v-btn>
+                </div>
+            </template>
+            <v-card-text>
+                <div class="mt-4">
+                    Are you sure you want to lose access to the following VM
+                    ?<br />
+                    <p class="text-center font-weight-bold mt-3">
+                        {{ hostname }}
+                    </p>
+                </div>
+            </v-card-text>
+        </v-card>
+    </v-dialog>
+
+    <div class="w-75 pa-6 ma-auto align" style="max-width: 500px">
+        <h1 class="text-center">VSOS VM Usage Survey</h1>
+        <div class="text-center mt-8">
+            You currently have the following VM with us:
+            <p class="text-center font-weight-bold">{{ hostname }}</p>
+            <br /><br />
+            Do you still need/use your Virtual Machine ?
+        </div>
+        <div class="w-100 d-flex flex-row justify-center mt-4">
+            <v-btn
+                class="ma-3"
+                variant="outlined"
+                @click="() => submitChoice(true)"
+            >
+                <b>Yes</b>
+            </v-btn>
+            <v-btn
+                class="ma-3"
+                variant="outlined"
+                @click="showConfirmation = true"
+            >
+                <b>No</b>
+            </v-btn>
+        </div>
     </div>
 </template>
 
 <script>
-import axios from 'axios';
 export default {
     data() {
         return {
             showConfirmation: false,
+            showSubmitted: false,
             submitted: false,
             error: false,
             pollId: this.$route.query.id, //todo: show error if id is not set
+            hostname: this.$route.query.hostname,
         };
     },
     methods: {
-        async keep() {
+        async submitChoice(keep) {
+            this.showConfirmation = false;
             try {
-                const response = await axios.post('/api/poll/set', {
-                    id: this.pollId,
-                    keep: true,
-                });
+                const response = await this.$store.getters.fetchBackend(
+                    "/api/usagesurvey/set",
+                    "POST",
+                    {},
+                    JSON.stringify({
+                        id: this.pollId,
+                        keep: keep,
+                    })
+                );
+                if (response.status < 200 || response.status >= 300) {
+                    this.error = true;
+                    this.showSubmitted = true;
+                }
                 if (response.status === 200) {
-                    this.submitted = true; 
+                    this.submitted = true;
+                    this.showSubmitted = true;
                 }
             } catch (error) {
                 this.error = true;
-                console.error('Error submitting request:', error);
-            }
-        },
-        async confirmRemove() {
-            showConfirmation = false; 
-            try {
-                const response = await axios.post('/api/poll/set', {
-                    id: this.pollId,
-                    keep: false,
-                });
-                if (response.status === 200) {
-                    this.submitted = true; 
-                }
-            } catch (error) {
-                this.error = true;
-                console.error('Error submitting request:', error);
+                this.showSubmitted = true;
+                console.error("Error submitting request:", error);
             }
         },
         remove() {
@@ -61,12 +136,3 @@ export default {
     },
 };
 </script>
-
-<style scoped>
-.confirmation-popup {
-    background: rgba(0, 0, 0, 0.5);
-    padding: 20px;
-    border-radius: 5px;
-    color: white;
-}
-</style>

@@ -38,6 +38,15 @@ type Config struct {
 	POSTGRES_USER     string
 	POSTGRES_PASSWORD string
 	POSTGRES_DB       string
+
+	SMTP_ENABLE            bool
+	SMTP_HOST              string
+	SMTP_PORT              string
+	SMTP_SENDER            string
+	SMTP_REPLYTO           string
+	SMTP_USER              string
+	SMTP_PASSWORD          string
+	SMTP_RECEIVER_OVERRIDE string
 }
 
 func (c *Config) Init() error {
@@ -75,6 +84,15 @@ func (c *Config) Init() error {
 	c.POSTGRES_USER = os.Getenv("POSTGRES_USER")
 	c.POSTGRES_PASSWORD = os.Getenv("POSTGRES_PASSWORD")
 	c.POSTGRES_DB = os.Getenv("POSTGRES_DB")
+
+	c.SMTP_ENABLE = os.Getenv("SMTP_ENABLE") == "true"
+	c.SMTP_HOST = os.Getenv("SMTP_HOST")
+	c.SMTP_PORT = os.Getenv("SMTP_PORT")
+	c.SMTP_SENDER = os.Getenv("SMTP_SENDER")
+	c.SMTP_REPLYTO = os.Getenv("SMTP_REPLYTO")
+	c.SMTP_USER = os.Getenv("SMTP_USER")
+	c.SMTP_PASSWORD = os.Getenv("SMTP_PASSWORD")
+	c.SMTP_RECEIVER_OVERRIDE = os.Getenv("SMTP_RECEIVER_OVERRIDE")
 
 	return nil
 }

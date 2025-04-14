@@ -1,10 +1,28 @@
 # We are using tags for associating backend events with specific services.
 # You can see the available services on the apprise repo [See https://github.com/caronc/apprise#supported-notifications]
 
+#  Tags:
+#   new_vmrequest
+#      These endpoints get notified when a user submits a new valid VM request through the form
+#   vmrequest_accepted
+#     These endpoints get notified when an admin accepts a VM request
+#   vmrequest_rejected
+#     These endpoints get notified when an admin rejects a VM request
+#   vmcreation_update
+#     These endpoints get notified during the creation of a VM, e.g error/success messages
+#   vmusagesurvey
+#     These endpoints get notified with messages regarding the VM Usage Surveys
+
 urls:
+  # The Zulip tokens are just placeholders
   # - zulip://vmwiz-bot@chat.sos.ethz.ch/JN7XHKJ3zmWAM6T33QIWslaJtekrF9xD/vsos:
   #   - tag: new_vmrequest
   # - zulip://vmwiz-bot@chat.sos.ethz.ch/JN7XHKJ3zmWAM6T33QIWslaJtekrF9xD/vsos:
   #   - tag: vmrequest_accepted
   # - zulip://vmwiz-bot@chat.sos.ethz.ch/JN7XHKJ3zmWAM6T33QIWslaJtekrF9xD/vsos:
   #   - tag: vmrequest_rejected
+  # - zulip://vmwiz-bot@chat.sos.ethz.ch/JN7XHKJ3zmWAM6T33QIWslaJtekrF9xD/vsos:
+  #   - tag: vmcreation_update
+  # - zulip://vmwiz-bot@chat.sos.ethz.ch/JN7XHKJ3zmWAM6T33QIWslaJtekrF9xD/vsos:
+  #   - tag: vmusagesurvey
+
