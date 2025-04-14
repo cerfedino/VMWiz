@@ -437,14 +437,17 @@ export default {
 
         let fetchedsurveys = [];
 
-        let surveyIds = (await this.getAllSurveysIds()).surveyIds;
-        console.log(surveyIds);
-        for (let i = 0; i < surveyIds.length; i++) {
-            let surveyId = surveyIds[i];
-            fetchedsurveys.push(await this.getSurveyInfo(surveyId));
+        let response = await this.getAllSurveysIds()
+        if (response != null) {
+            let surveyIds = response.surveyIds;
+            console.log(surveyIds);
+            for (let i = 0; i < surveyIds.length; i++) {
+                let surveyId = surveyIds[i];
+                fetchedsurveys.push(await this.getSurveyInfo(surveyId));
+            }
+            console.log(fetchedsurveys);
+            this.surveys = fetchedsurveys;
         }
-        console.log(fetchedsurveys);
-        this.surveys = fetchedsurveys;
     },
     components: {},
 };
