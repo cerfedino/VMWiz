@@ -240,8 +240,8 @@ type SQLUsageSurveyEmail struct {
 }
 
 type SQLUsageSurvey struct {
-	id   int64     `db:"id"`
-	date time.Time `db:"date"`
+	Id   int64     `db:"id"`
+	Date time.Time `db:"date"`
 }
 
 func (s *postgresstorage) SurveyCreateNew() (int64, error) {
@@ -280,6 +280,15 @@ func (s *postgresstorage) SurveyEmailMarkAsSent(uuid string) error {
 		return fmt.Errorf("SurveyEmailMarkAsSent: Error updating survey email sent status: %s", err)
 	}
 	return nil
+}
+
+func (s *postgresstorage) SurveyGetById(id int64) (*SQLUsageSurvey, error) {
+	var survey SQLUsageSurvey
+	err := s.db.QueryRow(`SELECT id, date FROM survey WHERE id=$1`, id).Scan(&survey.Id, &survey.Date)
+	if err != nil {
+		return nil, fmt.Errorf("SurveyGetById: Error when executing query: %s", err)
+	}
+	return &survey, nil
 }
 
 func (s *postgresstorage) SurveyGetAllIDs() ([]int64, error) {
@@ -340,7 +349,7 @@ func (s *postgresstorage) SurveyGetLastId() (int, error) {
 	return id, nil
 }
 
-func (s *postgresstorage) SurveyEmailCountNotSent(surveyId int) (*int, error) {
+func (s *postgresstorage) SurveyEmailCountNotSent(surveyId int64) (*int, error) {
 	res := s.db.QueryRow(`SELECT COUNT(*) FROM survey_email WHERE email_sent = false AND surveyId = $1`, surveyId)
 	if err := res.Err(); err != nil {
 		return nil, fmt.Errorf("SurveyEmailCountNotSent: Error executing query: %s", err)
@@ -354,7 +363,7 @@ func (s *postgresstorage) SurveyEmailCountNotSent(surveyId int) (*int, error) {
 	return &count, nil
 }
 
-func (s *postgresstorage) SurveyEmailCountPositive(surveyId int) (*int, error) {
+func (s *postgresstorage) SurveyEmailCountPositive(surveyId int64) (*int, error) {
 	res := s.db.QueryRow(`SELECT COUNT(*) FROM survey_email WHERE email_sent = true AND still_used = true AND surveyId = $1`, surveyId)
 	if err := res.Err(); err != nil {
 		return nil, fmt.Errorf("SurveyEmailCountPositive: Error executing query: %s", err)
@@ -368,7 +377,7 @@ func (s *postgresstorage) SurveyEmailCountPositive(surveyId int) (*int, error) {
 	return &count, nil
 }
 
-func (s *postgresstorage) SurveyEmailCountNegative(surveyId int) (*int, error) {
+func (s *postgresstorage) SurveyEmailCountNegative(surveyId int64) (*int, error) {
 	res := s.db.QueryRow(`SELECT COUNT(*) FROM survey_email WHERE email_sent = true AND still_used = false AND surveyId = $1`, surveyId)
 	if err := res.Err(); err != nil {
 		return nil, fmt.Errorf("SurveyEmailCountNegative: Error executing query: %s", err)
@@ -381,8 +390,8 @@ func (s *postgresstorage) SurveyEmailCountNegative(surveyId int) (*int, error) {
 	return &count, nil
 }
 
-func (s *postgresstorage) SurveyEmailCountNotResponded(surveyId int) (*int, error) {
-	res := s.db.QueryRow(`SELECT COUNT(*) FROM survey_email WHERE email_sent = true AND still_used IS NULL AND surveyId = $1`, surveyId)
+func (s *postgresstorage) SurveyEmailCountNotResponded(surveyId int64) (*int, error) {
+	res := s.db.QueryRow(`SELECT COUNT(*) as count FROM survey_email WHERE email_sent = TRUE AND still_used IS NULL AND surveyId = $1`, surveyId)
 	if err := res.Err(); err != nil {
 		return nil, fmt.Errorf("SurveyEmailCountNotResponded: Error executing query: %s", err)
 	}
@@ -392,6 +401,30 @@ func (s *postgresstorage) SurveyEmailCountNotResponded(surveyId int) (*int, erro
 		return nil, fmt.Errorf("SurveyEmailCountNotResponded: Error getting count: %s", err)
 	}
 	return &count, nil
+}
+
+func (s *postgresstorage) SurveyEmailPositive(surveyId int) ([]string, error) {
+	res, err := s.db.Query(`SELECT hostname FROM survey_email WHERE email_sent = true AND still_used = true AND surveyId = $1`, surveyId)
+	if err != nil {
+		return nil, fmt.Errorf("SurveyEmailPositive: Error executing query: %s", err)
+	}
+	defer res.Close()
+	var hostnames []string
+	for res.Next() {
+		var hostname string
+		err = res.Scan(&hostname)
+		if err != nil {
+			return nil, fmt.Errorf("SurveyEmailPositive: Error while scanning rows: %s", err)
+		}
+		hostnames = append(hostnames, hostname)
+	}
+	if err = res.Err(); err != nil {
+		return nil, fmt.Errorf("SurveyEmailPositive: Error while scanning rows: %s", err)
+	}
+	if hostnames == nil {
+		hostnames = []string{}
+	}
+	return hostnames, nil
 }
 
 func (s *postgresstorage) SurveyEmailNegative(surveyId int) ([]string, error) {
@@ -435,6 +468,30 @@ func (s *postgresstorage) SurveyEmailNotResponded(surveyId int) ([]string, error
 	}
 	if err = res.Err(); err != nil {
 		return nil, fmt.Errorf("SurveyEmailNotResponded: Error while scanning rows: %s", err)
+	}
+	if hostnames == nil {
+		hostnames = []string{}
+	}
+	return hostnames, nil
+}
+
+func (s *postgresstorage) SurveyEmailNotSent(surveyId int) ([]string, error) {
+	res, err := s.db.Query(`SELECT hostname FROM survey_email WHERE email_sent = false AND surveyId = $1`, surveyId)
+	if err != nil {
+		return nil, fmt.Errorf("SurveyEmailNotSent: Error executing query: %s", err)
+	}
+	defer res.Close()
+	var hostnames []string
+	for res.Next() {
+		var hostname string
+		err = res.Scan(&hostname)
+		if err != nil {
+			return nil, fmt.Errorf("SurveyEmailNotSent: Error while scanning rows: %s", err)
+		}
+		hostnames = append(hostnames, hostname)
+	}
+	if err = res.Err(); err != nil {
+		return nil, fmt.Errorf("SurveyEmailNotSent: Error while scanning rows: %s", err)
 	}
 	if hostnames == nil {
 		hostnames = []string{}
