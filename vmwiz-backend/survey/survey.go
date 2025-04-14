@@ -91,7 +91,7 @@ func CreateVMUsageSurvey(restrict_pool []string) (*int64, error) {
 			URL      string
 		}{
 			HOSTNAME: surveyEmail.Hostname,
-			URL:      config.AppConfig.VMWIZ_SCHEME + "://" + config.AppConfig.VMWIZ_HOSTNAME + ":" + strconv.Itoa(config.AppConfig.VMWIZ_PORT) + "/survey?id=" + surveyEmail.Uuid,
+			URL:      config.AppConfig.VMWIZ_SCHEME + "://" + config.AppConfig.VMWIZ_HOSTNAME + ":" + strconv.Itoa(config.AppConfig.VMWIZ_PORT) + "/survey?id=" + surveyEmail.Uuid + "&hostname=" + surveyEmail.Hostname,
 		})
 		if err != nil {
 			return &surveyId, fmt.Errorf("Failed create VM usage survey: Failed to execute email template: %v", err)
