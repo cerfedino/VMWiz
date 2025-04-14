@@ -58,7 +58,7 @@
             You currently have the following VM with us:
             <p class="text-center font-weight-bold">{{ hostname }}</p>
             <br /><br />
-            Do you still need/use your Virtual Machine?
+            Do you still need/use your Virtual Machine ?
         </div>
         <div class="w-100 d-flex flex-row justify-center mt-4">
             <v-btn class="ma-3" variant="outlined" @click="keep">
