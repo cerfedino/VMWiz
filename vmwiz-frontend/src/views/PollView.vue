@@ -11,10 +11,10 @@
                 </template>
                 <template v-if="error">
                     <h1 class="text-center">Error</h1>
-                    <p class="text-center mt-8 mb-8">
-                        An error occurred while submitting your response. Please
-                        try again and if it keeps on not working, please just
-                        write us a mail!
+                    <p class="text-center mt-8 mb-8 text-body-2">
+                        An error occurred while submitting your response.<br />Please
+                        try again later. If the problem persists, please write
+                        us an email !
                     </p>
                 </template>
             </v-card-text>

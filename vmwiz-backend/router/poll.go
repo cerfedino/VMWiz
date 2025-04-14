@@ -156,6 +156,18 @@ func addAllPollRoutes(r *mux.Router) {
 			return
 		}
 
+		exists, err := storage.DB.SurveyEmailExistsByUUID(body.ID)
+		if err != nil {
+			log.Printf("Error checking if survey response exists: %v", err)
+			http.Error(w, "Failed to check if survey response exists", http.StatusInternalServerError)
+			return
+		}
+		if !exists {
+			log.Println("Survey response does not exist")
+			http.Error(w, "Invalid survey ID", http.StatusNotFound)
+			return
+		}
+
 		err = storage.DB.SurveyEmailUpdateResponse(body.ID, body.Keep)
 		if err != nil {
 			log.Printf("Error setting survey response: %v", err)

@@ -501,3 +501,16 @@ func (s *postgresstorage) SurveyEmailNotSent(surveyId int) ([]string, error) {
 	}
 	return hostnames, nil
 }
+
+func (s *postgresstorage) SurveyEmailExistsByUUID(uuid string) (bool, error) {
+	res := s.db.QueryRow(`SELECT COUNT(*) FROM survey_email WHERE uuid = $1`, uuid)
+	if err := res.Err(); err != nil {
+		return false, fmt.Errorf("SurveyEmailExistsByUUID: Error executing query: %s", err)
+	}
+	var count int
+	err := res.Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("SurveyEmailExistsByUUID: Error getting count: %s", err)
+	}
+	return count > 0, nil
+}
