@@ -16,6 +16,13 @@
                         try again later. If the problem persists, please write
                         us an email !
                     </p>
+                    <v-btn
+                        class="mt-4"
+                        color="primary"
+                        @click="showSubmitted = false"
+                    >
+                        Close
+                    </v-btn>
                 </template>
             </v-card-text>
         </v-card>
