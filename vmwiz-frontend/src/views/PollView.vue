@@ -1,7 +1,7 @@
 <template>
-    <v-dialog persistent class="w-100 h-100" v-model="showSubmitted">
+    <v-dialog :persistent="submitted" class="w-100 h-100" v-model="showSubmitted">
         <v-card class="w-75 h-50 ma-auto">
-            <v-card-text class="bg-surface-light">
+            <v-card-text>
                 <template v-if="submitted">
                     <h2 class="text-center">Thank you!</h2>
                     <p class="text-center mt-8 mb-8">
@@ -16,15 +16,17 @@
                         try again later. If the problem persists, please write
                         us an email !
                     </p>
-                    <v-btn
-                        class="mt-4"
-                        color="primary"
-                        @click="showSubmitted = false"
-                    >
-                        Close
-                    </v-btn>
                 </template>
             </v-card-text>
+            <template v-slot:actions v-if="error">
+                <v-btn
+                    class="mt-4"
+                    variant="outlined"
+                    @click="showSubmitted = false"
+                >
+                    Close
+                </v-btn>
+            </template>
         </v-card>
     </v-dialog>
     <v-dialog v-model="showConfirmation" class="w-100 h-100">
@@ -43,7 +45,10 @@
 
             <template v-slot:actions>
                 <div class="w-100 d-flex flex-row justify-center">
-                    <v-btn text="Yes" @click="confirmRemove"></v-btn>
+                    <v-btn
+                        text="Yes"
+                        @click="() => submitChoice(false)"
+                    ></v-btn>
                     <v-btn text="No" @click="showConfirmation = false"></v-btn>
                 </div>
             </template>
@@ -68,7 +73,11 @@
             Do you still need/use your Virtual Machine ?
         </div>
         <div class="w-100 d-flex flex-row justify-center mt-4">
-            <v-btn class="ma-3" variant="outlined" @click="keep">
+            <v-btn
+                class="ma-3"
+                variant="outlined"
+                @click="() => submitChoice(true)"
+            >
                 <b>Yes</b>
             </v-btn>
             <v-btn
@@ -83,7 +92,6 @@
 </template>
 
 <script>
-import axios from "axios";
 export default {
     data() {
         return {
@@ -96,29 +104,22 @@ export default {
         };
     },
     methods: {
-        async keep() {
-            try {
-                const response = await axios.post("/api/usagesurvey/set", {
-                    id: this.pollId,
-                    keep: true,
-                });
-                if (response.status === 200) {
-                    this.submitted = true;
-                    this.showSubmitted = true;
-                }
-            } catch (error) {
-                this.error = true;
-                this.showSubmitted = true;
-                console.error("Error submitting request:", error);
-            }
-        },
-        async confirmRemove() {
+        async submitChoice(keep) {
             this.showConfirmation = false;
             try {
-                const response = await axios.post("/api/usagesurvey/set", {
-                    id: this.pollId,
-                    keep: false,
-                });
+                const response = await this.$store.getters.fetchBackend(
+                    "/api/usagesurvey/set",
+                    "POST",
+                    {},
+                    JSON.stringify({
+                        id: this.pollId,
+                        keep: keep,
+                    })
+                );
+                if (response.status < 200 || response.status >= 300) {
+                    this.error = true;
+                    this.showSubmitted = true;
+                }
                 if (response.status === 200) {
                     this.submitted = true;
                     this.showSubmitted = true;
