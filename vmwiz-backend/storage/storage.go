@@ -312,6 +312,9 @@ func (s *postgresstorage) SurveyGetAllIDs() ([]int64, error) {
 
 		ids = append(ids, id)
 	}
+	if ids == nil {
+		ids = []int64{}
+	}
 
 	return ids, nil
 }
