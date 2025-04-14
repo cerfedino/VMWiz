@@ -1,6 +1,6 @@
 <template>
-    <v-dialog :persistent="submitted" class="w-100 h-100" v-model="showSubmitted">
-        <v-card class="w-75 h-50 ma-auto">
+    <v-dialog :persistent="submitted" v-model="showSubmitted">
+        <v-card class="ma-auto" max-width="50%">
             <v-card-text>
                 <template v-if="submitted">
                     <h2 class="text-center">Thank you!</h2>
@@ -11,7 +11,7 @@
                 </template>
                 <template v-if="error">
                     <h1 class="text-center">Error</h1>
-                    <p class="text-center mt-8 mb-8 text-body-2">
+                    <p class="text-center mt-8 mb-8">
                         An error occurred while submitting your response.<br />Please
                         try again later. If the problem persists, please write
                         us an email !
@@ -29,8 +29,8 @@
             </template>
         </v-card>
     </v-dialog>
-    <v-dialog v-model="showConfirmation" class="w-100 h-100">
-        <v-card class="w-75 h-50 ma-auto" :loading="dialogLoading">
+    <v-dialog v-model="showConfirmation">
+        <v-card :loading="dialogLoading" max-width="50%" class="ma-auto">
             <template v-slot:loader="{ isActive }">
                 <v-progress-linear
                     :active="isActive"
@@ -52,7 +52,7 @@
                     <v-btn text="No" @click="showConfirmation = false"></v-btn>
                 </div>
             </template>
-            <v-card-text class="bg-surface-light">
+            <v-card-text>
                 <div class="mt-4">
                     Are you sure you want to lose access to the following VM
                     ?<br />
