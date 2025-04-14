@@ -1,6 +1,7 @@
 package router
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -29,4 +30,19 @@ func Router() *mux.Router {
 	addAllAuthRoutes(r)
 
 	return r
+}
+
+func NotifyVMRequest(req storage.SQLVMRequest) error {
+	return notifier.UseNotifier("new_vmrequest", req.ToString())
+}
+
+func NotifyVMRequestStatusChanged(req storage.SQLVMRequest) error {
+	switch req.RequestStatus {
+	case storage.STATUS_ACCEPTED:
+		return notifier.UseNotifier("vmrequest_accepted", fmt.Sprintf("Request %v approved !", req.ID))
+	case storage.STATUS_REJECTED:
+		return notifier.UseNotifier("vmrequest_rejected", fmt.Sprintf("Request %v denied !", req.ID))
+	}
+
+	return nil
 }

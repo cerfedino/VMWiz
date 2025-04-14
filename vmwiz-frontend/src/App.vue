@@ -20,9 +20,18 @@
     <footer class="bg-white pa-6 d-flex flex-column align-center">
         Made with ❤️ by VSOS
         <div class="w-25 d-flex mt-4 justify-space-evenly">
-            <v-btn :icon="mdiGithub" density="compact" variant="plain" />
-            <v-btn :icon="mdiWeb" density="compact" variant="plain" />
-            <v-btn :icon="mdiAccountKey" density="compact" variant="plain" />
+            <v-btn
+                :icon="mdiWeb"
+                density="compact"
+                variant="plain"
+                @click="window.location.href = 'https://vsos.ethz.ch'"
+            />
+            <v-btn
+                :icon="mdiAccountKey"
+                density="compact"
+                variant="plain"
+                @click="window.location.href = window.location.origin + '/console'"
+            />
         </div>
     </footer>
 </template>

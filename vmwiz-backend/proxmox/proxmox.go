@@ -1249,3 +1249,29 @@ func GetNodeVMConfig(node string, vmid int) (*PVENodeVMConfig, error) {
 
 	return &config.Data, nil
 }
+
+func createMailTemplate(vm *PVENodeVM, ipv4 string, ipv6 string, fingerprints []string, ssh_user string, fqdn string) string {
+	var builder strings.Builder
+
+	builder.WriteString("#############################\n")
+	builder.WriteString("# Completed without errors. #\n")
+	builder.WriteString("#############################\n\n")
+
+	builder.WriteString(fmt.Sprintf("VM ID: %d\n\n", vm.Vmid))
+
+	builder.WriteString("Summary\n")
+	builder.WriteString("-------\n")
+	builder.WriteString(fmt.Sprintf("Hostname: %s\n", fqdn))
+	builder.WriteString(fmt.Sprintf("IPv4: %s\n", ipv4))
+	builder.WriteString(fmt.Sprintf("IPv6: %s\n", ipv6))
+	builder.WriteString("SSH fingerprints:\n")
+	for _, fingerprint := range fingerprints {
+		builder.WriteString(fmt.Sprintf("      %s\n", fingerprint))
+	}
+	builder.WriteString("\n")
+	builder.WriteString(fmt.Sprintf("Login with: 'ssh %s@%s'\n\n", ssh_user, fqdn))
+	builder.WriteString("If you have any questions or need more resources, please contact us at vsos-support@sos.ethz.ch.\n\n")
+	builder.WriteString("Done. Have Fun!\n")
+
+	return builder.String()
+}
