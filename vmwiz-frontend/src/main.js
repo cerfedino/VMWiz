@@ -50,12 +50,12 @@ const store = new Vuex.Store({
             });
         },
         fetchVMOptions: (state, getters) => () => {
-            return getters.fetchBackend("/api/vmoptions", "GET", {
+            return getters.fetchBackend("/api/vmrequest/options", "GET", {
                 "Content-Type": "application/json",
             });
         },
         fetchRequests: (state, getters) => () => {
-            return getters.fetchBackend("/api/requests", "GET", {
+            return getters.fetchBackend("/api/vmrequest", "GET", {
                 "Content-Type": "application/json",
             });
         },

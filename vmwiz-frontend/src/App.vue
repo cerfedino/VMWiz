@@ -1,8 +1,4 @@
 <template>
-    <!-- <nav>
-    <router-link to="/">Home</router-link> |
-    <router-link to="/about">About</router-link>
-  </nav> -->
     <div
         class="w-screen py-2 d-flex flex-column align-center"
         style="height: 14vh"
@@ -19,16 +15,23 @@
 
     <footer class="bg-white pa-6 d-flex flex-column align-center">
         Made with ❤️ by VSOS
-        <div class="w-25 d-flex mt-4 justify-space-evenly">
-            <v-btn :icon="mdiGithub" density="compact" variant="plain" />
-            <v-btn :icon="mdiWeb" density="compact" variant="plain" />
-            <v-btn :icon="mdiAccountKey" density="compact" variant="plain" />
+        <div class="w-25 d-flex mt-4 ga-8 justify-center">
+            <a href="https://vsos.ethz.ch">
+                <v-btn :icon="mdiWeb" density="compact" variant="plain" />
+            </a>
+            <a href="/console">
+                <v-btn
+                    :icon="mdiAccountKey"
+                    density="compact"
+                    variant="plain"
+                />
+            </a>
         </div>
     </footer>
 </template>
 
 <script setup>
-import { mdiGithub, mdiAccountKey, mdiWeb } from "@mdi/js";
+import { mdiAccountKey, mdiWeb } from "@mdi/js";
 </script>
 
 <style scoped>
