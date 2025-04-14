@@ -16,4 +16,4 @@ CREATE TABLE request(
   diskGB int NOT NULL,
   sshPubkeys text[] NOT NULL,
   comments text
-)
+);

@@ -11,6 +11,7 @@ import (
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/notifier"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/router"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/startupcheck"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
@@ -48,6 +49,8 @@ func main() {
 		log.Fatalf("Failed to parse config: %v", err.Error())
 	}
 
+	notifier.InitSMTP()
+
 	if startupcheck.DoAllStartupChecks() {
 		log.Fatalf("Startup checks failed. Exiting ...")
 	} else {
@@ -82,7 +85,7 @@ func main() {
 	// 	log.Println(err)
 	// }
 
-	// vm, err := proxmox.CreateVM(proxmox.VMCreationOptions{
+	// _, _, err = proxmox.CreateVM(proxmox.VMCreationOptions{
 	// 	Template:     proxmox.IMAGE_UBUNTU_24_04,
 	// 	FQDN:         "vmwiz-test.vsos.ethz.ch",
 	// 	Reinstall:    false,
