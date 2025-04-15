@@ -18,6 +18,7 @@ var provider *oidc.Provider
 var oauth2Config oauth2.Config
 var verifier *oidc.IDTokenVerifier
 var ctx context.Context
+var tokenSourceMap = make(map[string]oauth2.TokenSource)
 
 type KeycloakUser struct {
 	Email  string   `json:"email"`
@@ -46,6 +47,18 @@ func Init() {
 
 		Scopes: []string{oidc.ScopeOpenID, "profile", "roles"},
 	}
+	go func() {
+		for {
+			time.Sleep(24 * time.Hour)
+			// delete all expired tokens
+			for k, v := range tokenSourceMap {
+				token, err := v.Token()
+				if err != nil || token.Expiry.Before(time.Now()) {
+					delete(tokenSourceMap, k)
+				}
+			}
+		}
+	}()
 }
 
 func setCookie(w http.ResponseWriter, r *http.Request, name, value string) {
@@ -74,6 +87,18 @@ func CheckAuthenticated(next http.Handler) http.Handler {
 			fmt.Println("Token cookie is nil")
 			StartKeycloakAuthFlow(w, r)
 			return
+		}
+		// get tokesource from map
+		tokenSource, ok := tokenSourceMap[tokenCookie.Value]
+		if ok {
+			token, err := tokenSource.Token()
+			if err == nil {
+				// delete the old token
+				delete(tokenSourceMap, tokenCookie.Value)
+				tokenCookie.Value = token.Extra("id_token").(string)
+				setCookie(w, r, "auth_token", tokenCookie.Value)
+				tokenSourceMap[tokenCookie.Value] = tokenSource
+			}
 		}
 
 		// Verify the token
@@ -137,8 +162,6 @@ func HandleKeycloakCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	oauth2Config.Client(ctx, oauth2Token)
-
 	// Parse and verify token
 	userInfo, err := provider.UserInfo(ctx, oauth2.StaticTokenSource(oauth2Token))
 	if err != nil {
@@ -153,8 +176,11 @@ func HandleKeycloakCallback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to get claims: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	tokenString := oauth2Token.Extra("id_token").(string)
+	ts := oauth2Config.TokenSource(ctx, oauth2Token)
+	tokenSourceMap[tokenString] = ts
 
-	setCookie(w, r, "auth_token", oauth2Token.Extra("id_token").(string))
+	setCookie(w, r, "auth_token", tokenString)
 
 	http.Redirect(w, r, "/console", http.StatusFound)
 }
