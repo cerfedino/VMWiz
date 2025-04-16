@@ -224,6 +224,9 @@ func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
 		}
 		reqs = append(reqs, req)
 	}
+	if reqs == nil {
+		reqs = []*SQLVMRequest{}
+	}
 
 	return reqs, nil
 }

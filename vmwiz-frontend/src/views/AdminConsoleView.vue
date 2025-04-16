@@ -112,10 +112,21 @@
 
         <h2 class="mt-3">VM Requests</h2>
 
-        <div v-for="request in requests" :key="request.ID">
+        <div
+            v-for="request in requests"
+            :key="request.ID"
+            :class="{
+                'opacity-50 pointer-events-none':
+                    request.RequestStatus != 'pending',
+            }"
+        >
             <h1 class="text-h6 font-weight-bold mb-3">General Information</h1>
 
             <table>
+                <tr>
+                    <td>Status</td>
+                    <td>{{ request.RequestStatus }}</td>
+                </tr>
                 <tr>
                     <td>Request ID</td>
                     <td>{{ request.ID }}</td>
@@ -432,6 +443,7 @@ export default {
             .then((response) => response.json())
             .then((data) => {
                 this.$data.requests = data;
+                this.$data.requests.sort((a, b) => b.ID - a.ID);
                 console.log(data);
             });
 
