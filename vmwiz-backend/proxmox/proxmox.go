@@ -347,8 +347,8 @@ RAM: ` + strconv.Itoa(s.ram_mb) + ` MB
 Disk: ` + strconv.Itoa(int(s.disk_gb)) + ` GB
 Fingerprints:
 ` + "\t" + strings.Join(s.fingerprint, "\n\t") + `
-Login with ` + s.ssh_user + `@` + s.fqdn + `
-If you have any questions or need more resources, please contact us at:` + config.AppConfig.SMTP_REPLYTO + `
+Login with 'ssh ` + s.ssh_user + `@` + s.fqdn + `'
+If you have any questions or need more resources, please contact us at: ` + config.AppConfig.SMTP_REPLYTO + `
 Done. Have Fun!`
 }
 
