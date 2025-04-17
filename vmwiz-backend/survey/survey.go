@@ -102,12 +102,14 @@ func CreateVMUsageSurvey(restrict_pool []string) (*int64, error) {
 		// TODO: Add startup check
 		err = notifier.SendEmail("VSOS VM Usage Survey: Response needed", mail_content.Bytes(), []string{surveyEmail.Recipient})
 		if err != nil {
-			return &surveyId, fmt.Errorf("Failed create VM usage survey: Failed to send email: %v", err)
+			log.Printf("Failed create VM usage survey: Failed to send email: %v", err)
+			continue
 		}
 
 		err = storage.DB.SurveyEmailMarkAsSent(surveyEmail.Uuid)
 		if err != nil {
-			return &surveyId, fmt.Errorf("Failed create VM usage survey: %v", err)
+			log.Printf("Failed create VM usage survey: Failed to set EmailMarkAsSent %v", err)
+			continue
 		}
 
 		emails_sent++
