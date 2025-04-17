@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"github.com/gorilla/mux"
 )
@@ -51,6 +52,14 @@ func addAllVMRoutes(r *mux.Router) {
 		if err != nil {
 			log.Printf("Error deleting VM: %v", err)
 			http.Error(w, "Failed to delete VM", http.StatusInternalServerError)
+			return
+		}
+
+		// delete netcenter entry
+		err = netcenter.DeleteDNSEntryByHostname(vm.Name)
+		if err != nil {
+			log.Printf("Error deleting netcenter entry: %v", err)
+			http.Error(w, "Failed to delete netcenter entry", http.StatusInternalServerError)
 			return
 		}
 
