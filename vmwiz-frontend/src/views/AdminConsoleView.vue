@@ -106,6 +106,14 @@
                                 : "N/A"
                         }}
                     </u>
+                    <br />
+                    <v-btn
+                        class="mt-2"
+                        color="primary"
+                        @click="resendSurveyEmails(survey.surveyId)"
+                    >
+                        Resend Emails
+                    </v-btn>
                 </v-expansion-panel-text>
             </v-expansion-panel>
         </v-expansion-panels>
@@ -435,6 +443,21 @@ export default {
                     return data;
                 });
         },
+        resendSurveyEmails(id) {
+            return this.$store.getters
+                .fetchBackend(
+                    `/api/usagesurvey/resend`,
+                    "POST",
+                    {
+                        "Content-Type": "application/json",
+                    },
+                    JSON.stringify({
+                        id: id,
+                    })
+                )
+                .then((response) => response.json())
+                .then((data) => {});
+        }
     },
 
     async mounted() {
