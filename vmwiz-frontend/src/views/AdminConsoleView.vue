@@ -113,7 +113,7 @@
                         variant="outlined"
                         @click="resendSurveyEmails(survey.surveyId)"
                     >
-                    Resend to Unanswered & left to send
+                        Resend to Unanswered & left to send
                     </v-btn>
                 </v-expansion-panel-text>
             </v-expansion-panel>
@@ -337,6 +337,7 @@ export default {
                 .fetchRequests()
                 .then((response) => response.json());
             this.$data.requests = data;
+            // Sort ascending by creation date
             this.$data.requests.sort(
                 (a, b) =>
                     new Date(a.RequestCreatedAt) - new Date(b.RequestCreatedAt)
@@ -385,7 +386,7 @@ export default {
             console.log(this.dialogContent);
             this.dialogLoading = false;
         },
-        async popolateSurveys() {
+        async populateSurveys() {
             let fetchedsurveys = [];
 
             let surveyIds = (await this.getAllSurveysIds()).surveyIds;
@@ -395,7 +396,8 @@ export default {
                 fetchedsurveys.push(await this.getSurveyInfo(surveyId));
             }
             console.log(fetchedsurveys);
-            this.surveys = fetchedsurveys;
+            // Sort ascending by creation date
+            fetchedsurveys.sort((a, b) => new Date(a.sent) - new Date(b.sent));
         },
 
         startSurvey() {
@@ -486,7 +488,7 @@ export default {
 
     async mounted() {
         await this.populateRequests();
-        await this.popolateSurveys();
+        await this.populateSurveys();
     },
     components: {},
 };
