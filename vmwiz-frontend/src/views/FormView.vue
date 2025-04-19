@@ -1,4 +1,34 @@
 <template>
+    <v-dialog :persistent="dialogSuccess" v-model="dialogShow" max-width="50%">
+        <v-card class="w-100 h-100 ma-auto">
+            <v-card-text>
+                <template v-if="dialogSuccess">
+                    <h2 class="text-center">Thank you!</h2>
+                    <p class="text-center mt-8 mb-8">
+                        We received your request!<br />
+                        You can close this window.
+                    </p>
+                </template>
+                <template v-if="dialogError">
+                    <h1 class="text-center">Error</h1>
+                    <p class="text-center mt-8 mb-8">
+                        An error occurred while submitting your request.<br />Please
+                        Try again later. If the problem persists, please write
+                        us an email !
+                    </p>
+                </template>
+            </v-card-text>
+            <template v-slot:actions v-if="dialogError">
+                <v-btn
+                    class="mt-4"
+                    variant="outlined"
+                    @click="dialogShow = false"
+                >
+                    Close
+                </v-btn>
+            </template>
+        </v-card>
+    </v-dialog>
     <!-- <div class="h-screen d-flex flex-column justify-center"> -->
     <div class="w-75 pa-6 ma-auto border-t-sm" style="max-width: 700px">
         <h1 class="text-h4 text-center font-weight-bold mb-3">
@@ -321,6 +351,10 @@ export default {
             mdiPenguin,
             mdiBackspace,
 
+            dialogShow: false,
+            dialogSuccess: false,
+            dialogError: false,
+
             submit_color: "primary",
             submit_disable: false,
 
@@ -453,6 +487,7 @@ export default {
             let response = await this.$store.getters.fetchSendVMRequest(
                 this.form_values.current
             );
+            // Successful request
             if (response.status >= 200 && response.status < 300) {
                 Object.keys(this.form_values.validation_errors).forEach(
                     (key) => {
@@ -461,6 +496,10 @@ export default {
                 );
                 this.$refs.form.validate();
 
+                this.dialogSuccess = true;
+                this.dialogError = false;
+                this.dialogShow = true;
+
                 this.submit_color = "success";
                 this.submit_disable = true;
                 setTimeout(() => {
@@ -468,22 +507,30 @@ export default {
                     this.submit_disable = false;
                 }, 2500);
                 return;
+
+                // Error 403: Forbidden if validation failed
+            } else if (response.status == 403) {
+                this.submit_color = "error";
+                this.submit_disable = true;
+                setTimeout(() => {
+                    this.submit_color = "primary";
+                    this.submit_disable = false;
+                }, 2500);
+
+                response.json().then((data) => {
+                    // console.log(data);
+                    for (const [key, value] of Object.entries(data)) {
+                        this.form_values.validation_errors[key] = value;
+                    }
+                    this.$refs.form.validate();
+                });
+
+                // For all other errors we show the dialog
+            } else {
+                this.dialogSuccess = false;
+                this.dialogError = true;
+                this.dialogShow = true;
             }
-
-            this.submit_color = "error";
-            this.submit_disable = true;
-            setTimeout(() => {
-                this.submit_color = "primary";
-                this.submit_disable = false;
-            }, 2500);
-
-            response.json().then((data) => {
-                // console.log(data);
-                for (const [key, value] of Object.entries(data)) {
-                    this.form_values.validation_errors[key] = value;
-                }
-                this.$refs.form.validate();
-            });
         },
     },
     mounted() {

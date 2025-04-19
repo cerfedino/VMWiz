@@ -23,7 +23,7 @@ import (
 
 // func (s *StartupChecks) String() string {
 
-// 	ret := fmt.Printf("[-] %v\n", s.Name)
+// 	ret := log.Println("[-] %v\n", s.Name)
 // 	for _, result := range s.Results {
 // 		err, ok := result.(error)
 // 		if ok {
@@ -102,7 +102,7 @@ func main() {
 	// if err != nil {
 	// 	log.Println(err)
 	// }
-	// fmt.Println((*vm).Tags)
+	// log.Println((*vm).Tags)
 
 	cors := cors.New(cors.Options{
 		// Allowing the Vue frontend to access the API

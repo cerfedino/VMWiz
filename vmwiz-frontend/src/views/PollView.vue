@@ -1,6 +1,6 @@
 <template>
-    <v-dialog :persistent="submitted" v-model="showSubmitted">
-        <v-card class="ma-auto" max-width="50%">
+    <v-dialog :persistent="submitted" v-model="showSubmitted" max-width="50%">
+        <v-card class="w-100 h-100 ma-auto">
             <v-card-text>
                 <template v-if="submitted">
                     <h2 class="text-center">Thank you!</h2>
@@ -29,8 +29,8 @@
             </template>
         </v-card>
     </v-dialog>
-    <v-dialog v-model="showConfirmation">
-        <v-card :loading="dialogLoading" max-width="50%" class="ma-auto">
+    <v-dialog v-model="showConfirmation" max-width="50%">
+        <v-card :loading="dialogLoading" class="w-100 h-100 ma-auto">
             <template v-slot:loader="{ isActive }">
                 <v-progress-linear
                     :active="isActive"

@@ -61,7 +61,7 @@ func Init() {
 	}()
 }
 
-func setCookie(w http.ResponseWriter, r *http.Request, name, value string) {
+func setCookie(w http.ResponseWriter, r *http.Request, name string, value string) {
 	c := &http.Cookie{
 		Name:     name,
 		Value:    value,
@@ -79,12 +79,12 @@ func CheckAuthenticated(next http.Handler) http.Handler {
 		tokenCookie, err := r.Cookie("auth_token")
 
 		if err != nil {
-			fmt.Println("Error getting token cookie:", err)
+			log.Println("Error getting token cookie:", err)
 			StartKeycloakAuthFlow(w, r)
 			return
 		}
 		if tokenCookie == nil {
-			fmt.Println("Token cookie is nil")
+			log.Println("Token cookie is nil")
 			StartKeycloakAuthFlow(w, r)
 			return
 		}
@@ -104,7 +104,7 @@ func CheckAuthenticated(next http.Handler) http.Handler {
 		// Verify the token
 		idToken, err := verifier.Verify(ctx, tokenCookie.Value)
 		if err != nil {
-			fmt.Println("Error verifying token:", err)
+			log.Println("Error verifying token:", err)
 			StartKeycloakAuthFlow(w, r)
 			return
 		}
@@ -112,17 +112,27 @@ func CheckAuthenticated(next http.Handler) http.Handler {
 		var claims KeycloakUser
 		err = idToken.Claims(&claims)
 		for _, group := range claims.Groups {
-			// TODO: Add groups to env
-			if strings.TrimPrefix(group, "/") == "vsos_team" {
-				// Attach claims to the request context.
-				ctxWithClaims := context.WithValue(r.Context(), "user", claims)
-				next.ServeHTTP(w, r.WithContext(ctxWithClaims))
+			if len(config.AppConfig.KEYCLOAK_RESTRICT_AUTH_TO_GROUPS) == 0 {
+				checkAuthenticatedSuccess(w, r, next, claims)
 				return
 			}
+			for _, allowed_group := range config.AppConfig.KEYCLOAK_RESTRICT_AUTH_TO_GROUPS {
+				if strings.TrimPrefix(group, "/") == allowed_group {
+					checkAuthenticatedSuccess(w, r, next, claims)
+					return
+				}
+			}
+
 		}
 		http.Error(w, "Your user is not allowed to use this route", http.StatusUnauthorized)
 		return
 	})
+}
+
+func checkAuthenticatedSuccess(w http.ResponseWriter, r *http.Request, next http.Handler, claims KeycloakUser) {
+	// Attach claims to the request context.
+	ctxWithClaims := context.WithValue(r.Context(), "user", claims)
+	next.ServeHTTP(w, r.WithContext(ctxWithClaims))
 }
 
 func StartKeycloakAuthFlow(w http.ResponseWriter, r *http.Request) {
@@ -135,7 +145,6 @@ func StartKeycloakAuthFlow(w http.ResponseWriter, r *http.Request) {
 	setCookie(w, r, "session_state", state)
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusUnauthorized)
 	http.Error(w, fmt.Sprintf(`{"redirectUrl": "%v"}`, oauth2Config.AuthCodeURL(state)), http.StatusUnauthorized)
 
 	// http.Redirect(w, r, oauth2Config.AuthCodeURL(state), http.StatusFound)
@@ -151,7 +160,7 @@ func HandleKeycloakCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.URL.Query().Get("state") != state.Value {
-		http.Error(w, fmt.Sprintf("state did not match (%v - %v)", r.URL.Query().Get("state"), state.Value), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("state did not match (query: %v - cookie: %v)", r.URL.Query().Get("state"), state.Value), http.StatusBadRequest)
 		return
 	}
 

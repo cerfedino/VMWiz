@@ -2,6 +2,7 @@ package form
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
@@ -99,14 +100,14 @@ func (f *Form) Validate() (Form_validation, bool) {
 
 	taken, e := proxmox.ExistsVMName(fmt.Sprintf("%v.vsos.ethz.ch", f.Hostname))
 	if e != nil {
-		fmt.Printf("ERROR: %v", e)
+		log.Println("ERROR: %v", e)
 		validation.Hostname_err = "Hostname cannot be validated"
 		err = true
 	}
 
 	existing_ipv4s, existing_ipv6sm, e := netcenter.GetHostIPs(fmt.Sprintf("%v.vsos.ethz.ch", f.Hostname))
 	if e != nil {
-		fmt.Printf("ERROR: %v", e)
+		log.Println("ERROR: %v", e)
 		validation.Hostname_err = "Hostname cannot be validated"
 		err = true
 	}
