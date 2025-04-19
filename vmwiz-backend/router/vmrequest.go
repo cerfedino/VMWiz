@@ -156,6 +156,19 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
+		// Ensure we didnt accept the request previously
+		request, err := storage.DB.GetVMRequest(int64(body.ID))
+		if err != nil {
+			log.Printf("Error getting VM request: %v", err)
+			http.Error(w, "Failed to fetch VM request", http.StatusInternalServerError)
+			return
+		}
+		if request.RequestStatus == storage.REQUEST_STATUS_ACCEPTED {
+			log.Printf("Cannot reject an accepted request")
+			http.Error(w, "Cannot reject an accepted request", http.StatusBadRequest)
+			return
+		}
+
 		err = storage.DB.UpdateVMRequestStatus(int64(body.ID), storage.REQUEST_STATUS_REJECTED)
 		if err != nil {
 			log.Printf("Error updating VM request status: %v", err)
@@ -163,7 +176,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		request, err := storage.DB.GetVMRequest(int64(body.ID))
+		request, err = storage.DB.GetVMRequest(int64(body.ID))
 		if err != nil {
 			log.Printf("Error getting VM request: %v", err)
 			http.Error(w, "Failed to fetch VM request", http.StatusInternalServerError)
