@@ -61,7 +61,7 @@ func Init() {
 	}()
 }
 
-func setCookie(w http.ResponseWriter, r *http.Request, name, value string) {
+func setCookie(w http.ResponseWriter, r *http.Request, name string, value string) {
 	c := &http.Cookie{
 		Name:     name,
 		Value:    value,
@@ -135,7 +135,6 @@ func StartKeycloakAuthFlow(w http.ResponseWriter, r *http.Request) {
 	setCookie(w, r, "session_state", state)
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusUnauthorized)
 	http.Error(w, fmt.Sprintf(`{"redirectUrl": "%v"}`, oauth2Config.AuthCodeURL(state)), http.StatusUnauthorized)
 
 	// http.Redirect(w, r, oauth2Config.AuthCodeURL(state), http.StatusFound)
@@ -151,7 +150,7 @@ func HandleKeycloakCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.URL.Query().Get("state") != state.Value {
-		http.Error(w, fmt.Sprintf("state did not match (%v - %v)", r.URL.Query().Get("state"), state.Value), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("state did not match (query: %v - cookie: %v)", r.URL.Query().Get("state"), state.Value), http.StatusBadRequest)
 		return
 	}
 

@@ -438,18 +438,15 @@ export default {
     },
 
     async mounted() {
-        this.$store.getters
+        let data = await this.$store.getters
             .fetchRequests()
-            .then((response) => response.json())
-            .then((data) => {
-                this.$data.requests = data;
-                this.$data.requests.sort(
-                    (a, b) =>
-                        new Date(a.RequestCreatedAt) -
-                        new Date(b.RequestCreatedAt)
-                );
-                console.log(data);
-            });
+            .then((response) => response.json());
+        this.$data.requests = data;
+        this.$data.requests.sort(
+            (a, b) =>
+                new Date(a.RequestCreatedAt) - new Date(b.RequestCreatedAt)
+        );
+        console.log(data);
 
         let fetchedsurveys = [];
 
