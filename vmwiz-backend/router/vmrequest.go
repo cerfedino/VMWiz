@@ -32,7 +32,8 @@ func addVMRequestRoutes(r *mux.Router) {
 		validation_data, fail := f.Validate()
 		if fail {
 			resp, _ := json.Marshal(validation_data)
-			w.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(http.StatusForbidden)
+			w.Header().Set("Content-Type", "application/json")
 			w.Write(resp)
 			return
 		}
