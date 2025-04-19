@@ -180,7 +180,7 @@ func addAllPollRoutes(r *mux.Router) {
 
 	r.Methods("POST").Path("/api/usagesurvey/resend").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
-			ID string `json:"id"`
+			ID int64 `json:"id"`
 		}
 		var body bodyS
 		err := json.NewDecoder(r.Body).Decode(&body)
@@ -189,12 +189,7 @@ func addAllPollRoutes(r *mux.Router) {
 			http.Error(w, "Invalid request payload", http.StatusBadRequest)
 			return
 		}
-		id, err := strconv.ParseInt(body.ID, 10, 64)
-		if err != nil {
-			log.Printf("Error casting id to int: %v", err)
-			http.Error(w, "Invalid id provided", http.StatusBadRequest)
-		}
-		err = survey.SendVMUsageSurvey(id)
+		err = survey.SendVMUsageSurvey(body.ID)
 		if err != nil {
 			log.Printf("Error sending survey: %v", err)
 			http.Error(w, "Failed to send survey", http.StatusInternalServerError)
