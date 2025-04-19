@@ -18,11 +18,12 @@ import (
 
 func addVMRequestRoutes(r *mux.Router) {
 
+	// TODO: Rate limit requests
 	r.Methods("POST").Path("/api/vmrequest").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var f form.Form
 		err := json.NewDecoder(r.Body).Decode(&f)
 		if err != nil {
-			fmt.Println(err.Error())
+			log.Println(err.Error())
 			http.Error(w, "Form body parsing error", http.StatusInternalServerError)
 			return
 		}
@@ -32,7 +33,8 @@ func addVMRequestRoutes(r *mux.Router) {
 		validation_data, fail := f.Validate()
 		if fail {
 			resp, _ := json.Marshal(validation_data)
-			w.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(http.StatusForbidden)
+			w.Header().Set("Content-Type", "application/json")
 			w.Write(resp)
 			return
 		}
@@ -155,6 +157,19 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
+		// Ensure we didnt accept the request previously
+		request, err := storage.DB.GetVMRequest(int64(body.ID))
+		if err != nil {
+			log.Printf("Error getting VM request: %v", err)
+			http.Error(w, "Failed to fetch VM request", http.StatusInternalServerError)
+			return
+		}
+		if request.RequestStatus == storage.REQUEST_STATUS_ACCEPTED {
+			log.Printf("Cannot reject an accepted request")
+			http.Error(w, "Cannot reject an accepted request", http.StatusBadRequest)
+			return
+		}
+
 		err = storage.DB.UpdateVMRequestStatus(int64(body.ID), storage.REQUEST_STATUS_REJECTED)
 		if err != nil {
 			log.Printf("Error updating VM request status: %v", err)
@@ -162,7 +177,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		request, err := storage.DB.GetVMRequest(int64(body.ID))
+		request, err = storage.DB.GetVMRequest(int64(body.ID))
 		if err != nil {
 			log.Printf("Error getting VM request: %v", err)
 			http.Error(w, "Failed to fetch VM request", http.StatusInternalServerError)
