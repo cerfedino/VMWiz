@@ -1,6 +1,6 @@
 <template>
-    <v-dialog v-model="dialogOpen" class="w-100 h-100">
-        <v-card class="w-50 ma-auto" :loading="dialogLoading">
+    <v-dialog v-model="dialogOpen" class="w-50 h-50">
+        <v-card class="w-100 h-100 ma-auto" :loading="dialogLoading">
             <template v-slot:loader="{ isActive }">
                 <v-progress-linear
                     :active="isActive"
@@ -330,6 +330,7 @@ export default {
                     id: id,
                 })
             );
+            this.populateRequests();
         },
         rejectRequest(id) {
             this.$store.getters.fetchBackend(
@@ -342,6 +343,7 @@ export default {
                     id: id,
                 })
             );
+            this.populateRequests();
         },
         editRequest(id, payload) {
             this.$store.getters.fetchBackend(
@@ -357,28 +359,21 @@ export default {
                     storage_db: payload.DiskGB,
                 })
             );
+            this.populateRequests();
+        },
+
+        async populateRequests() {
+            let data = await this.$store.getters
+                .fetchRequests()
+                .then((response) => response.json());
+            this.$data.requests = data;
+            this.$data.requests.sort(
+                (a, b) =>
+                    new Date(a.RequestCreatedAt) - new Date(b.RequestCreatedAt)
+            );
         },
 
         // SURVEY FUNCTIONS
-        startSurvey() {
-            this.clickCount++;
-            if (this.clickCount >= 3) {
-                this.clickCount = 0;
-                this.$store.getters.fetchBackend(
-                    "/api/usagesurvey/start",
-                    "GET"
-                );
-            }
-        },
-        getAllSurveysIds() {
-            return this.$store.getters
-                .fetchBackend("/api/usagesurvey/", "GET")
-                .then((response) => response.json())
-                .then((data) => {
-                    console.log(data);
-                    return data;
-                });
-        },
         async handleNegativeResponseDialog(id) {
             this.dialogLoading = true;
             this.dialogTitle = "Negative responses";
@@ -420,7 +415,38 @@ export default {
             console.log(this.dialogContent);
             this.dialogLoading = false;
         },
+        async popolateSurveys() {
+            let fetchedsurveys = [];
 
+            let surveyIds = (await this.getAllSurveysIds()).surveyIds;
+            console.log(surveyIds);
+            for (let i = 0; i < surveyIds.length; i++) {
+                let surveyId = surveyIds[i];
+                fetchedsurveys.push(await this.getSurveyInfo(surveyId));
+            }
+            console.log(fetchedsurveys);
+            this.surveys = fetchedsurveys;
+        },
+
+        startSurvey() {
+            this.clickCount++;
+            if (this.clickCount >= 3) {
+                this.clickCount = 0;
+                this.$store.getters.fetchBackend(
+                    "/api/usagesurvey/start",
+                    "GET"
+                );
+            }
+        },
+        getAllSurveysIds() {
+            return this.$store.getters
+                .fetchBackend("/api/usagesurvey/", "GET")
+                .then((response) => response.json())
+                .then((data) => {
+                    console.log(data);
+                    return data;
+                });
+        },
         getSurveyInfo(surveyId) {
             return this.$store.getters
                 .fetchBackend(
@@ -503,25 +529,8 @@ export default {
     },
 
     async mounted() {
-        this.$store.getters
-            .fetchRequests()
-            .then((response) => response.json())
-            .then((data) => {
-                this.$data.requests = data;
-                this.$data.requests.sort((a, b) => b.ID - a.ID);
-                console.log(data);
-            });
-
-        let fetchedsurveys = [];
-
-        let surveyIds = (await this.getAllSurveysIds()).surveyIds;
-        console.log(surveyIds);
-        for (let i = 0; i < surveyIds.length; i++) {
-            let surveyId = surveyIds[i];
-            fetchedsurveys.push(await this.getSurveyInfo(surveyId));
-        }
-        console.log(fetchedsurveys);
-        this.surveys = fetchedsurveys;
+        await this.populateRequests();
+        await this.popolateSurveys();
     },
     components: {},
 };

@@ -66,7 +66,7 @@ func (s *SQLVMRequest) ToVMOptions() *proxmox.VMCreationOptions {
 		RAM_MB:     int64(s.RamGB * 1024),
 		Disk_GB:    int64(s.DiskGB),
 		SSHPubkeys: s.SshPubkeys,
-		// TODO: Proper handling of notes
+		// TODO: Proper handling of notes with dedicated serializer/deserializer
 		Notes: fmt.Sprintf("nethz=TODO  uni_contact=%s  contact=%s", s.PersonalEmail, s.Email),
 		Tags:  []string{"created-by-vmwiz"},
 
