@@ -106,6 +106,15 @@
                                 : "N/A"
                         }}
                     </u>
+                    <br />
+                    <v-btn
+                        class="mt-2"
+                        color="primary"
+                        variant="outlined"
+                        @click="resendSurveyEmails(survey.surveyId)"
+                    >
+                        Resend to Unanswered & left to send
+                    </v-btn>
                 </v-expansion-panel-text>
             </v-expansion-panel>
         </v-expansion-panels>
@@ -115,30 +124,33 @@
         <h2 class="mt-3">Delete VM</h2>
         <div class="d-flex align-center">
             <v-text-field
-            v-model="deleteHostname"
-            label="Hostname"
-            outlined
-            dense
-            class="mr-4"
+                v-model="deleteHostname"
+                label="Hostname"
+                outlined
+                dense
+                class="mr-4"
             ></v-text-field>
             <v-btn color="error" @click="confirmDialogOpen = true">
-            <b>Delete VM</b>
+                <b>Delete VM</b>
             </v-btn>
         </div>
         <v-dialog v-model="confirmDialogOpen" max-width="400">
             <v-card>
-            <v-card-title class="headline">Confirm Deletion</v-card-title>
-            <v-card-text>
-                Are you sure you want to delete the VM with hostname
-                <b>{{ deleteHostname }}</b>?
-            </v-card-text>
-            <v-card-actions>
-                <v-spacer></v-spacer>
-                <v-btn text @click="confirmDialogOpen = false">Cancel</v-btn>
-                <v-btn color="error" text @click="deleteVM">
-                Confirm
-                </v-btn>
-            </v-card-actions>
+                <v-card-title class="headline">Confirm Deletion</v-card-title>
+                <v-card-text>
+                    Are you sure you want to delete the VM with hostname
+                    <b>{{ deleteHostname }}</b
+                    >?
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer></v-spacer>
+                    <v-btn text @click="confirmDialogOpen = false"
+                        >Cancel</v-btn
+                    >
+                    <v-btn color="error" text @click="deleteVM">
+                        Confirm
+                    </v-btn>
+                </v-card-actions>
             </v-card>
         </v-dialog>
         <p v-if="deleteMessage" class="mt-2">{{ deleteMessage }}</p>
@@ -367,6 +379,7 @@ export default {
                 .fetchRequests()
                 .then((response) => response.json());
             this.$data.requests = data;
+            // Sort ascending by creation date
             this.$data.requests.sort(
                 (a, b) =>
                     new Date(a.RequestCreatedAt) - new Date(b.RequestCreatedAt)
@@ -415,7 +428,7 @@ export default {
             console.log(this.dialogContent);
             this.dialogLoading = false;
         },
-        async popolateSurveys() {
+        async populateSurveys() {
             let fetchedsurveys = [];
 
             let surveyIds = (await this.getAllSurveysIds()).surveyIds;
@@ -425,7 +438,8 @@ export default {
                 fetchedsurveys.push(await this.getSurveyInfo(surveyId));
             }
             console.log(fetchedsurveys);
-            this.surveys = fetchedsurveys;
+            // Sort ascending by creation date
+            fetchedsurveys.sort((a, b) => new Date(a.sent) - new Date(b.sent));
         },
 
         startSurvey() {
@@ -526,11 +540,23 @@ export default {
                     this.confirmDialogOpen = false;
                 });
         },
+        resendSurveyEmails(id) {
+            return this.$store.getters.fetchBackend(
+                `/api/usagesurvey/resend`,
+                "POST",
+                {
+                    "Content-Type": "application/json",
+                },
+                JSON.stringify({
+                    id: id,
+                })
+            );
+        },
     },
 
     async mounted() {
         await this.populateRequests();
-        await this.popolateSurveys();
+        await this.populateSurveys();
     },
     components: {},
 };

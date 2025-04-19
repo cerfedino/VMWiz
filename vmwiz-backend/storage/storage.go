@@ -322,9 +322,9 @@ func (s *postgresstorage) SurveyGetAllIDs() ([]int64, error) {
 	return ids, nil
 }
 
-func (s *postgresstorage) SurveyEmailGetAllBySurveyID(surveyId int64) (*[]SQLUsageSurveyEmail, error) {
+func (s *postgresstorage) SurveyEmailGetAllNotAnsweredOrUnsentBySurveyID(surveyId int64) (*[]SQLUsageSurveyEmail, error) {
 	var surveyEmails []SQLUsageSurveyEmail
-	rows, err := s.db.Query(`SELECT id, recipient, surveyId, vmid, hostname, uuid, email_sent, still_used FROM survey_email WHERE surveyId=$1`, surveyId)
+	rows, err := s.db.Query(`SELECT id, recipient, surveyId, vmid, hostname, uuid, email_sent, still_used FROM survey_email WHERE surveyId=$1 AND still_used IS NULL OR email_sent = FALSE`, surveyId)
 	if err != nil {
 		return nil, fmt.Errorf("SurveyEmailGetAllBySurveyID: Error while executing query: %s", err)
 	}
