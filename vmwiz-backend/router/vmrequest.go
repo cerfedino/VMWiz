@@ -28,7 +28,6 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		log.Printf("Received: %+v\n", f)
 		// Validating the received form data
 		validation_data, fail := f.Validate()
 		if fail {
@@ -135,7 +134,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		err = notifier.NotifyVMCreationUpdate(fmt.Sprintf("VM %s created successfully:\n%s", opts.FQDN, "```\n"+summary.String()+"\n```"))
+		err = notifier.NotifyVMCreationUpdate(fmt.Sprintf("Request %v: VM %s created successfully:\n%s", request.ID, opts.FQDN, "```\n"+summary.String()+"\n```"))
 		if err != nil {
 			log.Printf("Failed to notify VM creation update: %v", err)
 			http.Error(w, "Failed to notify VM creation update", http.StatusInternalServerError)

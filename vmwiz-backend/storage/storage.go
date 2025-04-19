@@ -39,8 +39,7 @@ type SQLVMRequest struct {
 }
 
 func (f *SQLVMRequest) ToString() string {
-	return `
-ID: ` + fmt.Sprintf("%v", f.ID) + `
+	return `ID: ` + fmt.Sprintf("%v", f.ID) + `
 RequestCreatedAt: ` + fmt.Sprintf("%v", f.RequestCreatedAt) + `
 RequestStatus: ` + fmt.Sprintf("%v", f.RequestStatus) + `
 Email: ` + fmt.Sprintf("%v", f.Email) + `

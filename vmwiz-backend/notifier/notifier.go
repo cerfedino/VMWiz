@@ -47,7 +47,7 @@ func NotifyTest(body string) error {
 }
 
 func NotifyVMRequest(req storage.SQLVMRequest) error {
-	return useNotifier("new_vmrequest", "```\n"+req.ToString()+"\n```")
+	return useNotifier("new_vmrequest", fmt.Sprintf("New VM Request %v:\n```\n%v\n```", req.ID, req.ToString()))
 }
 
 func NotifyVMRequestStatusChanged(req storage.SQLVMRequest, additional_text string) error {
