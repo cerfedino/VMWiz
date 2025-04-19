@@ -1,6 +1,6 @@
 <template>
-    <v-dialog v-model="dialogOpen" class="w-100 h-100">
-        <v-card class="w-50 ma-auto" :loading="dialogLoading">
+    <v-dialog v-model="dialogOpen" class="w-50 h-50">
+        <v-card class="w-100 h-100 ma-auto" :loading="dialogLoading">
             <template v-slot:loader="{ isActive }">
                 <v-progress-linear
                     :active="isActive"
