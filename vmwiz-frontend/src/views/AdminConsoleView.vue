@@ -443,7 +443,11 @@ export default {
             .then((response) => response.json())
             .then((data) => {
                 this.$data.requests = data;
-                this.$data.requests.sort((a, b) => b.ID - a.ID);
+                this.$data.requests.sort(
+                    (a, b) =>
+                        new Date(a.RequestCreatedAt) -
+                        new Date(b.RequestCreatedAt)
+                );
                 console.log(data);
             });
 
