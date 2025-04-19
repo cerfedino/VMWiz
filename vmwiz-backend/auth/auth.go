@@ -79,12 +79,12 @@ func CheckAuthenticated(next http.Handler) http.Handler {
 		tokenCookie, err := r.Cookie("auth_token")
 
 		if err != nil {
-			fmt.Println("Error getting token cookie:", err)
+			log.Println("Error getting token cookie:", err)
 			StartKeycloakAuthFlow(w, r)
 			return
 		}
 		if tokenCookie == nil {
-			fmt.Println("Token cookie is nil")
+			log.Println("Token cookie is nil")
 			StartKeycloakAuthFlow(w, r)
 			return
 		}
@@ -104,7 +104,7 @@ func CheckAuthenticated(next http.Handler) http.Handler {
 		// Verify the token
 		idToken, err := verifier.Verify(ctx, tokenCookie.Value)
 		if err != nil {
-			fmt.Println("Error verifying token:", err)
+			log.Println("Error verifying token:", err)
 			StartKeycloakAuthFlow(w, r)
 			return
 		}

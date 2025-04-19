@@ -22,7 +22,7 @@ func addVMRequestRoutes(r *mux.Router) {
 		var f form.Form
 		err := json.NewDecoder(r.Body).Decode(&f)
 		if err != nil {
-			fmt.Println(err.Error())
+			log.Println(err.Error())
 			http.Error(w, "Form body parsing error", http.StatusInternalServerError)
 			return
 		}

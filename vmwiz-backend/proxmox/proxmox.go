@@ -355,7 +355,7 @@ Done. Have Fun!`
 func CreateVM(options VMCreationOptions) (*PVENodeVM, *VMCreationSummary, error) {
 
 	//! Verify that configured CM SSH host is actually a cluster management node
-	// fmt.Println("[-] Checking if running on a cluster management node")
+	// log.Println("[-] Checking if running on a cluster management node")
 	client, err := createCMSSHClient()
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: %v", err)
@@ -573,7 +573,7 @@ Reinstall: %v
 	//! Prepare Cloudinit configuration
 	log.Println("[-] Preparing Cloudinit configuration")
 	cloudinit_fragments := fmt.Sprintf("ipconfig0: gw=%s,ip=%s/%d,ip6=%s/%d", VM_GATEWAY_4, ipv4s_str[0], VM_NETMASK_4, ipv6s_str[0], VM_NETMASK_6)
-	// fmt.Println(cloudinit_fragments)
+	// log.Println(cloudinit_fragments)
 
 	//! Upload Cloudinit configuration to comp node
 	VM_CLOUDINIT_PATH := fmt.Sprintf("/tmp/vmwiz-%v.cloudinit.tail", VM_ID)
@@ -904,7 +904,7 @@ Reinstall: %v
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: CM node SFTP: Failed to write to file '%v': %v", CM_VM_BOOT_LOG_PATH_CM, err)
 	}
-	// fmt.Println(string(comp_sftp_bootlog_content))
+	// log.Println(string(comp_sftp_bootlog_content))
 
 	//! Adding VM ssh public key to CM known hosts file
 	log.Printf("\t[-] Generating VM SSH fingerprints\n")

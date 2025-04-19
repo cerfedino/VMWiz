@@ -3,6 +3,7 @@ package notifier
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"net/smtp"
 	"net/url"
@@ -28,7 +29,7 @@ var SMTP_CLIENT SMTP
 
 func useNotifier(tags string, body string) error {
 
-	fmt.Println("[-] Sending notification to vmwiz-notifier")
+	log.Println("[-] Sending notification to vmwiz-notifier")
 	v := url.Values{}
 	v.Add("title", APPRISE_THREAD_TITLE)
 	v.Add("tags", tags)
