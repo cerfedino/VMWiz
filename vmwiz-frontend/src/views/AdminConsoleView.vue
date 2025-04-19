@@ -398,6 +398,7 @@ export default {
             console.log(fetchedsurveys);
             // Sort ascending by creation date
             fetchedsurveys.sort((a, b) => new Date(a.sent) - new Date(b.sent));
+            this.surveys = fetchedsurveys;
         },
 
         startSurvey() {
