@@ -110,9 +110,10 @@
                     <v-btn
                         class="mt-2"
                         color="primary"
+                        variant="outlined"
                         @click="resendSurveyEmails(survey.surveyId)"
                     >
-                        Resend Emails
+                    Resend to Unanswered & left to send
                     </v-btn>
                 </v-expansion-panel-text>
             </v-expansion-panel>
@@ -470,20 +471,17 @@ export default {
                 });
         },
         resendSurveyEmails(id) {
-            return this.$store.getters
-                .fetchBackend(
-                    `/api/usagesurvey/resend`,
-                    "POST",
-                    {
-                        "Content-Type": "application/json",
-                    },
-                    JSON.stringify({
-                        id: id,
-                    })
-                )
-                .then((response) => response.json())
-                .then((data) => {});
-        }
+            return this.$store.getters.fetchBackend(
+                `/api/usagesurvey/resend`,
+                "POST",
+                {
+                    "Content-Type": "application/json",
+                },
+                JSON.stringify({
+                    id: id,
+                })
+            );
+        },
     },
 
     async mounted() {
