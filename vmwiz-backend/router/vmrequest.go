@@ -18,6 +18,7 @@ import (
 
 func addVMRequestRoutes(r *mux.Router) {
 
+	// TODO: Rate limit requests
 	r.Methods("POST").Path("/api/vmrequest").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var f form.Form
 		err := json.NewDecoder(r.Body).Decode(&f)
