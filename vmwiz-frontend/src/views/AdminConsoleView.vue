@@ -133,6 +133,10 @@
             <v-btn color="error" @click="confirmDialogOpen = true">
                 <b>Delete VM</b>
             </v-btn>
+            <v-checkbox
+                v-model="deleteAlsoDNS"
+                label="Aldo delete DNS entry"
+            ></v-checkbox>
         </div>
         <v-dialog v-model="confirmDialogOpen" max-width="400">
             <v-card>
@@ -326,6 +330,7 @@ export default {
             mdiAccountQuestion,
 
             deleteHostname: "",
+            deleteAlsoDNS: true,
             confirmDialogOpen: false,
             deleteMessage: "",
         };
@@ -525,6 +530,7 @@ export default {
                     },
                     JSON.stringify({
                         vmName: this.deleteHostname,
+                        deleteDNS: this.deleteAlsoDNS,
                     })
                 )
                 .then((response) => {

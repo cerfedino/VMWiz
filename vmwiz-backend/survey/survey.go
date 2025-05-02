@@ -115,10 +115,12 @@ func SendVMUsageSurvey(surveyId int64) error {
 			continue
 		}
 
-		err = storage.DB.SurveyEmailMarkAsSent(surveyEmail.Uuid)
-		if err != nil {
-			log.Printf("Failed send VM usage survey: Failed to set EmailMarkAsSent %v", err)
-			continue
+		if config.AppConfig.SMTP_ENABLE {
+			err = storage.DB.SurveyEmailMarkAsSent(surveyEmail.Uuid)
+			if err != nil {
+				log.Printf("Failed send VM usage survey: Failed to set EmailMarkAsSent %v", err)
+				continue
+			}
 		}
 
 		emails_sent++
