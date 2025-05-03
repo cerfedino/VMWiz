@@ -55,6 +55,7 @@ export default {
     methods: {
         deleteVM() {
             this.dialogLoading = true;
+            this.confirmDialogOpen = false;
             this.deleteMessage = "";
             this.$store.getters
                 .fetchBackend(
