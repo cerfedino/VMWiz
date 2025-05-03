@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/actionlog"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
 	"github.com/seancfoley/ipaddress-go/ipaddr"
 )
@@ -293,7 +294,7 @@ func DeleteDNSEntryByIP(ip *ipaddr.IPAddress) error {
 	return nil
 }
 
-func DeleteDNSEntryByHostname(fqdn string) error {
+func DeleteDNSEntryByHostname(uuid string, fqdn string) error {
 	hostIPv4s, hostIPv6s, err := GetHostIPs(fqdn)
 	if err != nil {
 		return fmt.Errorf("Deleting DNS entries by hostname: %v", err.Error())
@@ -317,7 +318,7 @@ func DeleteDNSEntryByHostname(fqdn string) error {
 	if len(errors) > 0 {
 		return fmt.Errorf("Deleting DNS entries by hostname: Couldn't delete all DNS entries: Errors: \n- %v", strings.Join(errors, "\n- "))
 	}
-	log.Printf("[+] Deleted %d DNS entries for host '%v'", len(hostIPv4s)+len(hostIPv6s), fqdn)
+	actionlog.Printf(uuid, "[+] Deleted %d DNS entries for host '%v'", len(hostIPv4s)+len(hostIPv6s), fqdn)
 	return nil
 }
 

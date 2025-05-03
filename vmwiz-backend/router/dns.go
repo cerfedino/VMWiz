@@ -7,6 +7,7 @@ import (
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 	"github.com/gorilla/mux"
 )
 
@@ -27,7 +28,14 @@ func addAllDNSRoutes(r *mux.Router) {
 			return
 		}
 
-		err = netcenter.DeleteDNSEntryByHostname(body.Hostname)
+		uuid, err := storage.DB.ActionLogCreate()
+		if err != nil {
+			log.Printf("Error creating action log: %v", err)
+			http.Error(w, "Failed to create action log", http.StatusInternalServerError)
+			return
+		}
+
+		err = netcenter.DeleteDNSEntryByHostname(uuid, body.Hostname)
 		if err != nil {
 			log.Printf("Error deleting DNS entry: %v", err)
 			http.Error(w, "Failed to delete DNS entry", http.StatusInternalServerError)

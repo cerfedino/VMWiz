@@ -11,6 +11,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
@@ -515,4 +516,18 @@ func (s *postgresstorage) SurveyEmailExistsByUUID(uuid string) (bool, error) {
 		return false, fmt.Errorf("SurveyEmailExistsByUUID: Error getting count: %s", err)
 	}
 	return count > 0, nil
+}
+
+func (s *postgresstorage) ActionLogCreate() (string, error) {
+	// create uuid
+	uuidString := uuid.New().String()
+
+	res := s.db.QueryRow(`INSERT INTO actionlog (uuid) VALUES ($1) RETURNING id`, uuidString)
+	// Get the last inserted ID
+	var id int64
+	err := res.Scan(&id)
+	if err != nil {
+		return "", fmt.Errorf("ActionLogCreate: Error getting last insert ID: %s", err)
+	}
+	return uuidString, nil
 }

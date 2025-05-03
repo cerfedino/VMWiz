@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"strings"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/actionlog"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/proxmox"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 	"github.com/gorilla/mux"
 )
 
@@ -31,46 +33,53 @@ func addAllVMRoutes(r *mux.Router) {
 			return
 		}
 
+		uuid, err := storage.DB.ActionLogCreate()
+		if err != nil {
+			log.Printf("Error creating action log: %v", err)
+			http.Error(w, "Failed to create action log", http.StatusInternalServerError)
+			return
+		}
+
 		vms, err := proxmox.GetAllClusterVMsByName(body.Name)
 		if err != nil {
-			log.Printf("Error getting VM by name: %v", err)
+			actionlog.Printf(uuid, "Error getting VM by name: %v", err)
 			http.Error(w, "Failed to get VM by name", http.StatusInternalServerError)
 			return
 		}
 
 		if len(*vms) == 0 {
-			log.Printf("No VM found with name %s across cluster", body.Name)
+			actionlog.Printf(uuid, "No VM found with name %s across cluster", body.Name)
 			http.Error(w, "No VM found with the given name across cluster", http.StatusNotFound)
 			return
 		}
 
-		log.Printf("Found %v VM(s) across the cluster with name '%v'", len(*vms), body.Name)
+		actionlog.Printf(uuid, "Found %v VM(s) across the cluster with name '%v'", len(*vms), body.Name)
 
 		var errors []string
 		for idx, vm := range *vms {
 			errprefix := fmt.Sprintf("[VM %v/%v]", idx, len(*vms))
-			err = proxmox.ForceStopNodeVM(vm.Node, vm.Vmid)
+			err = proxmox.ForceStopNodeVM(uuid, vm.Node, vm.Vmid)
 			if err != nil {
 				errmsg := fmt.Sprintf("%v Failed to stop VM %v", errprefix, vm.Id)
-				log.Printf(errmsg)
+				actionlog.Println(uuid, errmsg)
 				errors = append(errors, errmsg)
 				continue
 			}
 
-			err = proxmox.DeleteNodeVM(vm.Node, vm.Vmid, true, true, false)
+			err = proxmox.DeleteNodeVM(uuid, vm.Node, vm.Vmid, true, true, false)
 			if err != nil {
 				errmsg := fmt.Sprintf("%v Failed to delete VM %v", errprefix, vm.Id)
-				log.Printf(errmsg)
+				actionlog.Println(uuid, errmsg)
 				errors = append(errors, errmsg)
 				continue
 			}
 
 			// delete netcenter entry
 			if body.DeleteDNS {
-				err = netcenter.DeleteDNSEntryByHostname(vm.Name)
+				err = netcenter.DeleteDNSEntryByHostname(uuid, vm.Name)
 				if err != nil {
 					errmsg := fmt.Sprintf("%v Failed to delete DMS entry for VM %v", errprefix, vm.Id)
-					log.Printf(errmsg)
+					actionlog.Println(uuid, errmsg)
 					errors = append(errors, errmsg)
 					continue
 				}

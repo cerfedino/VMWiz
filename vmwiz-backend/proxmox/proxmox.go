@@ -23,6 +23,7 @@ import (
 	"text/template"
 	"time"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/actionlog"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"github.com/google/uuid"
@@ -268,7 +269,7 @@ type pveClusterVMList struct {
 }
 
 // POST /api2/json/nodes/{node}/qemu/{vmid}/status/start
-func ForceStopNodeVM(node string, vm_id int) error {
+func ForceStopNodeVM(uuid string, node string, vm_id int) error {
 	req, client, err := proxmoxMakeRequest(http.MethodPost, fmt.Sprintf("/api2/json/nodes/%v/qemu/%v/status/stop", node, vm_id), nil)
 	if err != nil {
 		return fmt.Errorf("Failed to force stop VM '%v' on node '%v': %v", vm_id, node, err.Error())
@@ -290,12 +291,12 @@ func ForceStopNodeVM(node string, vm_id int) error {
 		}
 		time.Sleep(1 * time.Second)
 	}
-	log.Printf("[+] Stopped VM %v on node %v\n", vm_id, node)
+	actionlog.Printf(uuid, "[+] Stopped VM %v on node %v\n", vm_id, node)
 	return nil
 }
 
 // DELETE /api2/json/nodes/{node}/qemu/{vmid}
-func DeleteNodeVM(node string, vm_id int, destroy_unreferenced_disks bool, purge_vm_from_configs bool, skip_lock bool) error {
+func DeleteNodeVM(uuid string, node string, vm_id int, destroy_unreferenced_disks bool, purge_vm_from_configs bool, skip_lock bool) error {
 	req, client, err := proxmoxMakeRequest(http.MethodDelete, fmt.Sprintf("/api2/json/nodes/%v/qemu/%v", node, vm_id), nil)
 	if err != nil {
 		return fmt.Errorf("Failed to delete VM '%v' on node '%v': %v", vm_id, node, err.Error())
@@ -312,7 +313,7 @@ func DeleteNodeVM(node string, vm_id int, destroy_unreferenced_disks bool, purge
 		return fmt.Errorf("Failed to delete VM '%v' on node '%v': %v", vm_id, node, err.Error())
 	}
 
-	log.Printf("[+] Deleted VM %v on node %v [destroy-unreferenced-disks: %v, purge: %v, skiplock: %v]\n", vm_id, node, destroy_unreferenced_disks, purge_vm_from_configs, skip_lock)
+	actionlog.Printf(uuid, "[+] Deleted VM %v on node %v [destroy-unreferenced-disks: %v, purge: %v, skiplock: %v]\n", vm_id, node, destroy_unreferenced_disks, purge_vm_from_configs, skip_lock)
 	return nil
 }
 

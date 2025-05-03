@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/actionlog"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/survey"
@@ -118,9 +119,15 @@ func addAllPollRoutes(r *mux.Router) {
 	})))
 
 	r.Methods("GET").Path("/api/usagesurvey/start").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		surveyId, err := survey.CreateVMUsageSurvey([]string{"vsos"})
+		uuid, err := storage.DB.ActionLogCreate()
 		if err != nil {
-			log.Printf("Error sending survey: %v", err)
+			log.Printf("Error creating action log: %v", err)
+			http.Error(w, "Failed to create action log", http.StatusInternalServerError)
+			return
+		}
+		surveyId, err := survey.CreateVMUsageSurvey(uuid, []string{"vsos"})
+		if err != nil {
+			actionlog.Printf(uuid, "Error sending survey: %v", err)
 			http.Error(w, "Failed to send survey", http.StatusInternalServerError)
 			return
 		}
@@ -134,7 +141,7 @@ func addAllPollRoutes(r *mux.Router) {
 		}
 		respJSON, err := json.Marshal(resp)
 		if err != nil {
-			log.Printf("Error marshalling response: %v", err)
+			actionlog.Printf(uuid, "Error marshalling response: %v", err)
 			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
 			return
 		}
@@ -189,7 +196,13 @@ func addAllPollRoutes(r *mux.Router) {
 			http.Error(w, "Invalid request payload", http.StatusBadRequest)
 			return
 		}
-		err = survey.SendVMUsageSurvey(body.ID)
+		uuid, err := storage.DB.ActionLogCreate()
+		if err != nil {
+			log.Printf("Error creating action log: %v", err)
+			http.Error(w, "Failed to create action log", http.StatusInternalServerError)
+			return
+		}
+		err = survey.SendVMUsageSurvey(uuid, body.ID)
 		if err != nil {
 			log.Printf("Error sending survey: %v", err)
 			http.Error(w, "Failed to send survey", http.StatusInternalServerError)

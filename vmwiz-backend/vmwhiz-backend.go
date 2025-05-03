@@ -71,18 +71,18 @@ func main() {
 		log.Println(err)
 	} else {
 		if len(*nodes) > 0 {
-			err = proxmox.ForceStopNodeVM("comp-epyc-lee-3", (*nodes)[0].Vmid)
+			err = proxmox.ForceStopNodeVM("testing", "comp-epyc-lee-3", (*nodes)[0].Vmid)
 			if err != nil {
 				log.Println(err)
 			}
-			err = proxmox.DeleteNodeVM("comp-epyc-lee-3", (*nodes)[0].Vmid, true, true, false)
+			err = proxmox.DeleteNodeVM("testing", "comp-epyc-lee-3", (*nodes)[0].Vmid, true, true, false)
 			if err != nil {
 				log.Println(err)
 			}
 		}
 	}
 
-	err = netcenter.DeleteDNSEntryByHostname("vmwiz-test.vsos.ethz.ch")
+	err = netcenter.DeleteDNSEntryByHostname("testing", "vmwiz-test.vsos.ethz.ch")
 	if err != nil {
 		log.Println(err)
 	}
