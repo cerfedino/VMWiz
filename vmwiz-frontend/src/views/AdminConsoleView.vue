@@ -119,6 +119,48 @@
             </v-expansion-panel>
         </v-expansion-panels>
 
+        <v-divider />
+
+        <h2 class="mt-3">Delete VM</h2>
+        <div class="d-flex align-center">
+            <v-text-field
+                v-model="deleteHostname"
+                label="Hostname"
+                outlined
+                dense
+                class="mr-4"
+            ></v-text-field>
+            <v-btn color="error" @click="confirmDialogOpen = true">
+                <b>Delete VM</b>
+            </v-btn>
+            <v-checkbox
+                v-model="deleteAlsoDNS"
+                label="Aldo delete DNS entry"
+            ></v-checkbox>
+        </div>
+        <v-dialog v-model="confirmDialogOpen" max-width="400">
+            <v-card>
+                <v-card-title class="headline">Confirm Deletion</v-card-title>
+                <v-card-text>
+                    Are you sure you want to delete the VM with hostname
+                    <b>{{ deleteHostname }}</b
+                    >?
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer></v-spacer>
+                    <v-btn text @click="confirmDialogOpen = false"
+                        >Cancel</v-btn
+                    >
+                    <v-btn color="error" text @click="deleteVM">
+                        Confirm
+                    </v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
+        <p v-if="deleteMessage" class="mt-2">{{ deleteMessage }}</p>
+
+        <v-divider />
+
         <h2 class="mt-3">VM Requests</h2>
 
         <div
@@ -286,6 +328,11 @@ export default {
             mdiAccountMultipleCheck,
             mdiAccountMultipleRemove,
             mdiAccountQuestion,
+
+            deleteHostname: "",
+            deleteAlsoDNS: true,
+            confirmDialogOpen: false,
+            deleteMessage: "",
         };
     },
     methods: {
@@ -471,6 +518,33 @@ export default {
                 .then((response) => response.json())
                 .then((data) => {
                     return data;
+                });
+        },
+        deleteVM() {
+            this.deleteMessage = "";
+            this.$store.getters
+                .fetchBackend(
+                    "/api/vm/deleteByName",
+                    "POST",
+                    {
+                        "Content-Type": "application/json",
+                    },
+                    JSON.stringify({
+                        vmName: this.deleteHostname,
+                        deleteDNS: this.deleteAlsoDNS,
+                    })
+                )
+                .then((response) => {
+                    if (response.status != 200) {
+                        this.deleteMessage = `Error: ${response.status}`;
+                    } else {
+                        this.deleteMessage = "VM deleted successfully.";
+                    }
+                    this.confirmDialogOpen = false;
+                })
+                .catch((error) => {
+                    this.deleteMessage = `Error: ${error.message}`;
+                    this.confirmDialogOpen = false;
                 });
         },
         resendSurveyEmails(id) {

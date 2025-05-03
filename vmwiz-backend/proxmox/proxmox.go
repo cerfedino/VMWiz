@@ -141,6 +141,22 @@ func GetAllNodeVMsByName(node string, name string) (*[]PVENodeVM, error) {
 	return &vms, nil
 }
 
+func GetAllClusterVMsByName(name string) (*[]PVEClusterVM, error) {
+	vms, err := GetAllClusterVMs()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to retrieve VMs by name on cluster: %v", err.Error())
+	}
+
+	var ret []PVEClusterVM
+	for _, vm := range *vms {
+		if vm.Name == name {
+			ret = append(ret, vm)
+		}
+	}
+
+	return &ret, nil
+}
+
 // GET /api2/json/nodes/{node}/qemu/{vmid}/status/current
 func GetNodeVM(node string, vm_id int) (*PVENodeVM, error) {
 	req, client, err := proxmoxMakeRequest(http.MethodGet, fmt.Sprintf("/api2/json/nodes/%v/qemu/%v/status/current", node, vm_id), nil)
