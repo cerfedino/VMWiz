@@ -1,34 +1,24 @@
 <template>
-    <v-dialog :persistent="dialogSuccess" v-model="dialogShow" max-width="50%">
-        <v-card class="w-100 h-100 ma-auto">
-            <v-card-text>
-                <template v-if="dialogSuccess">
-                    <h2 class="text-center">Thank you!</h2>
-                    <p class="text-center mt-8 mb-8">
-                        We received your request!<br />
-                        You can close this window.
-                    </p>
-                </template>
-                <template v-if="dialogError">
-                    <h1 class="text-center">Error</h1>
-                    <p class="text-center mt-8 mb-8">
-                        An error occurred while submitting your request.<br />Please
-                        Try again later. If the problem persists, please write
-                        us an email !
-                    </p>
-                </template>
-            </v-card-text>
-            <template v-slot:actions v-if="dialogError">
-                <v-btn
-                    class="mt-4"
-                    variant="outlined"
-                    @click="dialogShow = false"
-                >
-                    Close
-                </v-btn>
+    <DialogComponent v-model:open="dialogShow" :persistent="dialogSuccess">
+        <template v-slot:content>
+            <template v-if="dialogSuccess">
+                <h2 class="text-center">Thank you!</h2>
+                <p class="text-center mt-8 mb-8">
+                    We received your request!<br />
+                    You can close this window.
+                </p>
             </template>
-        </v-card>
-    </v-dialog>
+            <template v-if="dialogError">
+                <h1 class="text-center">Error</h1>
+                <p class="text-center mt-8 mb-8">
+                    An error occurred while submitting your request.<br />Please
+                    Try again later. If the problem persists, please write us an
+                    email !
+                </p>
+            </template>
+        </template>
+    </DialogComponent>
+
     <!-- <div class="h-screen d-flex flex-column justify-center"> -->
     <div class="w-75 pa-6 ma-auto border-t-sm" style="max-width: 700px">
         <h1 class="text-h4 text-center font-weight-bold mb-3">
@@ -329,7 +319,9 @@ import {
     mdiPenguin,
     mdiBackspace,
 } from "@mdi/js";
-// @ is an alias to /src
+
+import DialogComponent from "@/components/DialogComponent.vue";
+
 export default {
     name: "HomeView",
     watch: {
@@ -339,6 +331,9 @@ export default {
             },
             deep: true,
         },
+    },
+    components: {
+        DialogComponent,
     },
     data() {
         return {
@@ -554,6 +549,5 @@ export default {
 
         this.restoreFormState();
     },
-    components: {},
 };
 </script>

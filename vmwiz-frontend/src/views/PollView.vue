@@ -1,68 +1,42 @@
 <template>
-    <v-dialog :persistent="submitted" v-model="showSubmitted" max-width="50%">
-        <v-card class="w-100 h-100 ma-auto">
-            <v-card-text>
-                <template v-if="submitted">
-                    <h2 class="text-center">Thank you!</h2>
-                    <p class="text-center mt-8 mb-8">
-                        Your response has been submitted. You can close this
-                        window.
-                    </p>
-                </template>
-                <template v-if="error">
-                    <h1 class="text-center">Error</h1>
-                    <p class="text-center mt-8 mb-8">
-                        An error occurred while submitting your response.<br />Please
-                        try again later. If the problem persists, please write
-                        us an email !
-                    </p>
-                </template>
-            </v-card-text>
-            <template v-slot:actions v-if="error">
-                <v-btn
-                    class="mt-4"
-                    variant="outlined"
-                    @click="showSubmitted = false"
-                >
-                    Close
-                </v-btn>
+    <DialogComponent
+        v-model:open="showSubmitted"
+        :persistent="submitted && !error"
+        :loading="submitLoading"
+        :title="error ? 'Error' : submitted ? 'Thank you!' : undefined"
+    >
+        <template v-slot:content>
+            <template v-if="submitted">
+                <p class="text-center">
+                    Your response has been submitted. You can close this window.
+                </p>
             </template>
-        </v-card>
-    </v-dialog>
-    <v-dialog v-model="showConfirmation" max-width="50%">
-        <v-card :loading="dialogLoading" class="w-100 h-100 ma-auto">
-            <template v-slot:loader="{ isActive }">
-                <v-progress-linear
-                    :active="isActive"
-                    :color="dialogLoaderColor || 'primary'"
-                    height="4"
-                    indeterminate
-                ></v-progress-linear>
+            <template v-if="error">
+                <p class="text-center">
+                    An error occurred while submitting your response.<br />Please
+                    try again later. If the problem persists, please write us an
+                    email !
+                </p>
             </template>
-            <template v-slot:title>
-                <span class="font-weight-black">VM Deletion Confirmation</span>
-            </template>
+        </template>
+    </DialogComponent>
 
-            <template v-slot:actions>
-                <div class="w-100 d-flex flex-row justify-center">
-                    <v-btn
-                        text="Yes"
-                        @click="() => submitChoice(false)"
-                    ></v-btn>
-                    <v-btn text="No" @click="showConfirmation = false"></v-btn>
-                </div>
-            </template>
-            <v-card-text>
-                <div class="mt-4">
-                    Are you sure you want to lose access to the following VM
-                    ?<br />
-                    <p class="text-center font-weight-bold mt-3">
-                        {{ hostname }}
-                    </p>
-                </div>
-            </v-card-text>
-        </v-card>
-    </v-dialog>
+    <DialogComponent
+        v-model:open="showConfirmation"
+        :persistent="false"
+        title="VM Deletion Confirmation"
+    >
+        <template v-slot:content>
+            Are you sure you want to lose access to the following VM ?<br />
+            <p class="text-center font-weight-bold mt-3">
+                {{ hostname }}
+            </p>
+        </template>
+        <template v-slot:actions>
+            <v-btn text="Yes" @click="() => submitChoice(false)"></v-btn>
+            <v-btn text="No" @click="showConfirmation = false"></v-btn>
+        </template>
+    </DialogComponent>
 
     <div class="w-75 pa-6 ma-auto align" style="max-width: 500px">
         <h1 class="text-center">VSOS VM Usage Survey</h1>
@@ -76,7 +50,7 @@
             <v-btn
                 class="ma-3"
                 variant="outlined"
-                @click="() => submitChoice(true)"
+                @click="() => (showConfirmation = true)"
             >
                 <b>Yes</b>
             </v-btn>
@@ -92,20 +66,28 @@
 </template>
 
 <script>
+import DialogComponent from "@/components/DialogComponent.vue";
+
 export default {
     data() {
         return {
             showConfirmation: false,
             showSubmitted: false,
             submitted: false,
+            submitLoading: false,
             error: false,
             pollId: this.$route.query.id, //todo: show error if id is not set
             hostname: this.$route.query.hostname,
         };
     },
+    components: {
+        DialogComponent,
+    },
     methods: {
         async submitChoice(keep) {
             this.showConfirmation = false;
+            this.submitLoading = true;
+            this.showSubmitted = true;
             try {
                 const response = await this.$store.getters.fetchBackend(
                     "/api/usagesurvey/set",
@@ -118,20 +100,16 @@ export default {
                 );
                 if (response.status < 200 || response.status >= 300) {
                     this.error = true;
-                    this.showSubmitted = true;
                 }
                 if (response.status === 200) {
                     this.submitted = true;
-                    this.showSubmitted = true;
                 }
             } catch (error) {
                 this.error = true;
-                this.showSubmitted = true;
                 console.error("Error submitting request:", error);
+            } finally {
+                this.submitLoading = false;
             }
-        },
-        remove() {
-            this.showConfirmation = true;
         },
     },
 };
