@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/form"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/notifier"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/proxmox"
@@ -112,19 +113,23 @@ func addVMRequestRoutes(r *mux.Router) {
 		}
 
 		opts := request.ToVMOptions()
-		opts.ResourcePool = "vsos"
+		if request.IsOrganization {
+			opts.ResourcePool = config.AppConfig.VM_ORGANIZATION_POOL
+		} else {
+			opts.ResourcePool = config.AppConfig.VM_PERSONAL_POOL
+		}
 
 		err = storage.DB.UpdateVMRequestStatus(int64(body.ID), storage.REQUEST_STATUS_ACCEPTED)
 		if err != nil {
 			log.Printf("Error updating VM request status: %v", err)
-			notifier.NotifyVMCreationUpdate(fmt.Sprintf("Error updating VM request status %d:\n%v", body.ID, "```\n"+err.Error()+"\n```"))
+			notifier.NotifyVMCreationUpdate(fmt.Sprintf("Request %d: Error updating VM request:\n%v", body.ID, "```\n"+err.Error()+"\n```"))
 			http.Error(w, "Failed to update VM request status", http.StatusInternalServerError)
 			return
 		}
 		_, summary, err := proxmox.CreateVM(*opts)
 		if err != nil {
 			log.Printf("Error creating VM: %v", err)
-			err2 := notifier.NotifyVMCreationUpdate(fmt.Sprintf("Error creating VM from request %d:\n%v", body.ID, "```\n"+err.Error()+"\n```"))
+			err2 := notifier.NotifyVMCreationUpdate(fmt.Sprintf("Request %d: Error creating VM:\n%v", body.ID, "```\n"+err.Error()+"\n```"))
 			if err2 != nil {
 				log.Printf("Failed to notify VM creation update: %v", err2)
 				http.Error(w, "Failed to notify VM creation update", http.StatusInternalServerError)
