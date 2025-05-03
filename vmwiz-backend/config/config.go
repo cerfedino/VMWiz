@@ -49,6 +49,9 @@ type Config struct {
 	SMTP_USER              string
 	SMTP_PASSWORD          string
 	SMTP_RECEIVER_OVERRIDE string
+
+	VM_PERSONAL_POOL     string
+	VM_ORGANIZATION_POOL string
 }
 
 func (c *Config) Init() error {
@@ -96,6 +99,9 @@ func (c *Config) Init() error {
 	c.SMTP_USER = os.Getenv("SMTP_USER")
 	c.SMTP_PASSWORD = os.Getenv("SMTP_PASSWORD")
 	c.SMTP_RECEIVER_OVERRIDE = os.Getenv("SMTP_RECEIVER_OVERRIDE")
+
+	c.VM_PERSONAL_POOL = os.Getenv("VM_PERSONAL_POOL")
+	c.VM_ORGANIZATION_POOL = os.Getenv("VM_ORGANIZATION_POOL")
 
 	return nil
 }
