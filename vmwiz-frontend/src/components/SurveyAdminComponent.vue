@@ -77,9 +77,17 @@
                     class="mt-2"
                     color="primary"
                     variant="outlined"
-                    @click="resendSurveyEmails(survey.surveyId)"
+                    @click="retryUnsentEmails(survey.surveyId)"
                 >
-                    Resend to Unanswered & left to send
+                    Retry mails left to send
+                </v-btn>
+                <v-btn
+                    class="mt-2"
+                    color="primary"
+                    variant="outlined"
+                    @click="sendReminderEmail(survey.surveyId)"
+                >
+                    Send reminder to unanswered emails
                 </v-btn>
             </v-expansion-panel-text>
         </v-expansion-panel>
@@ -188,7 +196,7 @@ export default {
             if (this.clickCount >= 3) {
                 this.clickCount = 0;
                 this.$store.getters.fetchBackend(
-                    "/api/usagesurvey/start",
+                    "/api/usagesurvey/create",
                     "GET"
                 );
             }
@@ -255,9 +263,21 @@ export default {
                     return data;
                 });
         },
-        resendSurveyEmails(id) {
+        retryUnsentEmails(id) {
             return this.$store.getters.fetchBackend(
-                `/api/usagesurvey/resend`,
+                `/api/usagesurvey/resend/unsent`,
+                "POST",
+                {
+                    "Content-Type": "application/json",
+                },
+                JSON.stringify({
+                    id: id,
+                })
+            );
+        },
+        sendReminderEmail(id) {
+            return this.$store.getters.fetchBackend(
+                `/api/usagesurvey/resend/unanswered`,
                 "POST",
                 {
                     "Content-Type": "application/json",
