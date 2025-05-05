@@ -117,7 +117,7 @@ func addAllPollRoutes(r *mux.Router) {
 		w.Write(respJSON)
 	})))
 
-	r.Methods("GET").Path("/api/usagesurvey/start").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("GET").Path("/api/usagesurvey/create").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		surveyId, err := survey.CreateVMUsageSurvey([]string{"vsos"})
 		if err != nil {
 			log.Printf("Error sending survey: %v", err)
@@ -177,26 +177,6 @@ func addAllPollRoutes(r *mux.Router) {
 
 		w.WriteHeader(http.StatusOK)
 	}))
-
-	r.Methods("POST").Path("/api/usagesurvey/resend").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		type bodyS struct {
-			ID int64 `json:"id"`
-		}
-		var body bodyS
-		err := json.NewDecoder(r.Body).Decode(&body)
-		if err != nil {
-			log.Printf("Error decoding JSON: %v", err)
-			http.Error(w, "Invalid request payload", http.StatusBadRequest)
-			return
-		}
-		err = survey.SendVMUsageSurvey(body.ID)
-		if err != nil {
-			log.Printf("Error sending survey: %v", err)
-			http.Error(w, "Failed to send survey", http.StatusInternalServerError)
-			return
-		}
-		//notifier how
-	})))
 
 	r.Methods("GET").Path("/api/usagesurvey/responses/positive").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// get id from query
@@ -300,5 +280,49 @@ func addAllPollRoutes(r *mux.Router) {
 		}
 		resp, _ := json.Marshal(responses)
 		w.Write(resp)
+	})))
+
+	r.Methods("POST").Path("/api/usagesurvey/resend/unsent").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		type bodyS struct {
+			ID int64 `json:"id"`
+		}
+		var body bodyS
+		err := json.NewDecoder(r.Body).Decode(&body)
+		if err != nil {
+			log.Printf("Error decoding JSON: %v", err)
+			http.Error(w, "Invalid request payload", http.StatusBadRequest)
+			return
+		}
+
+		err = survey.RetryUnsentEmails(body.ID)
+		if err != nil {
+			log.Printf("Error sending survey: %v", err)
+			http.Error(w, "Failed to send survey", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(200)
+	})))
+
+	r.Methods("POST").Path("/api/usagesurvey/resend/unanswered").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		type bodyS struct {
+			ID int64 `json:"id"`
+		}
+		var body bodyS
+		err := json.NewDecoder(r.Body).Decode(&body)
+		if err != nil {
+			log.Printf("Error decoding JSON: %v", err)
+			http.Error(w, "Invalid request payload", http.StatusBadRequest)
+			return
+		}
+
+		err = survey.SendSurveyReminder(body.ID)
+		if err != nil {
+			log.Printf("Error sending survey reminder: %v", err)
+			http.Error(w, "Failed to send survey reminder", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(200)
 	})))
 }

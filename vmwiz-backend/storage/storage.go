@@ -340,6 +340,44 @@ func (s *postgresstorage) SurveyEmailGetAllNotAnsweredOrUnsentBySurveyID(surveyI
 	return &surveyEmails, nil
 }
 
+func (s *postgresstorage) SurveyEmailGetAllNotAnsweredBySurveyID(surveyId int64) (*[]SQLUsageSurveyEmail, error) {
+	var surveyEmails []SQLUsageSurveyEmail
+	rows, err := s.db.Query(`SELECT id, recipient, surveyId, vmid, hostname, uuid, email_sent, still_used FROM survey_email WHERE surveyId=$1 AND still_used IS NULL AND email_sent = TRUE`, surveyId)
+	if err != nil {
+		return nil, fmt.Errorf("SurveyEmailGetAllBySurveyID: Error while executing query: %s", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var surveyEmail SQLUsageSurveyEmail
+		err = rows.Scan(&surveyEmail.Id, &surveyEmail.Recipient, &surveyEmail.SurveyId, &surveyEmail.Vmid, &surveyEmail.Hostname, &surveyEmail.Uuid, &surveyEmail.Email_sent, &surveyEmail.Still_used)
+		if err != nil {
+			return nil, fmt.Errorf("SurveyEmailGetAllBySurveyID: Error while scanning rows: %s", err)
+		}
+		surveyEmails = append(surveyEmails, surveyEmail)
+	}
+
+	return &surveyEmails, nil
+}
+
+func (s *postgresstorage) SurveyEmailGetAllUnsentBySurveyID(surveyId int64) (*[]SQLUsageSurveyEmail, error) {
+	var surveyEmails []SQLUsageSurveyEmail
+	rows, err := s.db.Query(`SELECT id, recipient, surveyId, vmid, hostname, uuid, email_sent, still_used FROM survey_email WHERE surveyId=$1 AND email_sent = FALSE`, surveyId)
+	if err != nil {
+		return nil, fmt.Errorf("SurveyEmailGetAllBySurveyID: Error while executing query: %s", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var surveyEmail SQLUsageSurveyEmail
+		err = rows.Scan(&surveyEmail.Id, &surveyEmail.Recipient, &surveyEmail.SurveyId, &surveyEmail.Vmid, &surveyEmail.Hostname, &surveyEmail.Uuid, &surveyEmail.Email_sent, &surveyEmail.Still_used)
+		if err != nil {
+			return nil, fmt.Errorf("SurveyEmailGetAllBySurveyID: Error while scanning rows: %s", err)
+		}
+		surveyEmails = append(surveyEmails, surveyEmail)
+	}
+
+	return &surveyEmails, nil
+}
+
 func (s *postgresstorage) SurveyGetLastId() (int, error) {
 	// Get the last inserted ID
 	var id int
