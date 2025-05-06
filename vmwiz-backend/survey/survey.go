@@ -3,10 +3,10 @@ package survey
 import (
 	"bytes"
 	"fmt"
-	"html/template"
 	"log"
 	"strconv"
 	"strings"
+	"text/template"
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/notifier"
