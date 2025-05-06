@@ -50,7 +50,7 @@
             <v-btn
                 class="ma-3"
                 variant="outlined"
-                @click="() => (showConfirmation = true)"
+                @click="() => submitChoice(true)"
             >
                 <b>Yes</b>
             </v-btn>
