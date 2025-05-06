@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -80,12 +81,12 @@ func CheckAuthenticated(next http.Handler) http.Handler {
 
 		if err != nil {
 			log.Println("Error getting token cookie:", err)
-			StartKeycloakAuthFlow(w, r)
+			replyUnauthorized(w)
 			return
 		}
 		if tokenCookie == nil {
 			log.Println("Token cookie is nil")
-			StartKeycloakAuthFlow(w, r)
+			replyUnauthorized(w)
 			return
 		}
 		// get tokesource from map
@@ -105,7 +106,7 @@ func CheckAuthenticated(next http.Handler) http.Handler {
 		idToken, err := verifier.Verify(ctx, tokenCookie.Value)
 		if err != nil {
 			log.Println("Error verifying token:", err)
-			StartKeycloakAuthFlow(w, r)
+			replyUnauthorized(w)
 			return
 		}
 
@@ -129,6 +130,22 @@ func CheckAuthenticated(next http.Handler) http.Handler {
 	})
 }
 
+// Tells the client that he is not authenticated/authorized and instructs him to begin the auth flow
+func replyUnauthorized(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	body := RedirectUrlBody{
+		RedirectURL: "/api/auth/start",
+	}
+	respJSON, err := json.Marshal(body)
+	if err != nil {
+		log.Printf("Error marshalling redirect url: %v", err)
+		http.Error(w, "Failed to marshal redirect url", http.StatusInternalServerError)
+		return
+	}
+
+	http.Error(w, string(respJSON), http.StatusUnauthorized)
+}
+
 func checkAuthenticatedSuccess(w http.ResponseWriter, r *http.Request, next http.Handler, claims KeycloakUser) {
 	// Attach claims to the request context.
 	ctxWithClaims := context.WithValue(r.Context(), "user", claims)
@@ -144,11 +161,12 @@ func StartKeycloakAuthFlow(w http.ResponseWriter, r *http.Request) {
 
 	setCookie(w, r, "session_state", state)
 
-	w.Header().Set("Content-Type", "application/json")
-	http.Error(w, fmt.Sprintf(`{"redirectUrl": "%v"}`, oauth2Config.AuthCodeURL(state)), http.StatusUnauthorized)
-
-	// http.Redirect(w, r, oauth2Config.AuthCodeURL(state), http.StatusFound)
+	http.Redirect(w, r, oauth2Config.AuthCodeURL(state), http.StatusFound)
 	return
+}
+
+type RedirectUrlBody struct {
+	RedirectURL string `json:"redirectUrl"`
 }
 
 func HandleKeycloakCallback(w http.ResponseWriter, r *http.Request) {
