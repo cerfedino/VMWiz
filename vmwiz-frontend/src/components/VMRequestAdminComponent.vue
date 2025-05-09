@@ -187,10 +187,24 @@ export default {
                 .then((response) => response.json());
             this.$data.requests = data;
             // Sort ascending by creation date
-            this.$data.requests.sort(
-                (a, b) =>
-                    new Date(a.RequestCreatedAt) - new Date(b.RequestCreatedAt)
-            );
+            this.$data.requests.sort((a, b) => {
+                if (
+                    a.RequestStatus == "pending" &&
+                    b.RequestStatus != "pending"
+                ) {
+                    return -1;
+                } else if (
+                    b.RequestStatus == "pending" &&
+                    a.RequestStatus != "pending"
+                ) {
+                    return 1;
+                } else {
+                    return (
+                        new Date(a.RequestCreatedAt) -
+                        new Date(b.RequestCreatedAt)
+                    );
+                }
+            });
         },
     },
     async mounted() {
