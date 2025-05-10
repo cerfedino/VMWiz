@@ -36,6 +36,7 @@ type Config struct {
 	KEYCLOAK_CLIENT_ID               string
 	KEYCLOAK_CLIENT_SECRET           string
 	KEYCLOAK_RESTRICT_AUTH_TO_GROUPS []string
+	AUTH_SKIP                        bool
 
 	POSTGRES_USER     string
 	POSTGRES_PASSWORD string
@@ -86,6 +87,7 @@ func (c *Config) Init() error {
 	c.KEYCLOAK_CLIENT_ID = os.Getenv("KEYCLOAK_CLIENT_ID")
 	c.KEYCLOAK_CLIENT_SECRET = os.Getenv("KEYCLOAK_CLIENT_SECRET")
 	c.KEYCLOAK_RESTRICT_AUTH_TO_GROUPS = strings.Split(os.Getenv("KEYCLOAK_RESTRICT_AUTH_TO_GROUPS"), ",")
+	c.AUTH_SKIP = os.Getenv("AUTH_SKIP") == "true"
 
 	c.POSTGRES_USER = os.Getenv("POSTGRES_USER")
 	c.POSTGRES_PASSWORD = os.Getenv("POSTGRES_PASSWORD")

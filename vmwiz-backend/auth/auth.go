@@ -77,6 +77,11 @@ func setCookie(w http.ResponseWriter, r *http.Request, name string, value string
 // Checks if the user is authenticated or redirects him to the login endpoint instead.
 func CheckAuthenticated(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if config.AppConfig.AUTH_SKIP {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		tokenCookie, err := r.Cookie("auth_token")
 
 		if err != nil {
