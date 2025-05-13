@@ -176,7 +176,7 @@ export default {
                     id: id,
                     cores_cpu: payload.Cores,
                     ram_gb: payload.RamGB,
-                    storage_db: payload.DiskGB,
+                    storage_gb: payload.DiskGB,
                 })
             );
             this.populateRequests();
