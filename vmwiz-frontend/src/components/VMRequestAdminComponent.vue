@@ -165,8 +165,8 @@ export default {
             );
             this.populateRequests();
         },
-        editRequest(id, payload) {
-            this.$store.getters.fetchBackend(
+        async editRequest(id, payload) {
+            await this.$store.getters.fetchBackend(
                 "/api/vmrequest/edit",
                 "POST",
                 {
