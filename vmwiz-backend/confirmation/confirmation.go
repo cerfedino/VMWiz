@@ -10,6 +10,7 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	"time"
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 )
@@ -20,6 +21,18 @@ import (
 const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 const ConfirmationTokenContextField string = "confirmationToken"
+
+func Init() {
+	go func() {
+		for {
+			err := PurgeExpiredTokens()
+			if err != nil {
+				log.Printf("Error purging expired tokens: %v", err.Error())
+			}
+			time.Sleep(time.Minute * 5)
+		}
+	}()
+}
 
 // randomString generates a random string of length n.
 func randomString(n int) (string, error) {
@@ -81,6 +94,7 @@ func ConfirmMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			next.ServeHTTP(w, r)
+			return
 		}
 
 		// If ?preview=true, we generate a new confirmation token and put it in the request's context
@@ -134,4 +148,13 @@ func ConfirmMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func PurgeExpiredTokens() error {
+	err := storage.DB.ConfirmationPromptTokenRemoveCreatedBefore(time.Now().Add(-time.Hour))
+	if err != nil {
+		return fmt.Errorf("Error purging expired tokens: %v", err.Error())
+	}
+
+	return nil
 }

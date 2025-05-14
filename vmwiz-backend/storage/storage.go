@@ -586,3 +586,11 @@ func (s *postgresstorage) ConfirmationPromptTokenSetUsed(token string) error {
 	}
 	return nil
 }
+
+func (s *postgresstorage) ConfirmationPromptTokenRemoveCreatedBefore(date time.Time) error {
+	res := s.db.QueryRow(`DELETE FROM confirmation_tokens WHERE created < $1`, date)
+	if err := res.Err(); err != nil {
+		return fmt.Errorf("ConfirmationPromptTokenRemoveCreatedBefore: Error executing query: %s", err)
+	}
+	return nil
+}
