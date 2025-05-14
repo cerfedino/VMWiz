@@ -534,7 +534,7 @@ export default {
             .fetchVMOptions()
             .then((response) => response.json())
             .then((data) => {
-                console.log(data);
+                // console.log(data);
                 for (const [key, value] of Object.entries(data)) {
                     this.form_values.allowed[key] = value;
                 }

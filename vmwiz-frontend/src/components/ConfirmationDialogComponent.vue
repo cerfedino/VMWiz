@@ -51,7 +51,9 @@
                         <b>Method</b>
                         <p class="mb-2">{{ method }}</p>
                         <b>URL</b>
-                        <p class="mb-2">{{ URL }}</p>
+                        <p class="mb-2">
+                            {{ this.$store.getters.buildBackendURL(URL) }}
+                        </p>
                         <b>Headers</b>
                         <br />
                         <pre class="mb-2"

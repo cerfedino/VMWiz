@@ -132,7 +132,7 @@ export default {
             this.dialogContent = (
                 await this.getSurveyResponseNegative(id)
             ).join("\n");
-            console.log(this.dialogContent);
+            // console.log(this.dialogContent);
             this.dialogLoading = false;
         },
         async handleSurveyNoneResponseDialog(id) {
@@ -142,7 +142,7 @@ export default {
             this.dialogLoaderColor = "success";
             let newcontent = (await this.getSurveyNoneResponse(id)).join("\n");
             this.dialogContent = newcontent;
-            console.log(this.dialogContent);
+            // console.log(this.dialogContent);
             this.dialogLoading = false;
         },
         async handleSurveyPositiveResponseDialog(id) {
@@ -153,7 +153,7 @@ export default {
             this.dialogContent = (
                 await this.getSurveyResponsePositive(id)
             ).join("\n");
-            console.log(this.dialogContent);
+            // console.log(this.dialogContent);
             this.dialogLoading = false;
         },
         async handleSurveyNotSentResponseDialog(id) {
@@ -162,19 +162,19 @@ export default {
             this.dialogOpen = true;
             this.dialogLoaderColor = "success";
             this.dialogContent = (await this.getSurveyNotSent(id)).join("\n");
-            console.log(this.dialogContent);
+            // console.log(this.dialogContent);
             this.dialogLoading = false;
         },
         async populateSurveys() {
             let fetchedsurveys = [];
 
             let surveyIds = (await this.getAllSurveysIds()).surveyIds;
-            console.log(surveyIds);
+            // console.log(surveyIds);
             for (let i = 0; i < surveyIds.length; i++) {
                 let surveyId = surveyIds[i];
                 fetchedsurveys.push(await this.getSurveyInfo(surveyId));
             }
-            console.log(fetchedsurveys);
+            // console.log(fetchedsurveys);
             // Sort ascending by creation date
             fetchedsurveys.sort((a, b) => new Date(a.sent) - new Date(b.sent));
             this.surveys = fetchedsurveys;
@@ -199,7 +199,7 @@ export default {
                 .fetchBackend("/api/usagesurvey/", "GET")
                 .then((response) => response.json())
                 .then((data) => {
-                    console.log(data);
+                    // console.log(data);
                     return data;
                 });
         },
