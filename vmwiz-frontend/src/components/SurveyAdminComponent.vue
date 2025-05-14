@@ -51,6 +51,15 @@
 
                 <v-icon color="info" :icon="mdiAccountQuestion" />
                 Unanswered:
+                <u
+                    class="font-weight-bold cursor-grab"
+                    @click="handleSurveyNoneResponseDialog(survey.surveyId)"
+                    >{{
+                        survey.not_responded != undefined
+                            ? survey.not_responded
+                            : "N/A"
+                    }}
+                </u>
                 <br />
                 <v-icon color="warning" :icon="mdiEmailAlert" />
                 Mails left to send:
