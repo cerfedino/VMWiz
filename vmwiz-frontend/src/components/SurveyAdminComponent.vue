@@ -7,14 +7,12 @@
         :title="dialogTitle"
     />
 
+    <ConfirmationDialogComponent ref="confirmationDialog" />
+
     <h2 class="mt-3">Survey creation</h2>
     <v-btn @click="startSurvey">
         <b>Start Survey</b>
     </v-btn>
-    <p v-if="clickCount < 3">
-        Click {{ 3 - clickCount }} more time(s) to start a new survey.
-    </p>
-    <p v-else>Survey started!</p>
 
     <v-divider />
 
@@ -53,15 +51,6 @@
 
                 <v-icon color="info" :icon="mdiAccountQuestion" />
                 Unanswered:
-                <u
-                    class="font-weight-bold cursor-grab"
-                    @click="handleSurveyNoneResponseDialog(survey.surveyId)"
-                    >{{
-                        survey.not_responded != undefined
-                            ? survey.not_responded
-                            : "N/A"
-                    }}
-                </u>
                 <br />
                 <v-icon color="warning" :icon="mdiEmailAlert" />
                 Mails left to send:
@@ -105,6 +94,7 @@ import {
 } from "@mdi/js";
 
 import DialogComponent from "@/components/DialogComponent.vue";
+import ConfirmationDialogComponent from "@/components/ConfirmationDialogComponent.vue";
 
 export default {
     name: "SurveyAdminComponent",
@@ -114,8 +104,6 @@ export default {
             mdiAccountMultipleCheck,
             mdiAccountMultipleRemove,
             mdiAccountQuestion,
-
-            clickCount: 0,
 
             surveys: [],
             surveyId: 0,
@@ -132,6 +120,7 @@ export default {
     props: {},
     components: {
         DialogComponent,
+        ConfirmationDialogComponent,
     },
     methods: {
         // SURVEY FUNCTIONS
@@ -143,7 +132,7 @@ export default {
             this.dialogContent = (
                 await this.getSurveyResponseNegative(id)
             ).join("\n");
-            console.log(this.dialogContent);
+            // console.log(this.dialogContent);
             this.dialogLoading = false;
         },
         async handleSurveyNoneResponseDialog(id) {
@@ -153,7 +142,7 @@ export default {
             this.dialogLoaderColor = "success";
             let newcontent = (await this.getSurveyNoneResponse(id)).join("\n");
             this.dialogContent = newcontent;
-            console.log(this.dialogContent);
+            // console.log(this.dialogContent);
             this.dialogLoading = false;
         },
         async handleSurveyPositiveResponseDialog(id) {
@@ -164,7 +153,7 @@ export default {
             this.dialogContent = (
                 await this.getSurveyResponsePositive(id)
             ).join("\n");
-            console.log(this.dialogContent);
+            // console.log(this.dialogContent);
             this.dialogLoading = false;
         },
         async handleSurveyNotSentResponseDialog(id) {
@@ -173,40 +162,44 @@ export default {
             this.dialogOpen = true;
             this.dialogLoaderColor = "success";
             this.dialogContent = (await this.getSurveyNotSent(id)).join("\n");
-            console.log(this.dialogContent);
+            // console.log(this.dialogContent);
             this.dialogLoading = false;
         },
         async populateSurveys() {
             let fetchedsurveys = [];
 
             let surveyIds = (await this.getAllSurveysIds()).surveyIds;
-            console.log(surveyIds);
+            // console.log(surveyIds);
             for (let i = 0; i < surveyIds.length; i++) {
                 let surveyId = surveyIds[i];
                 fetchedsurveys.push(await this.getSurveyInfo(surveyId));
             }
-            console.log(fetchedsurveys);
+            // console.log(fetchedsurveys);
             // Sort ascending by creation date
             fetchedsurveys.sort((a, b) => new Date(a.sent) - new Date(b.sent));
             this.surveys = fetchedsurveys;
         },
 
-        startSurvey() {
-            this.clickCount++;
-            if (this.clickCount >= 3) {
-                this.clickCount = 0;
-                this.$store.getters.fetchBackend(
-                    "/api/usagesurvey/create",
-                    "GET"
-                );
-            }
+        async startSurvey() {
+            this.$refs.confirmationDialog.showConfirmation(
+                "POST",
+                "/api/usagesurvey/create",
+                {
+                    "Content-Type": "application/json",
+                },
+                {},
+                () => {},
+                async () => {
+                    window.location.reload();
+                }
+            );
         },
         getAllSurveysIds() {
             return this.$store.getters
                 .fetchBackend("/api/usagesurvey/", "GET")
                 .then((response) => response.json())
                 .then((data) => {
-                    console.log(data);
+                    // console.log(data);
                     return data;
                 });
         },
@@ -264,27 +257,27 @@ export default {
                 });
         },
         retryUnsentEmails(id) {
-            return this.$store.getters.fetchBackend(
-                `/api/usagesurvey/resend/unsent`,
+            this.$refs.confirmationDialog.showConfirmation(
                 "POST",
+                "/api/usagesurvey/resend/unsent",
                 {
                     "Content-Type": "application/json",
                 },
-                JSON.stringify({
+                {
                     id: id,
-                })
+                }
             );
         },
         sendReminderEmail(id) {
-            return this.$store.getters.fetchBackend(
-                `/api/usagesurvey/resend/unanswered`,
+            this.$refs.confirmationDialog.showConfirmation(
                 "POST",
+                "/api/usagesurvey/resend/unanswered",
                 {
                     "Content-Type": "application/json",
                 },
-                JSON.stringify({
+                {
                     id: id,
-                })
+                }
             );
         },
     },
