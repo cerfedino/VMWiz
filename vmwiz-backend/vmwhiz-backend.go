@@ -11,12 +11,12 @@ import (
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/confirmation"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/notifier"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/router"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/startupcheck"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 	"github.com/rs/cors"
-	"golang.org/x/exp/rand"
 )
 
 // func (s *StartupChecks) String() string {
@@ -42,7 +42,7 @@ import (
 func main() {
 	// TODO: Remove in prod
 	// rand.Seed(uint64((time.Now().UnixNano())))
-	rand.Seed(uint64(42))
+	// rand.Seed(uint64(42))
 
 	err := config.AppConfig.Init()
 	if err != nil {
@@ -63,6 +63,27 @@ func main() {
 	}
 
 	auth.Init()
+
+	confirmation.Init()
+
+	cors := cors.New(cors.Options{
+		// Allowing the Vue frontend to access the API
+		AllowedOrigins:   []string{"vmwiz-frontend"},
+		AllowCredentials: true,
+	})
+
+	srv := &http.Server{
+		Handler:      cors.Handler(router.Router()),
+		Addr:         ":8081",
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  15 * time.Second,
+	}
+
+	// Run our server in a goroutine so that it doesn't block.
+	go func() {
+		log.Printf("Listening on %s ...\n", srv.Addr)
+		srv.ListenAndServe()
+	}()
 
 	// nodes, err := proxmox.GetAllNodeVMsByName("comp-epyc-lee-3", "vmwiz-test.vsos.ethz.ch")
 	// if err != nil {
@@ -102,24 +123,16 @@ func main() {
 	// }
 	// log.Println((*vm).Tags)
 
-	cors := cors.New(cors.Options{
-		// Allowing the Vue frontend to access the API
-		AllowedOrigins:   []string{"vmwiz-frontend"},
-		AllowCredentials: true,
-	})
-
-	srv := &http.Server{
-		Handler:      cors.Handler(router.Router()),
-		Addr:         ":8081",
-		WriteTimeout: 15 * time.Second,
-		ReadTimeout:  15 * time.Second,
-	}
-
-	// Run our server in a goroutine so that it doesn't block.
-	go func() {
-		log.Printf("Listening on %s ...\n", srv.Addr)
-		srv.ListenAndServe()
-	}()
+	// for i := 0; i < 100; i += 1 {
+	// 	fmt.Print(i, " ")
+	// 	token, err := confirmation.NewToken()
+	// 	if err != nil {
+	// 		fmt.Println(err.Error())
+	// 	} else {
+	// 		fmt.Println(*token)
+	// 	}
+	// 	time.Sleep(500)
+	// }
 
 	// Wait for interrupt signal to gracefully shutdown the server
 	c := make(chan os.Signal, 1)
