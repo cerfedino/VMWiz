@@ -2,12 +2,14 @@ package router
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/confirmation"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/survey"
 	"github.com/gorilla/mux"
@@ -117,7 +119,26 @@ func addAllPollRoutes(r *mux.Router) {
 		w.Write(respJSON)
 	})))
 
-	r.Methods("GET").Path("/api/usagesurvey/create").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/usagesurvey/create").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if token := r.Context().Value(confirmation.ConfirmationTokenContextField); token != nil {
+			type response struct {
+				ConfirmationToken string `json:"confirmationToken"`
+			}
+
+			resp := response{
+				ConfirmationToken: *(token.(*string)),
+			}
+			respJSON, err := json.Marshal(resp)
+			if err != nil {
+				log.Printf("Error marshalling response: %v", err)
+				http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(respJSON)
+			return
+		}
+
 		surveyId, err := survey.CreateVMUsageSurvey([]string{"vsos"})
 		if err != nil {
 			log.Printf("Error sending survey: %v", err)
@@ -140,7 +161,7 @@ func addAllPollRoutes(r *mux.Router) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(respJSON)
-	})))
+	}))))
 
 	r.Methods("POST").Path("/api/usagesurvey/set").Subrouter().NewRoute().Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
@@ -282,15 +303,36 @@ func addAllPollRoutes(r *mux.Router) {
 		w.Write(resp)
 	})))
 
-	r.Methods("POST").Path("/api/usagesurvey/resend/unsent").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/usagesurvey/resend/unsent").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if token := r.Context().Value(confirmation.ConfirmationTokenContextField); token != nil {
+			type response struct {
+				ConfirmationToken string `json:"confirmationToken"`
+			}
+
+			resp := response{
+				ConfirmationToken: *(token.(*string)),
+			}
+			respJSON, err := json.Marshal(resp)
+			if err != nil {
+				log.Printf("Error marshalling response: %v", err)
+				http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(respJSON)
+			return
+		}
+
 		type bodyS struct {
-			ID int64 `json:"id"`
+			ID                int64  `json:"id"`
+			ConfirmationToken string `json:"confirmationToken"`
 		}
 		var body bodyS
 		err := json.NewDecoder(r.Body).Decode(&body)
 		if err != nil {
-			log.Printf("Error decoding JSON: %v", err)
-			http.Error(w, "Invalid request payload", http.StatusBadRequest)
+			msg := fmt.Sprintf("Error decoding JSON: %v", err)
+			log.Printf(msg)
+			http.Error(w, msg, http.StatusBadRequest)
 			return
 		}
 
@@ -302,9 +344,28 @@ func addAllPollRoutes(r *mux.Router) {
 		}
 
 		w.WriteHeader(200)
-	})))
+	}))))
 
-	r.Methods("POST").Path("/api/usagesurvey/resend/unanswered").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/usagesurvey/resend/unanswered").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if token := r.Context().Value(confirmation.ConfirmationTokenContextField); token != nil {
+			type response struct {
+				ConfirmationToken string `json:"confirmationToken"`
+			}
+
+			resp := response{
+				ConfirmationToken: *(token.(*string)),
+			}
+			respJSON, err := json.Marshal(resp)
+			if err != nil {
+				log.Printf("Error marshalling response: %v", err)
+				http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(respJSON)
+			return
+		}
+
 		type bodyS struct {
 			ID int64 `json:"id"`
 		}
@@ -324,5 +385,5 @@ func addAllPollRoutes(r *mux.Router) {
 		}
 
 		w.WriteHeader(200)
-	})))
+	}))))
 }

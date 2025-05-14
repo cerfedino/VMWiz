@@ -7,6 +7,8 @@
         :title="dialogTitle"
     />
 
+    <ConfirmationDialogComponent ref="confirmationDialog" />
+
     <h2 class="mt-3">Survey creation</h2>
     <v-btn @click="startSurvey">
         <b>Start Survey</b>
@@ -105,6 +107,7 @@ import {
 } from "@mdi/js";
 
 import DialogComponent from "@/components/DialogComponent.vue";
+import ConfirmationDialogComponent from "@/components/ConfirmationDialogComponent.vue";
 
 export default {
     name: "SurveyAdminComponent",
@@ -132,6 +135,7 @@ export default {
     props: {},
     components: {
         DialogComponent,
+        ConfirmationDialogComponent,
     },
     methods: {
         // SURVEY FUNCTIONS
@@ -191,13 +195,21 @@ export default {
             this.surveys = fetchedsurveys;
         },
 
-        startSurvey() {
+        async startSurvey() {
             this.clickCount++;
             if (this.clickCount >= 3) {
                 this.clickCount = 0;
-                this.$store.getters.fetchBackend(
+                this.$refs.confirmationDialog.showConfirmation(
+                    "POST",
                     "/api/usagesurvey/create",
-                    "GET"
+                    {
+                        "Content-Type": "application/json",
+                    },
+                    {},
+                    () => {},
+                    async (data) => {
+                        console.log(data);
+                    }
                 );
             }
         },
@@ -264,27 +276,27 @@ export default {
                 });
         },
         retryUnsentEmails(id) {
-            return this.$store.getters.fetchBackend(
-                `/api/usagesurvey/resend/unsent`,
+            this.$refs.confirmationDialog.showConfirmation(
                 "POST",
+                "/api/usagesurvey/resend/unsent",
                 {
                     "Content-Type": "application/json",
                 },
-                JSON.stringify({
+                {
                     id: id,
-                })
+                }
             );
         },
         sendReminderEmail(id) {
-            return this.$store.getters.fetchBackend(
-                `/api/usagesurvey/resend/unanswered`,
+            this.$refs.confirmationDialog.showConfirmation(
                 "POST",
+                "/api/usagesurvey/resend/unanswered",
                 {
                     "Content-Type": "application/json",
                 },
-                JSON.stringify({
+                {
                     id: id,
-                })
+                }
             );
         },
     },

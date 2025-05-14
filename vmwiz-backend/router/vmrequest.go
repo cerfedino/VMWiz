@@ -8,6 +8,7 @@ import (
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/confirmation"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/form"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/notifier"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/proxmox"
@@ -85,7 +86,26 @@ func addVMRequestRoutes(r *mux.Router) {
 		w.Write(resp)
 	})))
 
-	r.Methods("POST").Path("/api/vmrequest/accept").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/vmrequest/accept").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if token := r.Context().Value(confirmation.ConfirmationTokenContextField); token != nil {
+			type response struct {
+				ConfirmationToken string `json:"confirmationToken"`
+			}
+
+			resp := response{
+				ConfirmationToken: *(token.(*string)),
+			}
+			respJSON, err := json.Marshal(resp)
+			if err != nil {
+				log.Printf("Error marshalling response: %v", err)
+				http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(respJSON)
+			return
+		}
+
 		type bodyS struct {
 			ID int `json:"id"`
 		}
@@ -146,7 +166,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-	})))
+	}))))
 
 	r.Methods("POST").Path("/api/vmrequest/reject").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {

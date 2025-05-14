@@ -1,4 +1,6 @@
 <template>
+    <ConfirmationDialogComponent ref="confirmationDialog" />
+
     <div
         v-for="request in requests"
         :key="request.ID"
@@ -130,6 +132,8 @@
 </template>
 
 <script>
+import ConfirmationDialogComponent from "@/components/ConfirmationDialogComponent.vue";
+
 export default {
     name: "VMRequestAdminComponent",
     data() {
@@ -137,20 +141,25 @@ export default {
             requests: [],
         };
     },
-    props: {},
+    components: {
+        ConfirmationDialogComponent,
+    },
     methods: {
         acceptRequest(id) {
-            this.$store.getters.fetchBackend(
-                "/api/vmrequest/accept",
+            this.$refs.confirmationDialog.showConfirmation(
                 "POST",
+                "/api/vmrequest/accept",
                 {
                     "Content-Type": "application/json",
                 },
-                JSON.stringify({
+                {
                     id: id,
-                })
+                },
+                () => {},
+                async () => {
+                    this.populateRequests();
+                }
             );
-            this.populateRequests();
         },
         rejectRequest(id) {
             this.$store.getters.fetchBackend(

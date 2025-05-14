@@ -5,8 +5,8 @@ const store = new Vuex.Store({
         baseUrl: `${process.env.VUE_APP_VMWIZ_SCHEME}://${process.env.VUE_APP_VMWIZ_HOSTNAME}:${process.env.VUE_APP_VMWIZ_PORT}`,
     },
     getters: {
-        fetchBackend: (state) => (fullPath, method, headers, body) => {
-            return fetch(`${state.baseUrl}${fullPath}`, {
+        fetchBackend: (state, getters) => (fullPath, method, headers, body) => {
+            return fetch(`${getters.buildBackendURL(fullPath)}`, {
                 method: method,
                 headers: headers,
                 body: body,
@@ -21,6 +21,9 @@ const store = new Vuex.Store({
                     return response;
                 }
             });
+        },
+        buildBackendURL: (state) => (fullPath) => {
+            return `${state.baseUrl}${fullPath}`;
         },
         fetchVMOptions: (state, getters) => () => {
             return getters.fetchBackend("/api/vmrequest/options", "GET", {

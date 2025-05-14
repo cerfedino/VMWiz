@@ -28,7 +28,9 @@
                 <i v-if="loading"> Loading ... </i>
                 <slot v-else name="content">
                     <pre v-if="content">{{ content }}</pre>
-                    <i v-else> No content :P </i>
+                    <i v-else>
+                        <i>Empty content</i>
+                    </i>
                 </slot>
             </v-card-text>
         </v-card>
