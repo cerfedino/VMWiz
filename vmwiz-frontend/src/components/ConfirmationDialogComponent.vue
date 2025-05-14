@@ -48,26 +48,28 @@
                         Request details
                     </v-expansion-panel-title>
                     <v-expansion-panel-text>
-                        <b >Method</b>
+                        <b>Method</b>
                         <p class="mb-2">{{ method }}</p>
                         <b>URL</b>
                         <p class="mb-2">{{ URL }}</p>
                         <b>Headers</b>
-                        <p class="mb-2">
-                            <pre>{{ JSON.stringify(headers, null, 2) }}</pre>
-                        </p>
+                        <br />
+                        <pre class="mb-2"
+                            >{{ JSON.stringify(headers, null, 2) }}
+                        </pre>
                         <b>Body</b>
-                        <p class="mb-2">
-                            <pre>{{ JSON.stringify(body, null, 2) }}</pre>
-                        </p>
+                        <br />
+                        <pre class="mb-2"
+                            >{{ JSON.stringify(body, null, 2) }}
+                        </pre>
                     </v-expansion-panel-text>
                 </v-expansion-panel>
             </v-expansion-panels>
 
             <template
-                v-if="[method, URL] == ['POST', '/api/usagesurvey/create']"
+                v-if="method == 'POST' && URL == '/api/usagesurvey/create'"
             >
-                Creating usage VM
+                <!-- Show stuff depending on the request -->
             </template>
         </template>
     </DialogComponent>

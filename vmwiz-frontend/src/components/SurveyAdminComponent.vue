@@ -13,10 +13,6 @@
     <v-btn @click="startSurvey">
         <b>Start Survey</b>
     </v-btn>
-    <p v-if="clickCount < 3">
-        Click {{ 3 - clickCount }} more time(s) to start a new survey.
-    </p>
-    <p v-else>Survey started!</p>
 
     <v-divider />
 
@@ -55,15 +51,6 @@
 
                 <v-icon color="info" :icon="mdiAccountQuestion" />
                 Unanswered:
-                <u
-                    class="font-weight-bold cursor-grab"
-                    @click="handleSurveyNoneResponseDialog(survey.surveyId)"
-                    >{{
-                        survey.not_responded != undefined
-                            ? survey.not_responded
-                            : "N/A"
-                    }}
-                </u>
                 <br />
                 <v-icon color="warning" :icon="mdiEmailAlert" />
                 Mails left to send:
@@ -117,8 +104,6 @@ export default {
             mdiAccountMultipleCheck,
             mdiAccountMultipleRemove,
             mdiAccountQuestion,
-
-            clickCount: 0,
 
             surveys: [],
             surveyId: 0,
@@ -196,22 +181,18 @@ export default {
         },
 
         async startSurvey() {
-            this.clickCount++;
-            if (this.clickCount >= 3) {
-                this.clickCount = 0;
-                this.$refs.confirmationDialog.showConfirmation(
-                    "POST",
-                    "/api/usagesurvey/create",
-                    {
-                        "Content-Type": "application/json",
-                    },
-                    {},
-                    () => {},
-                    async (data) => {
-                        console.log(data);
-                    }
-                );
-            }
+            this.$refs.confirmationDialog.showConfirmation(
+                "POST",
+                "/api/usagesurvey/create",
+                {
+                    "Content-Type": "application/json",
+                },
+                {},
+                () => {},
+                async () => {
+                    window.location.reload();
+                }
+            );
         },
         getAllSurveysIds() {
             return this.$store.getters
