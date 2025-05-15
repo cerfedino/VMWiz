@@ -202,6 +202,7 @@ func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
 	if err != nil {
 		return nil, fmt.Errorf("GetAllVMRequests: Error when executing query: %s", err)
 	}
+	defer rows.Close()
 	// Store all IDs
 	var ids []*int64
 	for rows.Next() {
