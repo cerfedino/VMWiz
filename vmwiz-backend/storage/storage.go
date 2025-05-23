@@ -557,13 +557,13 @@ func (s *postgresstorage) SurveyEmailExistsByUUID(uuid string) (bool, error) {
 }
 
 func (s *postgresstorage) ConfirmationPromptTokenStore(token string) (*string, error) {
-	res := s.db.QueryRow(`INSERT INTO confirmation_tokens (token) VALUES ($1)`, token)
-
-	// Get the last inserted ID
-	if err := res.Err(); err != nil {
-		return nil, fmt.Errorf("ConfirmationPromptTokenStore: Error storing confirmation token '%v' in DB: %v", token, err.Error())
+	_, err := s.db.Exec(
+		`INSERT INTO confirmation_tokens (token) VALUES ($1)`,
+		token,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("ConfirmationPromptTokenStore: %v", err)
 	}
-
 	return &token, nil
 }
 
@@ -581,17 +581,25 @@ func (s *postgresstorage) ConfirmationPromptTokenExists(token string) (bool, err
 }
 
 func (s *postgresstorage) ConfirmationPromptTokenSetUsed(token string) error {
-	res := s.db.QueryRow(`UPDATE confirmation_tokens SET used=TRUE WHERE token = $1`, token)
-	if err := res.Err(); err != nil {
-		return fmt.Errorf("ConfirmationPromptTokenSetUsed: Error executing query: %s", err)
+	_, err := s.db.Exec(
+		`UPDATE confirmation_tokens SET used=TRUE WHERE token = $1`,
+		token,
+	)
+	if err != nil {
+		return fmt.Errorf("ConfirmationPromptTokenSetUsed: %v", err)
 	}
+
 	return nil
 }
 
 func (s *postgresstorage) ConfirmationPromptTokenRemoveCreatedBefore(date time.Time) error {
-	res := s.db.QueryRow(`DELETE FROM confirmation_tokens WHERE created < $1`, date)
-	if err := res.Err(); err != nil {
-		return fmt.Errorf("ConfirmationPromptTokenRemoveCreatedBefore: Error executing query: %s", err)
+	_, err := s.db.Exec(
+		`DELETE FROM confirmation_tokens WHERE created < $1`,
+		date,
+	)
+	if err != nil {
+		return fmt.Errorf("ConfirmationPromptTokenRemoveCreatedBefore: %v", err)
 	}
+
 	return nil
 }
