@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/cli"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/confirmation"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/notifier"
@@ -39,16 +40,16 @@ import (
 // 	return ret
 // }
 
-func main() {
-	// TODO: Remove in prod
-	// rand.Seed(uint64((time.Now().UnixNano())))
-	// rand.Seed(uint64(42))
-
-	err := config.AppConfig.Init()
+func commandline() {
+	err := storage.DB.Init()
 	if err != nil {
-		log.Fatalf("Failed to parse config: %v", err.Error())
+		log.Fatalf("Error on startup: %v", err.Error())
 	}
 
+	cli.Main()
+}
+
+func server() {
 	notifier.InitSMTP()
 
 	if startupcheck.DoAllStartupChecks() {
@@ -57,13 +58,12 @@ func main() {
 		log.Println("Startup checks passed.")
 	}
 
-	err = storage.DB.Init()
+	err := storage.DB.Init()
 	if err != nil {
 		log.Fatalf("Error on startup: %v", err.Error())
 	}
 
 	auth.Init()
-
 	confirmation.Init()
 
 	cors := cors.New(cors.Options{
@@ -144,4 +144,17 @@ func main() {
 	srv.Shutdown(ctx)
 	log.Println("Shutting down ...")
 	os.Exit(0)
+}
+
+func main() {
+	err := config.AppConfig.Init()
+	if err != nil {
+		log.Fatalf("Failed to parse config: %v", err.Error())
+	}
+
+	if len(os.Args) < 2 || os.Args[1] == "server" {
+		server()
+	} else {
+		commandline()
+	}
 }
