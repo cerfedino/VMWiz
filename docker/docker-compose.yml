@@ -36,7 +36,7 @@ services:
       - 8081:8081
     networks:
       - vmwiz-internal
-    command: ["go", "run", ".", "server"]
+    command: ["air"]
     volumes:
       - ../vmwiz-backend:/app
       - ./ssh:/root/.ssh
