@@ -1,3 +1,3 @@
 cat <<EOF
-alias vwcli='docker compose -f $(realpath "$(dirname "$0")/../docker/docker-compose.yml") run --build -it -v "$HOME:$HOME" -w "\$(pwd)" --rm -e HOME vmwiz-cli bash --rcfile /app/vwrc'
+alias vwcli='docker compose -f $(realpath "$(dirname "$0")/../docker/docker-compose.yml") run --build -it -v "$HOME:$HOME" -w "\$(pwd)" --rm vmwiz-cli bash --rcfile /app/vwrc'
 EOF
