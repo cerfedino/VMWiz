@@ -12,7 +12,9 @@ import (
 	"github.com/avamsi/climate"
 )
 
-type vw struct{}
+type vw struct {
+	NoServer bool
+}
 
 func (v *vw) Health() {
 	startupcheck.DoAllStartupChecks()

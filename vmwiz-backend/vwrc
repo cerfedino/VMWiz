@@ -1,0 +1,6 @@
+alias vw='/app/vwcli --no-server'
+export PS1='[vmwiz \w]# '
+if [ -f /etc/profile.d/bash_completion.sh ]; then
+    . /etc/profile.d/bash_completion.sh
+fi
+source <(vw completion bash)

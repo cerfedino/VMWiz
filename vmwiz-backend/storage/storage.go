@@ -125,7 +125,7 @@ func (s *postgresstorage) InitMigrations() error {
 		s.migration.Close()
 		s.migration = nil
 	}
-	m, err := migrate.New("file://migrations/", buildConnectionString(config.AppConfig.POSTGRES_USER, config.AppConfig.POSTGRES_PASSWORD, config.AppConfig.POSTGRES_DB))
+	m, err := migrate.New(fmt.Sprintf("file://%smigrations/", config.AppConfig.PATH_PREFIX), buildConnectionString(config.AppConfig.POSTGRES_USER, config.AppConfig.POSTGRES_PASSWORD, config.AppConfig.POSTGRES_DB))
 	if err != nil {
 		return fmt.Errorf("Couldn't initialize migrations: %v", err.Error())
 	}

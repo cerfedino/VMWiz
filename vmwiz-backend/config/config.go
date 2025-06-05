@@ -53,6 +53,8 @@ type Config struct {
 
 	VM_PERSONAL_POOL     string
 	VM_ORGANIZATION_POOL string
+
+	PATH_PREFIX string
 }
 
 func (c *Config) Init() error {
@@ -104,6 +106,8 @@ func (c *Config) Init() error {
 
 	c.VM_PERSONAL_POOL = os.Getenv("VM_PERSONAL_POOL")
 	c.VM_ORGANIZATION_POOL = os.Getenv("VM_ORGANIZATION_POOL")
+
+	c.PATH_PREFIX = os.Getenv("PATH_PREFIX")
 
 	return nil
 }
