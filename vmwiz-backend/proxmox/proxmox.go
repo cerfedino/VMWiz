@@ -816,8 +816,8 @@ Reinstall: %v
 	//! Append network configuration to VM configuration
 	// ? For some reason, running the previous commands erases the network config entry, so we append it here, after running the aforementioned commands
 	log.Printf("\t[-] Appending network configuration to VM configuration\n")
-	config := fmt.Sprintf("net0: %v=%v,bridge=vmbr1,rate=125", VM_NETMODEL, VM_MACADDR)
-	command = fmt.Sprintf("echo \"%v\" >> \"%v\"", config, VM_CONFIG_PATH)
+	net0config := fmt.Sprintf("net0: %v=%v,bridge=vmbr1,rate=125", VM_NETMODEL, VM_MACADDR)
+	command = fmt.Sprintf("echo \"%v\" >> \"%v\"", net0config, VM_CONFIG_PATH)
 	stdout, err = comp_ssh.Run(command)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot append network configuration to VM configuration: %v\nOutput:\n%s", err, stdout)
@@ -990,7 +990,7 @@ Reinstall: %v
 	}
 
 	//! Prepare VM post-install script
-	POST_INSTALL_SCRIPT_TEMPLATE_PATH := "proxmox/vm_finish_script.sh.tmpl"
+	POST_INSTALL_SCRIPT_TEMPLATE_PATH := fmt.Sprintf("%sproxmox/vm_finish_script.sh.tmpl", config.AppConfig.PATH_PREFIX)
 	log.Printf("\t[-] Preparing VM post-install script from template '%v'\n", POST_INSTALL_SCRIPT_TEMPLATE_PATH)
 	vm_finish_script_content := new(bytes.Buffer)
 	post_install_template, err := template.ParseFiles(POST_INSTALL_SCRIPT_TEMPLATE_PATH)
