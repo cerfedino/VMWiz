@@ -687,7 +687,7 @@ Reinstall: %v
 
 	//! Creating VM configuration in Proxmox
 	log.Printf("\t[-] Generating VM configuration\n")
-	VM_CONF_TEMPLATE_PATH := "proxmox/VM.conf.tmpl"
+	VM_CONF_TEMPLATE_PATH := fmt.Sprintf("%sproxmox/VM.conf.tmpl", config.AppConfig.PATH_PREFIX)
 	uuidv7, err := uuid.NewV7()
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Failed to generate UUID: %v", err)
