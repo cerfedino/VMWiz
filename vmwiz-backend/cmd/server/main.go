@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
-	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/cli"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/confirmation"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/notifier"
@@ -20,36 +19,12 @@ import (
 	"github.com/rs/cors"
 )
 
-// func (s *StartupChecks) String() string {
-
-// 	ret := log.Println("[-] %v\n", s.Name)
-// 	for _, result := range s.Results {
-// 		err, ok := result.(error)
-// 		if ok {
-// 			ret += fmt.Sprintf("\t[ERROR] %v\n", err.Error())
-// 			continue
-// 		}
-
-// 		if reflect.TypeOf(err) == reflect.TypeOf(errors.New("")) {
-// 			ret += fmt.Sprintf("\t[ERROR] %v\n", err.Error())
-// 		} else {
-// 			ret += fmt.Sprintf("\t[OK] %v\n", err)
-// 		}
-
-// 	}
-// 	return ret
-// }
-
-func commandline() {
-	err := storage.DB.Init()
+func main() {
+	err := config.AppConfig.Init()
 	if err != nil {
-		log.Fatalf("Error on startup: %v", err.Error())
+		log.Fatalf("Failed to parse config: %v", err.Error())
 	}
 
-	cli.Main()
-}
-
-func server() {
 	notifier.InitSMTP()
 
 	if startupcheck.DoAllStartupChecks() {
@@ -58,7 +33,7 @@ func server() {
 		log.Println("Startup checks passed.")
 	}
 
-	err := storage.DB.Init()
+	err = storage.DB.Init()
 	if err != nil {
 		log.Fatalf("Error on startup: %v", err.Error())
 	}
@@ -144,17 +119,4 @@ func server() {
 	srv.Shutdown(ctx)
 	log.Println("Shutting down ...")
 	os.Exit(0)
-}
-
-func main() {
-	err := config.AppConfig.Init()
-	if err != nil {
-		log.Fatalf("Failed to parse config: %v", err.Error())
-	}
-
-	if len(os.Args) < 2 || os.Args[1] == "server" {
-		server()
-	} else {
-		commandline()
-	}
 }

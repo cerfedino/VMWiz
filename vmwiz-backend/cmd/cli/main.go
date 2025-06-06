@@ -1,10 +1,12 @@
-package cli
+package main
 
 import (
 	"fmt"
+	"log"
 
 	_ "embed"
 
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/startupcheck"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
@@ -13,7 +15,6 @@ import (
 )
 
 type vw struct {
-	NoServer bool
 }
 
 func (v *vw) Health() {
@@ -71,7 +72,17 @@ func (r *request) List(opts *listOptions) {
 //go:embed md.cli
 var md []byte
 
-func Main() {
+func main() {
+	err := config.AppConfig.Init()
+	if err != nil {
+		log.Fatalf("Failed to parse config: %v", err.Error())
+	}
+
+	err = storage.DB.Init()
+	if err != nil {
+		log.Fatalf("Error on startup: %v", err.Error())
+	}
+
 	p := climate.Struct[vw](climate.Struct[ip](), climate.Struct[request]())
 	climate.RunAndExit(p, climate.WithMetadata(md))
 }
