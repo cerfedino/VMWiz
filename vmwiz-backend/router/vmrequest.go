@@ -18,6 +18,82 @@ import (
 
 // Routes under /api/vmrequest/*
 
+func AcceptVMRequest(id int64) *ErrorBundle {
+	request, err := storage.DB.GetVMRequest(id)
+
+	if err != nil {
+		return SimpleError(err, "Error fetching VM request")
+	}
+
+	request.RequestStatus = storage.REQUEST_STATUS_ACCEPTED
+	err = notifier.NotifyVMRequestStatusChanged(*request, "Creating VM now, it'll take a while ...")
+	if err != nil {
+		return SimpleError(err, "Failed to notify VM request status change")
+	}
+
+	opts := request.ToVMOptions()
+	if request.IsOrganization {
+		opts.ResourcePool = config.AppConfig.VM_ORGANIZATION_POOL
+	} else {
+		opts.ResourcePool = config.AppConfig.VM_PERSONAL_POOL
+	}
+
+	err = storage.DB.UpdateVMRequestStatus(id, storage.REQUEST_STATUS_ACCEPTED)
+	if err != nil {
+		return SimpleError(err, "Failed to update VM request status")
+	}
+
+	_, summary, err := proxmox.CreateVM(*opts)
+	if err != nil {
+		err2 := notifier.NotifyVMCreationUpdate(fmt.Sprintf("Request %d: Error creating VM:\n%v", id, "```\n"+err.Error()+"\n```"))
+		if err2 != nil {
+			return SimpleError(err2, "Failed to notify VM creation update")
+		}
+		return SimpleError(err, "Failed to create VM")
+	}
+
+	successMsg := fmt.Sprintf("Request %v: VM %s created successfully:\n%s", request.ID, opts.FQDN, "```\n"+summary.String()+"\n```")
+	fmt.Println(successMsg)
+
+	err = notifier.NotifyVMCreationUpdate(successMsg)
+	if err != nil {
+		return SimpleError(err, "Failed to notify VM creation update")
+	}
+
+	return nil
+}
+
+func RejectVMRequest(id int64) *ErrorBundle {
+	// Ensure we didnt accept the request previously
+	request, err := storage.DB.GetVMRequest(id)
+	if err != nil {
+		return SimpleError(err, "Failed to fetch VM request")
+	}
+
+	if request.RequestStatus == storage.REQUEST_STATUS_ACCEPTED {
+		return SimpleError(nil, "Cannot reject an accepted request")
+	}
+
+	err = storage.DB.UpdateVMRequestStatus(id, storage.REQUEST_STATUS_REJECTED)
+	if err != nil {
+		return SimpleError(err, "Failed to update VM request status")
+	}
+
+	request, err = storage.DB.GetVMRequest(id)
+	if err != nil {
+		return SimpleError(err, "Failed to fetch VM request")
+	}
+
+	err = notifier.NotifyVMRequestStatusChanged(*request, "")
+	if err != nil {
+		return SimpleError(err, "Failed to notify VM request status change")
+	}
+
+	fmt.Printf("Rejected VM request %d (%s).\n", id, request.ToVMOptions().FQDN)
+
+	return nil
+}
+
 func addVMRequestRoutes(r *mux.Router) {
 
 	// TODO: Rate limit requests
@@ -117,52 +193,10 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		request, err := storage.DB.GetVMRequest(int64(body.ID))
-		if err != nil {
-			log.Printf("Error getting VM request: %v", err)
-			http.Error(w, "Failed to fetch VM request", http.StatusInternalServerError)
-			return
-		}
+		eb := AcceptVMRequest(int64(body.ID))
 
-		request.RequestStatus = storage.REQUEST_STATUS_ACCEPTED
-		err = notifier.NotifyVMRequestStatusChanged(*request, "Creating VM now, it'll take a while ...")
-		if err != nil {
-			log.Printf("Failed to notify VM request status change: %v", err)
-			http.Error(w, "Failed to notify VM request status change", http.StatusInternalServerError)
-			return
-		}
-
-		opts := request.ToVMOptions()
-		if request.IsOrganization {
-			opts.ResourcePool = config.AppConfig.VM_ORGANIZATION_POOL
-		} else {
-			opts.ResourcePool = config.AppConfig.VM_PERSONAL_POOL
-		}
-
-		err = storage.DB.UpdateVMRequestStatus(int64(body.ID), storage.REQUEST_STATUS_ACCEPTED)
-		if err != nil {
-			log.Printf("Error updating VM request status: %v", err)
-			notifier.NotifyVMCreationUpdate(fmt.Sprintf("Request %d: Error updating VM request:\n%v", body.ID, "```\n"+err.Error()+"\n```"))
-			http.Error(w, "Failed to update VM request status", http.StatusInternalServerError)
-			return
-		}
-		_, summary, err := proxmox.CreateVM(*opts)
-		if err != nil {
-			log.Printf("Error creating VM: %v", err)
-			err2 := notifier.NotifyVMCreationUpdate(fmt.Sprintf("Request %d: Error creating VM:\n%v", body.ID, "```\n"+err.Error()+"\n```"))
-			if err2 != nil {
-				log.Printf("Failed to notify VM creation update: %v", err2)
-				http.Error(w, "Failed to notify VM creation update", http.StatusInternalServerError)
-				return
-			}
-			http.Error(w, "Failed to create VM:\n"+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		err = notifier.NotifyVMCreationUpdate(fmt.Sprintf("Request %v: VM %s created successfully:\n%s", request.ID, opts.FQDN, "```\n"+summary.String()+"\n```"))
-		if err != nil {
-			log.Printf("Failed to notify VM creation update: %v", err)
-			http.Error(w, "Failed to notify VM creation update", http.StatusInternalServerError)
+		if eb != nil {
+			http.Error(w, eb.UserMsg, eb.HttpCode)
 			return
 		}
 
@@ -181,40 +215,12 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		// Ensure we didnt accept the request previously
-		request, err := storage.DB.GetVMRequest(int64(body.ID))
-		if err != nil {
-			log.Printf("Error getting VM request: %v", err)
-			http.Error(w, "Failed to fetch VM request", http.StatusInternalServerError)
-			return
-		}
-		if request.RequestStatus == storage.REQUEST_STATUS_ACCEPTED {
-			log.Printf("Cannot reject an accepted request")
-			http.Error(w, "Cannot reject an accepted request", http.StatusBadRequest)
-			return
-		}
+		eb := RejectVMRequest(int64(body.ID))
 
-		err = storage.DB.UpdateVMRequestStatus(int64(body.ID), storage.REQUEST_STATUS_REJECTED)
-		if err != nil {
-			log.Printf("Error updating VM request status: %v", err)
-			http.Error(w, "Failed to update VM request status", http.StatusInternalServerError)
+		if eb != nil {
+			http.Error(w, eb.UserMsg, eb.HttpCode)
 			return
 		}
-
-		request, err = storage.DB.GetVMRequest(int64(body.ID))
-		if err != nil {
-			log.Printf("Error getting VM request: %v", err)
-			http.Error(w, "Failed to fetch VM request", http.StatusInternalServerError)
-			return
-		}
-
-		err = notifier.NotifyVMRequestStatusChanged(*request, "")
-		if err != nil {
-			log.Printf("Failed to notify VM request status change: %v", err)
-			http.Error(w, "Failed to notify VM request status change", http.StatusInternalServerError)
-			return
-		}
-
 	})))
 
 	r.Methods("POST").Path("/api/vmrequest/edit").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
