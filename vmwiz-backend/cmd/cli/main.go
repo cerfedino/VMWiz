@@ -63,7 +63,7 @@ func (r *request) List(opts *listOptions) {
 	numPrintedReqs := 0
 
 	for _, req := range requests {
-		if opts.All && req.RequestStatus != storage.REQUEST_STATUS_PENDING {
+		if !opts.All && req.RequestStatus != storage.REQUEST_STATUS_PENDING {
 			continue
 		}
 		fmt.Printf("%s\n", req.ToString())
