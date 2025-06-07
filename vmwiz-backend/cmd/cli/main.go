@@ -231,7 +231,7 @@ func (v *vw) Sanity() {
 		fmt.Println("Everything seems healthy.")
 	} else {
 		for i, w := range warns {
-			fmt.Printf("%4d  %-30s  %-10s  %-40s\n", i, w.VM.Name, w.Category, w.Detail)
+			fmt.Printf("%4d  %-30s  %-15s  %-40s\n", i, w.VM.Name, w.Category, w.Detail)
 		}
 	}
 }

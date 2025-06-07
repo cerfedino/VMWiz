@@ -1380,8 +1380,9 @@ type VMWarning struct {
 }
 
 const (
-	WARN_INTERNAL     = "WARN_INTERNAL"
-	VM_PENDING_CHANGE = "VM_PENDING_CHANGES"
+	WARN_INTERNAL      = "INTERNAL"
+	WARN_LATENT_CHANGE = "LATENT_CHANGE"
+	WARN_TODO          = "TODO"
 )
 
 type PendingChange struct {
@@ -1427,17 +1428,31 @@ func PendingChanges(node string, vmid int) ([]PendingChange, error) {
 	return changes, nil
 }
 
+var todo_matcher regexp.Regexp = *regexp.MustCompile("(?i)TODO[^A-Z]|[^A-Z]TODO")
+
 func CheckVM(vm PVEClusterVM, warnings []VMWarning) []VMWarning {
+	// check for changes that would be applied when the VM reboots
 	pending, err := PendingChanges(vm.Node, vm.Vmid)
 	if err != nil {
 		warnings = append(warnings, VMWarning{vm, WARN_INTERNAL, fmt.Sprintf("Failed to retrieve pending changes: %v", err)})
 	} else {
 		for _, change := range pending {
-			warnings = append(warnings, VMWarning{vm, VM_PENDING_CHANGE, fmt.Sprintf("change in %s: old[%s] new[%s]", change.key, change.current, change.pending)})
+			warnings = append(warnings, VMWarning{vm, WARN_LATENT_CHANGE, fmt.Sprintf("change in %s: old[%s] new[%s]", change.key, change.current, change.pending)})
 		}
 	}
 
-	// TODO: check for TODOs in VM description
+	// check for TODOs in VM description
+	cfg, err := GetNodeVMConfig(vm.Node, vm.Vmid)
+	if err != nil {
+		warnings = append(warnings, VMWarning{vm, WARN_INTERNAL, fmt.Sprintf("Failed to retrieve config: %v", err)})
+	} else {
+		lines := strings.Split(cfg.Description, "\n")
+		for _, line := range lines {
+			if todo_matcher.MatchString(line) {
+				warnings = append(warnings, VMWarning{vm, WARN_TODO, line})
+			}
+		}
+	}
 
 	// TODO: check if ip filter correctly set up
 
