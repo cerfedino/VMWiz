@@ -9,6 +9,7 @@ import (
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/router"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/startupcheck"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
@@ -168,6 +169,57 @@ func (s *survey) ListNegative() {
 // list the VMs where people did not yet answer
 func (s *survey) ListUnanswered() {
 	listSurveyHosts(storage.DB.SurveyEmailNotResponded)
+}
+
+func sliceToSet[T comparable](slice []T) map[T]struct{} {
+	set := make(map[T]struct{})
+	for _, val := range slice {
+		set[val] = struct{}{}
+	}
+	return set
+}
+
+func (s *survey) ShutdownUnanswered() {
+	id, err := storage.DB.SurveyGetLastId()
+	if err != nil {
+		fmt.Printf("error fetching last survey id: %v\n", err)
+		os.Exit(-1)
+	}
+
+	shutdownList, err := storage.DB.SurveyEmailNotResponded(id)
+	if err != nil {
+		fmt.Printf("error fetching survey data from DB: %v\n", err)
+		os.Exit(-1)
+	}
+
+	shutdownSet := sliceToSet(shutdownList)
+
+	vms, err := proxmox.GetAllClusterVMs()
+	if err != nil {
+		fmt.Printf("error fetching cluster VMs")
+		os.Exit(-1)
+	}
+
+	hasErrors := false
+
+	for _, vm := range *vms {
+		_, doShutdown := shutdownSet[vm.Name]
+		if !doShutdown {
+			continue
+		}
+
+		fmt.Printf("shutting down %s...\n", vm.Name)
+
+		err = proxmox.ShutdownVMWithReason(vm.Node, vm.Vmid, "the owner did not respond to the survey.")
+		if err != nil {
+			fmt.Printf("Failed to shut down VM %s: %v", vm.Name, err)
+			hasErrors = true
+		}
+	}
+
+	if hasErrors {
+		os.Exit(1)
+	}
 }
 
 //go:generate go tool cligen md.cli

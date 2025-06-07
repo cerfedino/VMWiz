@@ -1269,3 +1269,65 @@ func GetNodeVMConfig(node string, vmid int) (*PVENodeVMConfig, error) {
 
 	return &config.Data, nil
 }
+
+func ShutdownVMWithReason(node string, vmid int, reason string) error {
+	config, err := GetNodeVMConfig(node, vmid)
+	if err != nil {
+		return err
+	}
+
+	// add note to description when & why this was shut down
+
+	type ConfigurationUpdate struct {
+		Description string `json:"description"`
+		Autostart   int    `json:"autostart"`
+	}
+
+	desc := ConfigurationUpdate{fmt.Sprintf("%s\n\nShutdown on %s because %s", config.Description, time.Now().Format("02-Jan-2006"), reason), 0}
+
+	body, err := json.Marshal(&desc)
+	if err != nil {
+		return fmt.Errorf("failed to convert VM Description Update to JSON: %v", err)
+	}
+
+	req, client, err := proxmoxMakeRequest("POST", fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid), body)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %v", err)
+	}
+
+	q := req.URL.Query()
+	req.URL.RawQuery = q.Encode()
+
+	_, err = proxmoxDoRequest(req, client)
+	if err != nil {
+		return fmt.Errorf("failed to update VM description: %v", err)
+	}
+
+	// actual shutdown ...
+
+	type ShutdownParams struct {
+		ForceStop int `json:"forceStop"`
+		Timeout   int `json:"timeout"`
+	}
+
+	shutdown := ShutdownParams{1, 30}
+	body, err = json.Marshal(&shutdown)
+	if err != nil {
+		return err
+	}
+
+	req, client, err = proxmoxMakeRequest("POST", fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/status/shutdown", node, vmid), body)
+	if err != nil {
+		return fmt.Errorf("failed to make shutdown request.: %v", err)
+	}
+
+	q = req.URL.Query()
+	req.URL.RawQuery = q.Encode()
+
+	_, err = proxmoxDoRequest(req, client)
+	if err != nil {
+		return fmt.Errorf("failed to shutdown VM %d: %v", vmid, err)
+	}
+
+	return nil
+}
