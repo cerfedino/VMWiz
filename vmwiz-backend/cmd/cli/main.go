@@ -134,6 +134,42 @@ func (r *request) Reject(opts *acceptOrRejectOptions) {
 	router.RejectVMRequest(id)
 }
 
+// get information about surveys
+type survey struct {
+}
+
+func listSurveyHosts(fun func(int) ([]string, error)) {
+	id, err := storage.DB.SurveyGetLastId()
+	if err != nil {
+		fmt.Printf("error fetching last survey id: %v\n", err)
+		os.Exit(-1)
+	}
+
+	hosts, err := fun(id)
+	if err != nil {
+		fmt.Printf("error fetching survey data from DB: %v\n", err)
+	}
+
+	for _, host := range hosts {
+		fmt.Println(host)
+	}
+}
+
+// list the VMs where people said they still need it
+func (s *survey) ListPositive() {
+	listSurveyHosts(storage.DB.SurveyEmailPositive)
+}
+
+// list the VMs where people said they can be deleted
+func (s *survey) ListNegative() {
+	listSurveyHosts(storage.DB.SurveyEmailNegative)
+}
+
+// list the VMs where people did not yet answer
+func (s *survey) ListUnanswered() {
+	listSurveyHosts(storage.DB.SurveyEmailNotResponded)
+}
+
 //go:generate go tool cligen md.cli
 //go:embed md.cli
 var md []byte
@@ -149,6 +185,6 @@ func main() {
 		log.Fatalf("Error on startup: %v", err.Error())
 	}
 
-	p := climate.Struct[vw](climate.Struct[ip](), climate.Struct[request]())
+	p := climate.Struct[vw](climate.Struct[ip](), climate.Struct[request](), climate.Struct[survey]())
 	climate.RunAndExit(p, climate.WithMetadata(md))
 }
