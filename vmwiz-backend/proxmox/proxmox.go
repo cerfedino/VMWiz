@@ -1252,6 +1252,22 @@ func AddVMToResourcePool(vm_id int, pool string) error {
 
 type PVENodeVMConfig struct {
 	Description string `json:"description"`
+	Net0        string `json:"net0"`
+}
+
+func (cfg *PVENodeVMConfig) NetworkDeviceConfig() map[string]string {
+	pairs := strings.Split(cfg.Net0, ",")
+	out := make(map[string]string, len(pairs))
+	for _, pair := range pairs {
+		split := strings.Split(pair, "=")
+		if len(split) < 2 {
+			continue
+		}
+		key := split[0]
+		val := strings.Join(split[1:], "=")
+		out[key] = val
+	}
+	return out
 }
 
 // GET /nodes/{node}/qemu/{vmid}/config
@@ -1278,6 +1294,82 @@ func GetNodeVMConfig(node string, vmid int) (*PVENodeVMConfig, error) {
 	}
 
 	return &config.Data, nil
+}
+
+type PVENodeVMFirewallOptions struct {
+	Dhcp      int    `json:"dhcp"`
+	Enable    int    `json:"enable"`
+	IpFilter  int    `json:"ipfilter"`
+	MacFilter int    `json:"macfilter"`
+	Ndp       int    `json:"ndp"`
+	PolicyIn  string `json:"policy_in"`
+	PolicyOut string `json:"policy_out"`
+}
+
+const (
+	FIREWALL_POLICY_DROP   = "DROP"
+	FIREWALL_POLICY_ACCEPT = "ACCEPT"
+	FIREWALL_POLICY_REJECT = "REJECT"
+)
+
+type IPSetEntry struct {
+	Cidr    string `json:"cidr"`
+	Comment string `json:"comment"`
+	NoMatch int    `json:"nomatch"`
+}
+
+func GetNodeVMFirewallOptions(node string, vmid int) (*PVENodeVMFirewallOptions, error) {
+	req, client, err := proxmoxMakeRequest("GET", fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/firewall/options", node, vmid), nil)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get VM firewall options: %v", err.Error())
+	}
+	q := req.URL.Query()
+
+	req.URL.RawQuery = q.Encode()
+	body, err := proxmoxDoRequest(req, client)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get VM firewall options: %v", err.Error())
+	}
+
+	type firewallOpts struct {
+		Data PVENodeVMFirewallOptions `json:"data"`
+	}
+	var config firewallOpts
+	err = json.Unmarshal(body, &config)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get VM firewall options: %v", err.Error())
+	}
+
+	return &config.Data, nil
+}
+
+func GetIPSet(node string, vmid int, ipsetName string) (*[]IPSetEntry, error) {
+	req, client, err := proxmoxMakeRequest("GET", fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/firewall/ipset/%s", node, vmid, ipsetName), nil)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get VM IP Set: %v", err.Error())
+	}
+	q := req.URL.Query()
+
+	req.URL.RawQuery = q.Encode()
+	body, err := proxmoxDoRequest(req, client)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get VM IP Set: %v", err.Error())
+	}
+
+	type ipsetResponse struct {
+		Data *[]IPSetEntry `json:"data"`
+	}
+	var res ipsetResponse
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get VM IP Set: %v", err.Error())
+	}
+
+	return res.Data, nil
+}
+
+func GetIPFilter(node string, vmid int) (*[]IPSetEntry, error) {
+	return GetIPSet(node, vmid, "ipfilter-net0")
 }
 
 func OverWriteVMDescription(node string, vmid int, description string) error {
@@ -1383,6 +1475,7 @@ const (
 	WARN_INTERNAL      = "INTERNAL"
 	WARN_LATENT_CHANGE = "LATENT_CHANGE"
 	WARN_TODO          = "TODO"
+	WARN_IPFILTER      = "IP_FILTER"
 )
 
 type PendingChange struct {
@@ -1428,10 +1521,7 @@ func PendingChanges(node string, vmid int) ([]PendingChange, error) {
 	return changes, nil
 }
 
-var todo_matcher regexp.Regexp = *regexp.MustCompile("(?i)TODO[^A-Z]|[^A-Z]TODO")
-
-func CheckVM(vm PVEClusterVM, warnings []VMWarning) []VMWarning {
-	// check for changes that would be applied when the VM reboots
+func checkLatentVMConfigs(vm PVEClusterVM, warnings []VMWarning) []VMWarning {
 	pending, err := PendingChanges(vm.Node, vm.Vmid)
 	if err != nil {
 		warnings = append(warnings, VMWarning{vm, WARN_INTERNAL, fmt.Sprintf("Failed to retrieve pending changes: %v", err)})
@@ -1440,8 +1530,12 @@ func CheckVM(vm PVEClusterVM, warnings []VMWarning) []VMWarning {
 			warnings = append(warnings, VMWarning{vm, WARN_LATENT_CHANGE, fmt.Sprintf("change in %s: old[%s] new[%s]", change.key, change.current, change.pending)})
 		}
 	}
+	return warnings
+}
 
-	// check for TODOs in VM description
+var todo_matcher regexp.Regexp = *regexp.MustCompile("(?i)TODO[^A-Z]|[^A-Z]TODO")
+
+func checkTodosInVMDescription(vm PVEClusterVM, warnings []VMWarning) []VMWarning {
 	cfg, err := GetNodeVMConfig(vm.Node, vm.Vmid)
 	if err != nil {
 		warnings = append(warnings, VMWarning{vm, WARN_INTERNAL, fmt.Sprintf("Failed to retrieve config: %v", err)})
@@ -1453,9 +1547,68 @@ func CheckVM(vm PVEClusterVM, warnings []VMWarning) []VMWarning {
 			}
 		}
 	}
+	return warnings
+}
 
-	// TODO: check if ip filter correctly set up
+func checkVMFirewallOptions(vm PVEClusterVM, warnings []VMWarning) []VMWarning {
+	opts, err := GetNodeVMFirewallOptions(vm.Node, vm.Vmid)
+	if err != nil {
+		warnings = append(warnings, VMWarning{vm, WARN_INTERNAL, fmt.Sprintf("Failed to retrieve VM firewall options: %v", err)})
+		return warnings
+	}
 
+	warn := func(msg string) {
+		warnings = append(warnings, VMWarning{vm, WARN_IPFILTER, msg})
+	}
+
+	if opts.PolicyIn != FIREWALL_POLICY_ACCEPT {
+		warn(fmt.Sprintf("policy_in should be %s, is %s", FIREWALL_POLICY_ACCEPT, opts.PolicyIn))
+	}
+
+	if opts.PolicyOut != FIREWALL_POLICY_ACCEPT {
+		warn(fmt.Sprintf("policy_out should be %s, is %s", FIREWALL_POLICY_ACCEPT, opts.PolicyOut))
+	}
+
+	if opts.Enable != 1 {
+		warn("Firewall should be enabled")
+	}
+
+	if opts.IpFilter != 1 {
+		warn("IP Filter should be enabled")
+	}
+
+	cfg, err := GetNodeVMConfig(vm.Node, vm.Vmid)
+	if err != nil {
+		warnings = append(warnings, VMWarning{vm, WARN_INTERNAL, fmt.Sprintf("Failed to retrieve VM config: %v", err)})
+		return warnings
+	}
+
+	net_cfg := cfg.NetworkDeviceConfig()
+	fw_enable_str, fw_enable_exists := net_cfg["firewall"]
+	fw_enable := fw_enable_exists && fw_enable_str == "1"
+
+	if !fw_enable {
+		warn("Firewall needs to be enabled in the network device configuration (net0)")
+	}
+
+	// TODO: check if ipfilter has entries
+	ipset, err := GetIPFilter(vm.Node, vm.Vmid)
+	if err != nil || ipset == nil {
+		warnings = append(warnings, VMWarning{vm, WARN_INTERNAL, fmt.Sprintf("Failed to retrieve VM IP Filter: %v", err)})
+		return warnings
+	}
+
+	if len(*ipset) != 2 {
+		warn(fmt.Sprintf("Expected 2 IPs in IPFilter for VM, got %d", len(*ipset)))
+	}
+
+	return warnings
+}
+
+func CheckVM(vm PVEClusterVM, warnings []VMWarning) []VMWarning {
+	warnings = checkLatentVMConfigs(vm, warnings)
+	warnings = checkTodosInVMDescription(vm, warnings)
+	warnings = checkVMFirewallOptions(vm, warnings)
 	return warnings
 }
 
