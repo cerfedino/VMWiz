@@ -1,3 +1,6 @@
+compose_file="$(realpath "$(dirname "$0")/../docker/docker-compose.yml")"
+basecmd="docker compose --file $compose_file run --build --interactive --volume "$HOME:$HOME" --rm --workdir \$(pwd) vmwiz-cli"
 cat <<EOF
-alias vwcli='docker compose -f $(realpath "$(dirname "$0")/../docker/docker-compose.yml") run --build -it -v "$HOME:$HOME" -w "\$(pwd)" --rm vmwiz-cli bash --rcfile /app/vwrc'
+alias vwcli='$basecmd bash --rcfile /app/vwrc'
+alias vw='$basecmd /app/vwcli'
 EOF
