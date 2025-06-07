@@ -137,6 +137,7 @@ func (r *request) Reject(opts *acceptOrRejectOptions) {
 
 // get information about surveys
 type survey struct {
+	V *vw
 }
 
 func listSurveyHosts(fun func(int) ([]string, error)) {
@@ -237,6 +238,6 @@ func main() {
 		log.Fatalf("Error on startup: %v", err.Error())
 	}
 
-	p := climate.Struct[vw](climate.Struct[ip](), climate.Struct[request](), climate.Struct[survey]())
+	p := climate.Struct[vw](climate.Struct[ip](), climate.Struct[request](), climate.Struct[survey](), climate.Struct[test]())
 	climate.RunAndExit(p, climate.WithMetadata(md))
 }

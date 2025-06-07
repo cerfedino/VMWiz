@@ -317,17 +317,18 @@ func DeleteNodeVM(node string, vm_id int, destroy_unreferenced_disks bool, purge
 }
 
 type VMCreationOptions struct {
-	Template     string
-	FQDN         string
-	Reinstall    bool
-	Cores_CPU    int
-	RAM_MB       int64
-	Disk_GB      int64
-	UseQemuAgent bool
-	Tags         []string
-	Notes        string
-	SSHPubkeys   []string
-	ResourcePool string
+	Template           string
+	FQDN               string
+	Reinstall          bool
+	Cores_CPU          int
+	RAM_MB             int64
+	Disk_GB            int64
+	UseQemuAgent       bool
+	Tags               []string
+	Notes              string
+	SSHPubkeys         []string
+	ResourcePool       string
+	DescriptionKVPairs map[string]string
 }
 
 const (
@@ -1089,6 +1090,15 @@ Reinstall: %v
 		log.Printf("Failed to create VM: Add VM to resource pool: %v", err)
 	}
 
+	description := "VM created by vm-wizard\n\n"
+	for k, v := range options.DescriptionKVPairs {
+		description += fmt.Sprintf("%s=%s  \n", k, v)
+	}
+	err = OverWriteVMDescription(comp_node_name, VM_ID, description)
+	if err != nil {
+		log.Printf("Failed to set VM description: %v\n", err)
+	}
+
 	summary := VMCreationSummary{
 		vm_id:          vm.Vmid,
 		fqdn:           vm.Name,
@@ -1270,6 +1280,35 @@ func GetNodeVMConfig(node string, vmid int) (*PVENodeVMConfig, error) {
 	return &config.Data, nil
 }
 
+func OverWriteVMDescription(node string, vmid int, description string) error {
+	type DescUpdate struct {
+		Description string `json:"description"`
+	}
+
+	desc := DescUpdate{description}
+
+	body, err := json.Marshal(&desc)
+	if err != nil {
+		return fmt.Errorf("failed to convert VM Description Update to JSON: %v", err)
+	}
+
+	req, client, err := proxmoxMakeRequest("POST", fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid), body)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %v", err)
+	}
+
+	q := req.URL.Query()
+	req.URL.RawQuery = q.Encode()
+	req.Header.Set("Content-Type", "application/json")
+
+	_, err = proxmoxDoRequest(req, client)
+	if err != nil {
+		return fmt.Errorf("failed to update VM description: %v", err)
+	}
+
+	return nil
+}
+
 func ShutdownVMWithReason(node string, vmid int, reason string) error {
 	config, err := GetNodeVMConfig(node, vmid)
 	if err != nil {
@@ -1297,6 +1336,7 @@ func ShutdownVMWithReason(node string, vmid int, reason string) error {
 
 	q := req.URL.Query()
 	req.URL.RawQuery = q.Encode()
+	req.Header.Set("Content-Type", "application/json")
 
 	_, err = proxmoxDoRequest(req, client)
 	if err != nil {
@@ -1323,6 +1363,7 @@ func ShutdownVMWithReason(node string, vmid int, reason string) error {
 
 	q = req.URL.Query()
 	req.URL.RawQuery = q.Encode()
+	req.Header.Set("Content-Type", "application/json")
 
 	_, err = proxmoxDoRequest(req, client)
 	if err != nil {
