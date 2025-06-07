@@ -1372,3 +1372,89 @@ func ShutdownVMWithReason(node string, vmid int, reason string) error {
 
 	return nil
 }
+
+type VMWarning struct {
+	VM       PVEClusterVM
+	Category string
+	Detail   string
+}
+
+const (
+	WARN_INTERNAL     = "WARN_INTERNAL"
+	VM_PENDING_CHANGE = "VM_PENDING_CHANGES"
+)
+
+type PendingChange struct {
+	key     string
+	current string
+	pending string
+}
+
+func PendingChanges(node string, vmid int) ([]PendingChange, error) {
+	req, client, err := proxmoxMakeRequest("GET", fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/pending", node, vmid), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	q := req.URL.Query()
+	req.URL.RawQuery = q.Encode()
+
+	body, err := proxmoxDoRequest(req, client)
+	if err != nil {
+		return nil, err
+	}
+
+	type pending struct {
+		Data []map[string]any `json:"data"`
+	}
+	var p pending
+	err = json.Unmarshal(body, &p)
+	if err != nil {
+		return nil, err
+	}
+
+	changes := []PendingChange(nil)
+
+	for _, pv := range p.Data {
+		pending, isPending := pv["pending"]
+		if isPending {
+			key, _ := pv["key"]
+			current, _ := pv["value"]
+			changes = append(changes, PendingChange{fmt.Sprintf("%v", key), fmt.Sprintf("%v", current), fmt.Sprintf("%v", pending)})
+		}
+	}
+
+	return changes, nil
+}
+
+func CheckVM(vm PVEClusterVM, warnings []VMWarning) []VMWarning {
+	pending, err := PendingChanges(vm.Node, vm.Vmid)
+	if err != nil {
+		warnings = append(warnings, VMWarning{vm, WARN_INTERNAL, fmt.Sprintf("Failed to retrieve pending changes: %v", err)})
+	} else {
+		for _, change := range pending {
+			warnings = append(warnings, VMWarning{vm, VM_PENDING_CHANGE, fmt.Sprintf("change in %s: old[%s] new[%s]", change.key, change.current, change.pending)})
+		}
+	}
+
+	// TODO: check for TODOs in VM description
+
+	// TODO: check if ip filter correctly set up
+
+	return warnings
+}
+
+func CheckAllVMs() []VMWarning {
+	warnings := []VMWarning(nil)
+
+	vms, err := GetAllClusterVMs()
+	if err != nil {
+		log.Printf("Failed to fetch cluster VMs: %v\n", err)
+	}
+
+	for _, vm := range *vms {
+		warnings = CheckVM(vm, warnings)
+	}
+
+	return warnings
+}

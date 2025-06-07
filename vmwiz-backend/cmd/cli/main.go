@@ -223,6 +223,19 @@ func (s *survey) ShutdownUnanswered() {
 	}
 }
 
+// perform checks on the whole cluster and report potentially dangerous configurations
+func (v *vw) Sanity() {
+	warns := proxmox.CheckAllVMs()
+
+	if len(warns) == 0 {
+		fmt.Println("Everything seems healthy.")
+	} else {
+		for i, w := range warns {
+			fmt.Printf("%4d  %-30s  %-10s  %-40s\n", i, w.VM.Name, w.Category, w.Detail)
+		}
+	}
+}
+
 //go:generate go tool cligen md.cli
 //go:embed md.cli
 var md []byte
