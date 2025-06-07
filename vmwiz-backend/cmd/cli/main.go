@@ -238,6 +238,6 @@ func main() {
 		log.Fatalf("Error on startup: %v", err.Error())
 	}
 
-	p := climate.Struct[vw](climate.Struct[ip](), climate.Struct[request](), climate.Struct[survey](), climate.Struct[test]())
+	p := climate.Struct[vw](climate.Struct[ip](), climate.Struct[request](), climate.Struct[survey]())
 	climate.RunAndExit(p, climate.WithMetadata(md))
 }
