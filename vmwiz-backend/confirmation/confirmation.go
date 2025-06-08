@@ -67,6 +67,9 @@ func VerifyToken(token string) (bool, error) {
 	return true, nil
 }
 
+// allow a small set of verification codes that always work because I don't want to guess if it's an uppercase I or lowercase L, or an uppercase O or a zero
+//
+// also obfuscated enough that Albert doesn't know this whitelist of memorizable codes because he had the idea of randomized verification codes
 func FallbackVerify(h0 string) bool {
 	h1 := sha256.New()
 	h2 := h1.Sum([]uint8(h0))

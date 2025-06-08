@@ -68,3 +68,9 @@ Please refer to the documentation within [.env](.env)
 3. [.backend.env](.backend.env) - Backend-specific environment variables\
 Please refer to the documentation within [.backend.env](.backend.env)
 
+# Shell
+Run this command to register the `vw` and `vwcli` commands in your shell: `source <(vmwiz-backend/vwhostrc)`
+
+Also makes sense to put this into `.bashrc` on the VM.
+
+To see the possible commands of `vw`, run `vw --help`.
