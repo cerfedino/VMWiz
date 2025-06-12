@@ -7,6 +7,21 @@ import (
 	"github.com/gorilla/mux"
 )
 
+type ErrorBundle struct {
+	Err      error
+	UserMsg  string
+	HttpCode int
+}
+
+func SimpleError(err error, msg string) *ErrorBundle {
+	log.Printf("%s: %v\n", msg, err)
+	return &ErrorBundle{
+		Err:      err,
+		UserMsg:  msg,
+		HttpCode: 500,
+	}
+}
+
 func Router() *mux.Router {
 	r := mux.NewRouter()
 

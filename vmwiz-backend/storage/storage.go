@@ -65,9 +65,13 @@ func (s *SQLVMRequest) ToVMOptions() *proxmox.VMCreationOptions {
 		RAM_MB:     int64(s.RamGB * 1024),
 		Disk_GB:    int64(s.DiskGB),
 		SSHPubkeys: s.SshPubkeys,
-		// TODO: Proper handling of notes with dedicated serializer/deserializer
-		Notes: fmt.Sprintf("nethz=TODO  uni_contact=%s  contact=%s", s.PersonalEmail, s.Email),
-		Tags:  []string{"created-by-vmwiz"},
+		Notes:      "VM is being set up, please wait...",
+		Tags:       []string{"created-by-vmwiz"},
+		DescriptionKVPairs: map[string]string{
+			"nethz":       "TODO",
+			"uni_contact": s.Email,
+			"contact":     s.PersonalEmail,
+		},
 
 		UseQemuAgent: false,
 	}
@@ -125,7 +129,7 @@ func (s *postgresstorage) InitMigrations() error {
 		s.migration.Close()
 		s.migration = nil
 	}
-	m, err := migrate.New("file://migrations/", buildConnectionString(config.AppConfig.POSTGRES_USER, config.AppConfig.POSTGRES_PASSWORD, config.AppConfig.POSTGRES_DB))
+	m, err := migrate.New(fmt.Sprintf("file://%smigrations/", config.AppConfig.PATH_PREFIX), buildConnectionString(config.AppConfig.POSTGRES_USER, config.AppConfig.POSTGRES_PASSWORD, config.AppConfig.POSTGRES_DB))
 	if err != nil {
 		return fmt.Errorf("Couldn't initialize migrations: %v", err.Error())
 	}

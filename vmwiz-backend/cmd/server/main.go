@@ -19,31 +19,7 @@ import (
 	"github.com/rs/cors"
 )
 
-// func (s *StartupChecks) String() string {
-
-// 	ret := log.Println("[-] %v\n", s.Name)
-// 	for _, result := range s.Results {
-// 		err, ok := result.(error)
-// 		if ok {
-// 			ret += fmt.Sprintf("\t[ERROR] %v\n", err.Error())
-// 			continue
-// 		}
-
-// 		if reflect.TypeOf(err) == reflect.TypeOf(errors.New("")) {
-// 			ret += fmt.Sprintf("\t[ERROR] %v\n", err.Error())
-// 		} else {
-// 			ret += fmt.Sprintf("\t[OK] %v\n", err)
-// 		}
-
-// 	}
-// 	return ret
-// }
-
 func main() {
-	// TODO: Remove in prod
-	// rand.Seed(uint64((time.Now().UnixNano())))
-	// rand.Seed(uint64(42))
-
 	err := config.AppConfig.Init()
 	if err != nil {
 		log.Fatalf("Failed to parse config: %v", err.Error())
@@ -63,7 +39,6 @@ func main() {
 	}
 
 	auth.Init()
-
 	confirmation.Init()
 
 	cors := cors.New(cors.Options{
