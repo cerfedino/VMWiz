@@ -1,3 +1,4 @@
 .env
 /infra/certs
 /server/target
+/vmwiz-backend/cli/md.cli

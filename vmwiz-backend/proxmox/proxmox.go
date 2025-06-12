@@ -317,17 +317,18 @@ func DeleteNodeVM(node string, vm_id int, destroy_unreferenced_disks bool, purge
 }
 
 type VMCreationOptions struct {
-	Template     string
-	FQDN         string
-	Reinstall    bool
-	Cores_CPU    int
-	RAM_MB       int64
-	Disk_GB      int64
-	UseQemuAgent bool
-	Tags         []string
-	Notes        string
-	SSHPubkeys   []string
-	ResourcePool string
+	Template           string
+	FQDN               string
+	Reinstall          bool
+	Cores_CPU          int
+	RAM_MB             int64
+	Disk_GB            int64
+	UseQemuAgent       bool
+	Tags               []string
+	Notes              string
+	SSHPubkeys         []string
+	ResourcePool       string
+	DescriptionKVPairs map[string]string
 }
 
 const (
@@ -687,7 +688,7 @@ Reinstall: %v
 
 	//! Creating VM configuration in Proxmox
 	log.Printf("\t[-] Generating VM configuration\n")
-	VM_CONF_TEMPLATE_PATH := "proxmox/VM.conf.tmpl"
+	VM_CONF_TEMPLATE_PATH := fmt.Sprintf("%sproxmox/VM.conf.tmpl", config.AppConfig.PATH_PREFIX)
 	uuidv7, err := uuid.NewV7()
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Failed to generate UUID: %v", err)
@@ -816,8 +817,8 @@ Reinstall: %v
 	//! Append network configuration to VM configuration
 	// ? For some reason, running the previous commands erases the network config entry, so we append it here, after running the aforementioned commands
 	log.Printf("\t[-] Appending network configuration to VM configuration\n")
-	config := fmt.Sprintf("net0: %v=%v,bridge=vmbr1,rate=125", VM_NETMODEL, VM_MACADDR)
-	command = fmt.Sprintf("echo \"%v\" >> \"%v\"", config, VM_CONFIG_PATH)
+	net0config := fmt.Sprintf("net0: %v=%v,bridge=vmbr1,rate=125", VM_NETMODEL, VM_MACADDR)
+	command = fmt.Sprintf("echo \"%v\" >> \"%v\"", net0config, VM_CONFIG_PATH)
 	stdout, err = comp_ssh.Run(command)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot append network configuration to VM configuration: %v\nOutput:\n%s", err, stdout)
@@ -990,7 +991,7 @@ Reinstall: %v
 	}
 
 	//! Prepare VM post-install script
-	POST_INSTALL_SCRIPT_TEMPLATE_PATH := "proxmox/vm_finish_script.sh.tmpl"
+	POST_INSTALL_SCRIPT_TEMPLATE_PATH := fmt.Sprintf("%sproxmox/vm_finish_script.sh.tmpl", config.AppConfig.PATH_PREFIX)
 	log.Printf("\t[-] Preparing VM post-install script from template '%v'\n", POST_INSTALL_SCRIPT_TEMPLATE_PATH)
 	vm_finish_script_content := new(bytes.Buffer)
 	post_install_template, err := template.ParseFiles(POST_INSTALL_SCRIPT_TEMPLATE_PATH)
@@ -1087,6 +1088,15 @@ Reinstall: %v
 	err = AddVMToResourcePool(vm.Vmid, options.ResourcePool)
 	if err != nil {
 		log.Printf("Failed to create VM: Add VM to resource pool: %v", err)
+	}
+
+	description := "VM created by vm-wizard\n\n"
+	for k, v := range options.DescriptionKVPairs {
+		description += fmt.Sprintf("%s=%s  \n", k, v)
+	}
+	err = OverWriteVMDescription(comp_node_name, VM_ID, description)
+	if err != nil {
+		log.Printf("Failed to set VM description: %v\n", err)
 	}
 
 	summary := VMCreationSummary{
@@ -1242,6 +1252,22 @@ func AddVMToResourcePool(vm_id int, pool string) error {
 
 type PVENodeVMConfig struct {
 	Description string `json:"description"`
+	Net0        string `json:"net0"`
+}
+
+func (cfg *PVENodeVMConfig) NetworkDeviceConfig() map[string]string {
+	pairs := strings.Split(cfg.Net0, ",")
+	out := make(map[string]string, len(pairs))
+	for _, pair := range pairs {
+		split := strings.Split(pair, "=")
+		if len(split) < 2 {
+			continue
+		}
+		key := split[0]
+		val := strings.Join(split[1:], "=")
+		out[key] = val
+	}
+	return out
 }
 
 // GET /nodes/{node}/qemu/{vmid}/config
@@ -1268,4 +1294,335 @@ func GetNodeVMConfig(node string, vmid int) (*PVENodeVMConfig, error) {
 	}
 
 	return &config.Data, nil
+}
+
+type PVENodeVMFirewallOptions struct {
+	Dhcp      int    `json:"dhcp"`
+	Enable    int    `json:"enable"`
+	IpFilter  int    `json:"ipfilter"`
+	MacFilter int    `json:"macfilter"`
+	Ndp       int    `json:"ndp"`
+	PolicyIn  string `json:"policy_in"`
+	PolicyOut string `json:"policy_out"`
+}
+
+const (
+	FIREWALL_POLICY_DROP   = "DROP"
+	FIREWALL_POLICY_ACCEPT = "ACCEPT"
+	FIREWALL_POLICY_REJECT = "REJECT"
+)
+
+type IPSetEntry struct {
+	Cidr    string `json:"cidr"`
+	Comment string `json:"comment"`
+	NoMatch int    `json:"nomatch"`
+}
+
+func GetNodeVMFirewallOptions(node string, vmid int) (*PVENodeVMFirewallOptions, error) {
+	req, client, err := proxmoxMakeRequest("GET", fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/firewall/options", node, vmid), nil)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get VM firewall options: %v", err.Error())
+	}
+	q := req.URL.Query()
+
+	req.URL.RawQuery = q.Encode()
+	body, err := proxmoxDoRequest(req, client)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get VM firewall options: %v", err.Error())
+	}
+
+	type firewallOpts struct {
+		Data PVENodeVMFirewallOptions `json:"data"`
+	}
+	var config firewallOpts
+	err = json.Unmarshal(body, &config)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get VM firewall options: %v", err.Error())
+	}
+
+	return &config.Data, nil
+}
+
+func GetIPSet(node string, vmid int, ipsetName string) (*[]IPSetEntry, error) {
+	req, client, err := proxmoxMakeRequest("GET", fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/firewall/ipset/%s", node, vmid, ipsetName), nil)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get VM IP Set: %v", err.Error())
+	}
+	q := req.URL.Query()
+
+	req.URL.RawQuery = q.Encode()
+	body, err := proxmoxDoRequest(req, client)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get VM IP Set: %v", err.Error())
+	}
+
+	type ipsetResponse struct {
+		Data *[]IPSetEntry `json:"data"`
+	}
+	var res ipsetResponse
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get VM IP Set: %v", err.Error())
+	}
+
+	return res.Data, nil
+}
+
+func GetIPFilter(node string, vmid int) (*[]IPSetEntry, error) {
+	return GetIPSet(node, vmid, "ipfilter-net0")
+}
+
+func OverWriteVMDescription(node string, vmid int, description string) error {
+	type DescUpdate struct {
+		Description string `json:"description"`
+	}
+
+	desc := DescUpdate{description}
+
+	body, err := json.Marshal(&desc)
+	if err != nil {
+		return fmt.Errorf("failed to convert VM Description Update to JSON: %v", err)
+	}
+
+	req, client, err := proxmoxMakeRequest("POST", fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid), body)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %v", err)
+	}
+
+	q := req.URL.Query()
+	req.URL.RawQuery = q.Encode()
+	req.Header.Set("Content-Type", "application/json")
+
+	_, err = proxmoxDoRequest(req, client)
+	if err != nil {
+		return fmt.Errorf("failed to update VM description: %v", err)
+	}
+
+	return nil
+}
+
+func ShutdownVMWithReason(node string, vmid int, reason string) error {
+	config, err := GetNodeVMConfig(node, vmid)
+	if err != nil {
+		return err
+	}
+
+	// add note to description when & why this was shut down
+
+	type ConfigurationUpdate struct {
+		Description string `json:"description"`
+		Autostart   int    `json:"autostart"`
+	}
+
+	desc := ConfigurationUpdate{fmt.Sprintf("%s\n\nShutdown on %s because %s", config.Description, time.Now().Format("02-Jan-2006"), reason), 0}
+
+	body, err := json.Marshal(&desc)
+	if err != nil {
+		return fmt.Errorf("failed to convert VM Description Update to JSON: %v", err)
+	}
+
+	req, client, err := proxmoxMakeRequest("POST", fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid), body)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %v", err)
+	}
+
+	q := req.URL.Query()
+	req.URL.RawQuery = q.Encode()
+	req.Header.Set("Content-Type", "application/json")
+
+	_, err = proxmoxDoRequest(req, client)
+	if err != nil {
+		return fmt.Errorf("failed to update VM description: %v", err)
+	}
+
+	// actual shutdown ...
+
+	type ShutdownParams struct {
+		ForceStop int `json:"forceStop"`
+		Timeout   int `json:"timeout"`
+	}
+
+	shutdown := ShutdownParams{1, 30}
+	body, err = json.Marshal(&shutdown)
+	if err != nil {
+		return err
+	}
+
+	req, client, err = proxmoxMakeRequest("POST", fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/status/shutdown", node, vmid), body)
+	if err != nil {
+		return fmt.Errorf("failed to make shutdown request.: %v", err)
+	}
+
+	q = req.URL.Query()
+	req.URL.RawQuery = q.Encode()
+	req.Header.Set("Content-Type", "application/json")
+
+	_, err = proxmoxDoRequest(req, client)
+	if err != nil {
+		return fmt.Errorf("failed to shutdown VM %d: %v", vmid, err)
+	}
+
+	return nil
+}
+
+type VMWarning struct {
+	VM       PVEClusterVM
+	Category string
+	Detail   string
+}
+
+const (
+	WARN_INTERNAL      = "INTERNAL"
+	WARN_LATENT_CHANGE = "LATENT_CHANGE"
+	WARN_TODO          = "TODO"
+	WARN_IPFILTER      = "IP_FILTER"
+)
+
+type PendingChange struct {
+	key     string
+	current string
+	pending string
+}
+
+func PendingChanges(node string, vmid int) ([]PendingChange, error) {
+	req, client, err := proxmoxMakeRequest("GET", fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/pending", node, vmid), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	q := req.URL.Query()
+	req.URL.RawQuery = q.Encode()
+
+	body, err := proxmoxDoRequest(req, client)
+	if err != nil {
+		return nil, err
+	}
+
+	type pending struct {
+		Data []map[string]any `json:"data"`
+	}
+	var p pending
+	err = json.Unmarshal(body, &p)
+	if err != nil {
+		return nil, err
+	}
+
+	changes := []PendingChange(nil)
+
+	for _, pv := range p.Data {
+		pending, isPending := pv["pending"]
+		if isPending {
+			key, _ := pv["key"]
+			current, _ := pv["value"]
+			changes = append(changes, PendingChange{fmt.Sprintf("%v", key), fmt.Sprintf("%v", current), fmt.Sprintf("%v", pending)})
+		}
+	}
+
+	return changes, nil
+}
+
+func checkLatentVMConfigs(vm PVEClusterVM, warnings []VMWarning) []VMWarning {
+	pending, err := PendingChanges(vm.Node, vm.Vmid)
+	if err != nil {
+		warnings = append(warnings, VMWarning{vm, WARN_INTERNAL, fmt.Sprintf("Failed to retrieve pending changes: %v", err)})
+	} else {
+		for _, change := range pending {
+			warnings = append(warnings, VMWarning{vm, WARN_LATENT_CHANGE, fmt.Sprintf("change in %s: old[%s] new[%s]", change.key, change.current, change.pending)})
+		}
+	}
+	return warnings
+}
+
+var todo_matcher regexp.Regexp = *regexp.MustCompile("(?i)TODO[^A-Z]|[^A-Z]TODO")
+
+func checkTodosInVMDescription(vm PVEClusterVM, warnings []VMWarning) []VMWarning {
+	cfg, err := GetNodeVMConfig(vm.Node, vm.Vmid)
+	if err != nil {
+		warnings = append(warnings, VMWarning{vm, WARN_INTERNAL, fmt.Sprintf("Failed to retrieve config: %v", err)})
+	} else {
+		lines := strings.Split(cfg.Description, "\n")
+		for _, line := range lines {
+			if todo_matcher.MatchString(line) {
+				warnings = append(warnings, VMWarning{vm, WARN_TODO, line})
+			}
+		}
+	}
+	return warnings
+}
+
+func checkVMFirewallOptions(vm PVEClusterVM, warnings []VMWarning) []VMWarning {
+	opts, err := GetNodeVMFirewallOptions(vm.Node, vm.Vmid)
+	if err != nil {
+		warnings = append(warnings, VMWarning{vm, WARN_INTERNAL, fmt.Sprintf("Failed to retrieve VM firewall options: %v", err)})
+		return warnings
+	}
+
+	warn := func(msg string) {
+		warnings = append(warnings, VMWarning{vm, WARN_IPFILTER, msg})
+	}
+
+	if opts.PolicyIn != FIREWALL_POLICY_ACCEPT {
+		warn(fmt.Sprintf("policy_in should be %s, is %s", FIREWALL_POLICY_ACCEPT, opts.PolicyIn))
+	}
+
+	if opts.PolicyOut != FIREWALL_POLICY_ACCEPT {
+		warn(fmt.Sprintf("policy_out should be %s, is %s", FIREWALL_POLICY_ACCEPT, opts.PolicyOut))
+	}
+
+	if opts.Enable != 1 {
+		warn("Firewall should be enabled")
+	}
+
+	if opts.IpFilter != 1 {
+		warn("IP Filter should be enabled")
+	}
+
+	cfg, err := GetNodeVMConfig(vm.Node, vm.Vmid)
+	if err != nil {
+		warnings = append(warnings, VMWarning{vm, WARN_INTERNAL, fmt.Sprintf("Failed to retrieve VM config: %v", err)})
+		return warnings
+	}
+
+	net_cfg := cfg.NetworkDeviceConfig()
+	fw_enable_str, fw_enable_exists := net_cfg["firewall"]
+	fw_enable := fw_enable_exists && fw_enable_str == "1"
+
+	if !fw_enable {
+		warn("Firewall needs to be enabled in the network device configuration (net0)")
+	}
+
+	// TODO: check if ipfilter has entries
+	ipset, err := GetIPFilter(vm.Node, vm.Vmid)
+	if err != nil || ipset == nil {
+		warnings = append(warnings, VMWarning{vm, WARN_INTERNAL, fmt.Sprintf("Failed to retrieve VM IP Filter: %v", err)})
+		return warnings
+	}
+
+	if len(*ipset) != 2 {
+		warn(fmt.Sprintf("Expected 2 IPs in IPFilter for VM, got %d", len(*ipset)))
+	}
+
+	return warnings
+}
+
+func CheckVM(vm PVEClusterVM, warnings []VMWarning) []VMWarning {
+	warnings = checkLatentVMConfigs(vm, warnings)
+	warnings = checkTodosInVMDescription(vm, warnings)
+	warnings = checkVMFirewallOptions(vm, warnings)
+	return warnings
+}
+
+func CheckAllVMs() []VMWarning {
+	warnings := []VMWarning(nil)
+
+	vms, err := GetAllClusterVMs()
+	if err != nil {
+		log.Printf("Failed to fetch cluster VMs: %v\n", err)
+	}
+
+	for _, vm := range *vms {
+		warnings = CheckVM(vm, warnings)
+	}
+
+	return warnings
 }

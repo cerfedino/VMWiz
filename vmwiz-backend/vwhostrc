@@ -1,0 +1,14 @@
+# put the following line somewhere in a .bashrc or .zshrc or whatever shell's rc you're using:
+#
+# source <(path/to/vmwiz/vmwiz-backend/vwhostrc)
+#
+# this will register the aliases `vw` and `vwcli` to interface with the VM wizard.
+
+
+compose_file="$(realpath "$(dirname "$0")/../docker/docker-compose.yml")"
+basecmd="docker compose --file $compose_file run --build --interactive --volume "$HOME:$HOME" --rm --workdir \$(pwd) vmwiz-cli"
+
+cat <<EOF
+alias vwcli='$basecmd bash --rcfile /app/vwrc'
+alias vw='$basecmd /app/vwcli'
+EOF
