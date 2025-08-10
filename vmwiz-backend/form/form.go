@@ -41,6 +41,7 @@ type Form_validation struct {
 	Cores_err         string `json:"cores"`
 	RamGB_err         string `json:"ramGB"`
 	DiskGB_err        string `json:"diskGB"`
+	Explanation_err   string `json:"explanation"`
 
 	SshPubkeys_err []string `json:"sshPubkey"`
 
@@ -57,6 +58,18 @@ type form_allowed_values struct {
 	Cores  minmax   `json:"cores"`
 	RamGB  minmax   `json:"ramGB"`
 	DiskGB minmax   `json:"diskGB"`
+}
+
+type needs_explanation_values struct {
+	Cores  int `json:"cores"`
+	RamGB  int `json:"ramGB"`
+	DiskGB int `json:"diskGB"`
+}
+
+var NEEDS_EXPLANATION needs_explanation_values = needs_explanation_values{
+	Cores:  5, //cores aren't really a problem anyway in theory
+	RamGB:  4,
+	DiskGB: 30, //after 30GB we should also ask about ssd vs hdd
 }
 
 var ALLOWED_VALUES form_allowed_values = form_allowed_values{
@@ -159,6 +172,11 @@ func (f *Form) Validate() (Form_validation, bool) {
 
 	if !f.Accept_terms {
 		validation.Accept_terms_err = "You must read and accept the terms"
+		err = true
+	}
+
+	if (f.Cores > NEEDS_EXPLANATION.Cores || f.RamGB > NEEDS_EXPLANATION.RamGB || f.DiskGB > NEEDS_EXPLANATION.DiskGB) && f.Comments == "" {
+		validation.Explanation_err = "Please provide an explanation for your request, as it exceeds the standard limits such that we can make sure you don't request more than you actually need."
 		err = true
 	}
 

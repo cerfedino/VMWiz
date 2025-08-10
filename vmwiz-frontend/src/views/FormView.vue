@@ -271,6 +271,7 @@
                 v-model="form_values.current.comments"
                 persistent-placeholder
                 placeholder="Do you have any special wishes or requirements?"
+                :rules="[() => form_values.validation_errors.explanation || true]"
             />
 
             <v-checkbox
@@ -388,6 +389,7 @@ export default {
                     cores: "",
                     ramGB: "",
                     diskGB: "",
+                    explanation: "",
                     sshPubkey: "",
                     accept_terms: "",
                 },
