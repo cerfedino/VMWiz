@@ -52,6 +52,12 @@ func AcceptVMRequest(id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to create VM")
 	}
 
+	//send mail to the user
+	err = notifier.SendEmail("VSOS VM Creation", []byte(summary.String()), []string{request.Email})
+	if err != nil {
+		return SimpleError(err, "Failed to send email")
+	}
+
 	successMsg := fmt.Sprintf("Request %v: VM %s created successfully:\n%s", request.ID, opts.FQDN, "```\n"+summary.String()+"\n```")
 	fmt.Println(successMsg)
 
