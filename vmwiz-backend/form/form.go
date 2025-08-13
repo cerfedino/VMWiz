@@ -176,7 +176,7 @@ func (f *Form) Validate() (Form_validation, bool) {
 	}
 
 	if (f.Cores > NEEDS_EXPLANATION.Cores || f.RamGB > NEEDS_EXPLANATION.RamGB || f.DiskGB > NEEDS_EXPLANATION.DiskGB) && f.Comments == "" {
-		validation.Explanation_err = "Please provide an explanation for your request, as it exceeds the standard limits such that we can make sure you don't request more than you actually need."
+		validation.Explanation_err = "Please provide an explanation for your request, as it exceeds the standard limits. We can always increase resources later if needed."
 		err = true
 	}
 
