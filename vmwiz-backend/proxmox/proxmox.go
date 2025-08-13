@@ -873,8 +873,8 @@ Reinstall: %v
 	for scanner.Scan() {
 		lines_read++
 		line := scanner.Text()
-		if time.Now().Sub(last_line_timestamp) >= 30*time.Second {
-			log.Printf("\t\t VM still booting. Elapsed: %v seconds", int(time.Now().Sub(vm_boot_start_timestamp).Seconds()))
+		if time.Since(last_line_timestamp) >= 30*time.Second {
+			log.Printf("\t\t VM still booting. Elapsed: %v seconds", int(time.Since(vm_boot_start_timestamp).Seconds()))
 			last_line_timestamp = time.Now()
 		}
 		// Append to file
@@ -887,7 +887,7 @@ Reinstall: %v
 			break
 		}
 	}
-	log.Println("\t\t [X] VM has completed first boot in ", int(time.Now().Sub(vm_boot_start_timestamp).Seconds()), " seconds")
+	log.Println("\t\t [X] VM has completed first boot in ", int(time.Since(vm_boot_start_timestamp).Seconds()), " seconds")
 
 	// Check for any scanning error
 	if err := scanner.Err(); err != nil {
