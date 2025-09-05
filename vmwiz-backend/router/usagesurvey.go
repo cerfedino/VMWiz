@@ -126,7 +126,7 @@ func addAllPollRoutes(r *mux.Router) {
 			}
 
 			resp := response{
-				ConfirmationToken: *(token.(*string)),
+				ConfirmationToken: (token.(string)),
 			}
 			respJSON, err := json.Marshal(resp)
 			if err != nil {
@@ -310,7 +310,7 @@ func addAllPollRoutes(r *mux.Router) {
 			}
 
 			resp := response{
-				ConfirmationToken: *(token.(*string)),
+				ConfirmationToken: (token.(string)),
 			}
 			respJSON, err := json.Marshal(resp)
 			if err != nil {
@@ -353,7 +353,7 @@ func addAllPollRoutes(r *mux.Router) {
 			}
 
 			resp := response{
-				ConfirmationToken: *(token.(*string)),
+				ConfirmationToken: (token.(string)),
 			}
 			respJSON, err := json.Marshal(resp)
 			if err != nil {
