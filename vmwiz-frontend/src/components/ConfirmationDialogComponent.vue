@@ -42,25 +42,15 @@
             </v-container>
         </template>
         <template v-slot:content>
-            <v-expansion-panels>
+            <v-expansion-panels v-model="panels">
                 <v-expansion-panel>
                     <v-expansion-panel-title>
                         Request details
                     </v-expansion-panel-title>
                     <v-expansion-panel-text>
-                        <b>Method</b>
-                        <p class="mb-2">{{ method }}</p>
-                        <b>URL</b>
                         <p class="mb-2">
-                            {{ this.$store.getters.buildBackendURL(URL) }}
+                            {{ URL }}
                         </p>
-                        <b>Headers</b>
-                        <br />
-                        <pre class="mb-2"
-                            >{{ JSON.stringify(headers, null, 2) }}
-                        </pre>
-                        <b>Body</b>
-                        <br />
                         <pre class="mb-2"
                             >{{ JSON.stringify(body, null, 2) }}
                         </pre>
@@ -78,6 +68,8 @@
 </template>
 
 <script>
+import { ref } from "vue";
+
 import DialogComponent from "@/components/DialogComponent.vue";
 
 import { mdiArrowRightBold } from "@mdi/js";
@@ -89,6 +81,7 @@ export default {
             mdiArrowRightBold,
 
             dialogModel: false,
+            panels: ref([0]),
 
             loading: false,
             loaderColor: "primary",
