@@ -237,6 +237,35 @@ func (v *vw) Sanity() {
 	}
 }
 
+// get a list of all e-mail addresses
+func (v *vw) Emails() {
+	vms, _ := proxmox.GetAllClusterVMs()
+	emails := []string(nil)
+	for _, vm := range *vms {
+		desc, err := proxmox.GetNodeVMConfig(vm.Node, vm.Vmid)
+		if err != nil {
+			continue
+		}
+		emails = proxmox.GetEmails(*desc, emails)
+	}
+
+	for _, email := range emails {
+		fmt.Println(email)
+	}
+}
+
+// get all VM descriptions
+func (v *vw) Descriptions() {
+	vms, _ := proxmox.GetAllClusterVMs()
+	for _, vm := range *vms {
+		desc, err := proxmox.GetNodeVMConfig(vm.Node, vm.Vmid)
+		if err != nil {
+			continue
+		}
+		fmt.Printf("%s\n%s\n\n", vm.Name, desc.Description)
+	}
+}
+
 //go:generate go tool cligen md.cli
 //go:embed md.cli
 var md []byte
