@@ -1296,6 +1296,28 @@ func GetNodeVMConfig(node string, vmid int) (*PVENodeVMConfig, error) {
 	return &config.Data, nil
 }
 
+func GetEmails(cfg PVENodeVMConfig, emails []string) []string {
+	lines := strings.Split(cfg.Description, "\n")
+	for _, line := range lines {
+		kv := strings.Split(line, "=")
+		if len(kv) < 2 {
+			continue
+		}
+		key := kv[0]
+		if !strings.Contains(key, "contact") {
+			continue
+		}
+
+		email := kv[1]
+		email = strings.ReplaceAll(email, "<", "")
+		email = strings.ReplaceAll(email, ">", "")
+		email = strings.ReplaceAll(email, " ", "")
+
+		emails = append(emails, email)
+	}
+	return emails
+}
+
 type PVENodeVMFirewallOptions struct {
 	Dhcp      int    `json:"dhcp"`
 	Enable    int    `json:"enable"`

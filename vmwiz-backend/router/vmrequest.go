@@ -53,7 +53,7 @@ func AcceptVMRequest(id int64) *ErrorBundle {
 	}
 
 	//send mail to the user
-	err = notifier.SendEmail("VSOS VM Creation", []byte(summary.String()), []string{request.Email})
+	err = notifier.SendEmail("VSOS VM Creation", []byte(summary.String()), []string{request.Email, config.AppConfig.SMTP_REPLYTO})
 	if err != nil {
 		return SimpleError(err, "Failed to send email")
 	}

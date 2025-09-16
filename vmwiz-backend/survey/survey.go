@@ -215,7 +215,7 @@ func sendVMUsageSurvey(surveyId int64, surveyEmails []storage.SQLUsageSurveyEmai
 		}
 
 		// TODO: Add startup check for checking wether we can send emails
-		err = notifier.SendEmail("VSOS VM Usage Survey: Response needed", mail_content.Bytes(), []string{surveyEmail.Recipient})
+		err = notifier.SendEmail("VSOS: Do you still need your VM?", mail_content.Bytes(), []string{surveyEmail.Recipient})
 		if err != nil {
 			log.Printf("Failed send VM usage survey: Failed to send email: %v", err)
 			continue
