@@ -289,7 +289,7 @@
                             href="https://rechtssammlung.sp.ethz.ch/Dokumente/203.21.pdf"
                         >
                             Benutzungsordnung für Informations- und
-                            Kommunikationstechnologie an der ETH Zürich (BOT)
+                            Kommunikationstechnologie an der ETH Zürich (BOT) (only accessible from ETH network/VPN!)
                         </a>
                     </p>
                 </template>
