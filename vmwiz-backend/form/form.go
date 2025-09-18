@@ -73,7 +73,7 @@ var NEEDS_EXPLANATION needs_explanation_values = needs_explanation_values{
 }
 
 var ALLOWED_VALUES form_allowed_values = form_allowed_values{
-	Images: []string{proxmox.IMAGE_UBUNTU_22_04, proxmox.IMAGE_UBUNTU_24_04, proxmox.IMAGE_DEBIAN_12, proxmox.IMAGE_DEBIAN_11},
+	Images: []string{proxmox.IMAGE_UBUNTU_22_04, proxmox.IMAGE_UBUNTU_24_04, proxmox.IMAGE_DEBIAN_12, proxmox.IMAGE_DEBIAN_13},
 	Cores:  minmax{Min: 1, Max: 8},
 	RamGB:  minmax{Min: 2, Max: 16},
 	DiskGB: minmax{Min: 15, Max: 100},

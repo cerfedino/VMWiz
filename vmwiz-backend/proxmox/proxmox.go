@@ -334,8 +334,8 @@ type VMCreationOptions struct {
 const (
 	IMAGE_UBUNTU_22_04 = "Ubuntu 22.04 - Jammy Jellyfish"
 	IMAGE_UBUNTU_24_04 = "Ubuntu 24.04 - Noble Numbat"
+	IMAGE_DEBIAN_13    = "Debian 13 - Trixie"
 	IMAGE_DEBIAN_12    = "Debian 12 - Bookworm"
-	IMAGE_DEBIAN_11    = "Debian 11 - Bullseye"
 )
 
 type VMCreationSummary struct {
@@ -416,12 +416,12 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, *VMCreationSummary, error)
 	//! Choosing appropriate user and first boot line
 	log.Println("[-] Choosing appropriate user and first boot line based on template")
 	switch options.Template {
-	case IMAGE_DEBIAN_11:
-		options.Template = "bullseye"
-		ssh_user = "debian"
-		first_boot_line = "Cloud-init .* finished"
 	case IMAGE_DEBIAN_12:
 		options.Template = "bookworm"
+		ssh_user = "debian"
+		first_boot_line = "Cloud-init .* finished"
+	case IMAGE_DEBIAN_13:
+		options.Template = "trixie"
 		ssh_user = "debian"
 		first_boot_line = "Cloud-init .* finished"
 	case IMAGE_UBUNTU_22_04:
@@ -492,7 +492,7 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, *VMCreationSummary, error)
 	//! Preparing sources.list for VM
 	log.Println("[-] Preparing apt sources for VM")
 	var SOURCES_LIST string
-	if options.Template == "bullseye" || options.Template == "bookworm" {
+	if options.Template == "trixie" || options.Template == "bookworm" {
 		SOURCES_LIST = fmt.Sprintf(`
 		deb http://ftp.ch.debian.org/debian %v main
 		#deb-src http://ftp.ch.debian.org/debian %v main
