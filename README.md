@@ -14,6 +14,8 @@
     - [7. Adjust SMTP-related values in .backend.env](#7-adjust-smtp-related-values-in-backendenv)
     - [8. Bring up the stack](#8-bring-up-the-stack)
 - [Environment variables](#environment-variables)
+- [Shell](#shell)
+- [Proxmox](#proxmox)
 ---
 
 # Application components
@@ -74,3 +76,10 @@ Run this command to register the `vw` and `vwcli` commands in your shell: `sourc
 Also makes sense to put this into `.bashrc` on the VM.
 
 To see the possible commands of `vw`, run `vw --help`.
+
+# Proxmox
+To update to a new OS version:
+- ssh onto `cm-lee.sos.ethz.ch`
+- `cd /srv/cnfs/cloudinit`
+- change `cloudinit-images.toml` to add the new version
+- run `update-cloudinit-images -c cloudinit-images.toml`
