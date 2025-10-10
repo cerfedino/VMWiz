@@ -231,10 +231,11 @@ func addVMRequestRoutes(r *mux.Router) {
 
 	r.Methods("POST").Path("/api/vmrequest/edit").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
-			ID         int `json:"id"`
-			Cores_cpu  int `json:"cores_cpu"`
-			Ram_gb     int `json:"ram_gb"`
-			Storage_gb int `json:"storage_gb"`
+			Hostname   string `json:"hostname"`
+			ID         int    `json:"id"`
+			Cores_cpu  int    `json:"cores_cpu"`
+			Ram_gb     int    `json:"ram_gb"`
+			Storage_gb int    `json:"storage_gb"`
 		}
 
 		var body bodyS
@@ -260,6 +261,9 @@ func addVMRequestRoutes(r *mux.Router) {
 		}
 		if body.Storage_gb != 0 {
 			request.DiskGB = body.Storage_gb
+		}
+		if body.Hostname != "" {
+			request.Hostname = body.Hostname
 		}
 
 		err = storage.DB.UpdateVMRequest(*request)

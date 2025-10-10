@@ -182,6 +182,7 @@ export default {
                     "Content-Type": "application/json",
                 },
                 JSON.stringify({
+                    hostname: payload.Hostname,
                     id: id,
                     cores_cpu: payload.Cores,
                     ram_gb: payload.RamGB,
