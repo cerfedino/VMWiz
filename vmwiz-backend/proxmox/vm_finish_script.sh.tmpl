@@ -99,6 +99,25 @@ systemctl enable fstrim.timer || true
 apt install -y qemu-guest-agent
 {{end}}
 
+MOTD_BANNER=$(cat <<EOF
+  ______   ______   ______  ________ ________ __    __ 
+ /      \ /      \ /      \|        \        \  \  |  \
+|  ▓▓▓▓▓▓\  ▓▓▓▓▓▓\  ▓▓▓▓▓▓\ ▓▓▓▓▓▓▓▓\▓▓▓▓▓▓▓▓ ▓▓  | ▓▓
+| ▓▓___\▓▓ ▓▓  | ▓▓ ▓▓___\▓▓ ▓▓__      | ▓▓  | ▓▓__| ▓▓
+ \▓▓    \| ▓▓  | ▓▓\▓▓    \| ▓▓  \     | ▓▓  | ▓▓    ▓▓
+ _\▓▓▓▓▓▓\ ▓▓  | ▓▓_\▓▓▓▓▓▓\ ▓▓▓▓▓     | ▓▓  | ▓▓▓▓▓▓▓▓
+|  \__| ▓▓ ▓▓__/ ▓▓  \__| ▓▓ ▓▓_____   | ▓▓  | ▓▓  | ▓▓
+ \▓▓    ▓▓\▓▓    ▓▓\▓▓    ▓▓ ▓▓     \  | ▓▓  | ▓▓  | ▓▓
+  \▓▓▓▓▓▓  \▓▓▓▓▓▓  \▓▓▓▓▓▓ \▓▓▓▓▓▓▓▓   \▓▓   \▓▓   \▓▓
+
+You have to follow the ETH BOT (https://ethz.ch/content/dam/ethz/special-interest/itet/micro-dc-dam/documents/203.21.pdf)
+No making money, no VPN, nothing illegal. Read TOS of things before you do stupid stuff like use an ASVZ bot... Keep your system and services up to date!
+EOF
+)
+
+echo \"$MOTD_BANNER\" | sudo tee /etc/motd > /dev/null
+
+
 
 # Script removes itself
 rm -- "$0"
