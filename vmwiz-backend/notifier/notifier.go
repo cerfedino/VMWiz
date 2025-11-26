@@ -98,8 +98,10 @@ func SendEmail(subject string, body []byte, to []string) error {
 	if SMTP_CLIENT.smtp_auth == nil {
 		return fmt.Errorf("SMTP not initialized")
 	}
+
 	// Body is formatted according to RFC 822
-	mailbody := fmt.Sprintf("Subject: %s\r\nFrom: %s\r\nTo: %s\r\nReply-To: %s\r\n%s\r\n", subject, config.AppConfig.SMTP_SENDER, strings.Join(to, ","), config.AppConfig.SMTP_REPLYTO, body)
+	date := time.Now().Format(time.RFC1123Z)
+	mailbody := fmt.Sprintf("Subject: %s\r\nFrom: %s\r\nTo: %s\r\nReply-To: %s\r\nDate: %s\r\n%s\r\n", subject, config.AppConfig.SMTP_SENDER, strings.Join(to, ","), config.AppConfig.SMTP_REPLYTO, date, body)
 	err = smtp.SendMail(config.AppConfig.SMTP_HOST+":"+config.AppConfig.SMTP_PORT, SMTP_CLIENT.smtp_auth, config.AppConfig.SMTP_SENDER, to, []byte(mailbody))
 	if err != nil {
 		return fmt.Errorf("Failed to send email: %v", err)
