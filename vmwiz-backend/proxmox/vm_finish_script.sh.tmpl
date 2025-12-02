@@ -101,7 +101,7 @@ apt install -y qemu-guest-agent
 
 MOTD_BANNER=$(cat <<EOF
   ______   ______   ______  ________ ________ __    __ 
- /      \ /      \ /      \|        \        \  \  |  \
+ /      \ /      \ /      \|        \        \  \  |  \\
 |  ▓▓▓▓▓▓\  ▓▓▓▓▓▓\  ▓▓▓▓▓▓\ ▓▓▓▓▓▓▓▓\▓▓▓▓▓▓▓▓ ▓▓  | ▓▓
 | ▓▓___\▓▓ ▓▓  | ▓▓ ▓▓___\▓▓ ▓▓__      | ▓▓  | ▓▓__| ▓▓
  \▓▓    \| ▓▓  | ▓▓\▓▓    \| ▓▓  \     | ▓▓  | ▓▓    ▓▓
@@ -115,7 +115,7 @@ No making money, no VPN, nothing illegal. Read TOS of things before you do stupi
 EOF
 )
 
-echo \"$MOTD_BANNER\" | sudo tee /etc/motd > /dev/null
+echo "$MOTD_BANNER" | sudo tee /etc/motd > /dev/null
 
 
 
