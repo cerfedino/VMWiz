@@ -332,10 +332,8 @@ type VMCreationOptions struct {
 }
 
 const (
-	IMAGE_UBUNTU_22_04 = "Ubuntu 22.04 - Jammy Jellyfish"
 	IMAGE_UBUNTU_24_04 = "Ubuntu 24.04 - Noble Numbat"
 	IMAGE_DEBIAN_13    = "Debian 13 - Trixie"
-	IMAGE_DEBIAN_12    = "Debian 12 - Bookworm"
 )
 
 type VMCreationSummary struct {
