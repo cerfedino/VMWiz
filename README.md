@@ -1,3 +1,13 @@
+
+<h1 style="text-align:center"> VMWiz 🎩🪄 </h1>
+
+VMWiz is a Go + Vue3 tool by VSOS @ ETH Zurich that provisions and manages VMs on our Proxmox cluster. 
+
+Students and organizations submit VM requests to VMWiz. Requests are audited by admins. VMWiz handles creation of new VMs, sets up DNS and reserves a public IP through ETH Zurich’s network stack, and helps clean up unused VMs by emailing users for confirmation.
+
+At the moment of writing (2026.01.30) VSOS manages 260+ VMs free of charge for students and organizations using VMWiz.
+
+
 <img width="100%" src="./resources/form.png" />
 
 ---
