@@ -414,17 +414,9 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, *VMCreationSummary, error)
 	//! Choosing appropriate user and first boot line
 	log.Println("[-] Choosing appropriate user and first boot line based on template")
 	switch options.Template {
-	case IMAGE_DEBIAN_12:
-		options.Template = "bookworm"
-		ssh_user = "debian"
-		first_boot_line = "Cloud-init .* finished"
 	case IMAGE_DEBIAN_13:
 		options.Template = "trixie"
 		ssh_user = "debian"
-		first_boot_line = "Cloud-init .* finished"
-	case IMAGE_UBUNTU_22_04:
-		options.Template = "jammy"
-		ssh_user = "ubuntu"
 		first_boot_line = "Cloud-init .* finished"
 	case IMAGE_UBUNTU_24_04:
 		options.Template = "noble"
