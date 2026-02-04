@@ -1,12 +1,10 @@
-FROM golang:1.23.7-alpine3.21
+# backend/Dockerfile
+FROM alpine:3.21
 
+RUN apk add --no-cache ca-certificates
 WORKDIR /app
-COPY . .
 
+ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/vmwiz-backend /app/vmwiz-backend
 
-RUN go mod download
-
-RUN go build -o "vmwiz-backend"
-RUN ls
-
-CMD ["/app/vmwiz-backend"]
+ENTRYPOINT ["/app/vmwiz-backend"]

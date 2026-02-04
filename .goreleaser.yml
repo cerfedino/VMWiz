@@ -1,0 +1,79 @@
+version: 2
+
+# go-semantic-release already creates a release.
+release:
+  disable: true
+
+builds:
+  - id: backend
+    dir: vmwiz-backend
+    main: ./cmd/server
+    binary: vmwiz-backend
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+      - -X main.commit={{ .Commit }}
+      - -X main.date={{ .Date }}
+
+archives: []
+checksum:
+  disable: true
+changelog:
+  disable: true
+
+dockers_v2:
+  - id: backend
+    dockerfile: vmwiz-backend/Dockerfile.prod
+    ids: []
+    images:
+      - "{{ .Env.CI_REGISTRY_IMAGE }}/backend"
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .Prerelease }}latest{{ end }}"
+
+    platforms:
+      - linux/amd64
+    sbom: false
+    labels:
+      "org.opencontainers.image.title": "{{ .ProjectName }}- backend"
+      "org.opencontainers.image.created": "{{ .Date }}"
+      "org.opencontainers.image.revision": "{{ .FullCommit }}"
+      "org.opencontainers.image.version": "{{ .Version }}"
+      "org.opencontainers.image.source": "{{ .GitURL }}"
+    build_args:
+      VERSION: "{{ .Version }}"
+      COMMIT: "{{ .Commit }}"
+      DATE: "{{ .Date }}"
+
+  # Frontend
+  - id: frontend
+    dockerfile: vmwiz-frontend/Dockerfile.prod
+    ids: []
+    images:
+      - "{{ .Env.CI_REGISTRY_IMAGE }}/frontend"
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .Prerelease }}latest{{ end }}"
+
+    platforms:
+      - linux/amd64
+    sbom: false
+    # GoReleaser builds in a temporary context; include the frontend directory explicitly.
+    extra_files:
+      - vmwiz-frontend
+    labels:
+      "org.opencontainers.image.title": "{{ .ProjectName }}-frontend"
+      "org.opencontainers.image.created": "{{ .Date }}"
+      "org.opencontainers.image.revision": "{{ .FullCommit }}"
+      "org.opencontainers.image.version": "{{ .Version }}"
+      "org.opencontainers.image.source": "{{ .GitURL }}"
+    build_args:
+      VERSION: "{{ .Version }}"
+      COMMIT: "{{ .Commit }}"
+      DATE: "{{ .Date }}"
