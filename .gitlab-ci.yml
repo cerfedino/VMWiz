@@ -57,6 +57,7 @@ semrel-release:
         - vmwiz-backend/**
         - vmwiz-frontend/**
         - .gitlab-ci.yml
+        - .goreleaser.yml
 
 
 

@@ -4,6 +4,8 @@ FROM alpine:3.21
 RUN apk add --no-cache ca-certificates
 WORKDIR /app
 
+
+COPY vmwiz-backend/migrations /app/migrations
 ARG TARGETPLATFORM
 COPY $TARGETPLATFORM/vmwiz-backend /app/vmwiz-backend
 
