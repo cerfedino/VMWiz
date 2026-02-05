@@ -53,6 +53,11 @@ semrel-release:
     - ./semantic-release --allow-no-changes --allow-initial-development-versions
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - vmwiz-backend/**
+        - vmwiz-frontend/**
+        - .gitlab-ci.yml
+
 
 
 goreleaser-images:
