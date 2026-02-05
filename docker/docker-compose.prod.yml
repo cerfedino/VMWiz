@@ -24,7 +24,7 @@ services:
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
     env_file:
-      - ../.env
+      - ../.prod.env
 
   vmwiz-backend:
     container_name: vmwiz-backend
@@ -36,16 +36,14 @@ services:
       - 8081
     networks:
       - vmwiz-internal
-    #command: ["air"]
     volumes:
-      #- ../vmwiz-backend:/app
       - ./ssh:/root/.ssh
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
     env_file:
-      - ../.env
-      - ../.db.env
-      - ../.backend.env
+      - ../.prod.env
+      - ../.db.prod.env
+      - ../.backend.prod.env
     depends_on:
       vmwiz-db:
         condition: service_healthy
@@ -64,9 +62,9 @@ services:
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
     env_file:
-      - ../.env
-      - ../.db.env
-      - ../.backend.env
+      - ../.prod.env
+      - ../.db.prod.env
+      - ../.backend.prod.env
   
   vmwiz-notifier:
     container_name: vmwiz-notifier
@@ -91,14 +89,14 @@ services:
     restart: unless-stopped
     networks:
       - vmwiz-internal
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     volumes:
       - ./data/postgres/:/var/lib/postgresql/
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
     env_file:
-      - ../.db.env
+      - ../.db.prod.env
     healthcheck:
       test: [
         "CMD-SHELL", 
@@ -113,9 +111,7 @@ services:
 
   vmwiz-frontend:
     container_name: vmwiz-frontend
-    build: 
-      context: ../vmwiz-frontend
-      dockerfile: Dockerfile.prod
+    image: docker.git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/frontend:latest
     restart: unless-stopped
     expose:
       - 8080
@@ -123,11 +119,7 @@ services:
     networks:
       - vmwiz-internal
     volumes:
-      # - ../vmwiz-frontend:/app
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
     working_dir: /app
-    #command: /bin/sh -c "yarn install && yarn run serve"
-    #env_file:
-    #  - ../.env
