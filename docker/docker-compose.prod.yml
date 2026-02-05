@@ -28,9 +28,7 @@ services:
 
   vmwiz-backend:
     container_name: vmwiz-backend
-    build: 
-      context: ../vmwiz-backend
-      dockerfile: Dockerfile.prod
+    image: docker.git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/backend:latest
     restart: unless-stopped
     expose:
       - 8081
