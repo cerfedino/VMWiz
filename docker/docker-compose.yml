@@ -1,4 +1,4 @@
-name: "vmwiz-prod"
+name: "vmwiz-dev"
 
 networks:
   vmwiz-internal:
@@ -30,15 +30,13 @@ services:
     container_name: vmwiz-backend
     build: 
       context: ../vmwiz-backend
-      dockerfile: Dockerfile.prod
+      dockerfile: Dockerfile.dev
     restart: unless-stopped
-    expose:
-      - 8081
     networks:
       - vmwiz-internal
-    #command: ["air"]
+    command: ["air"]
     volumes:
-      #- ../vmwiz-backend:/app
+      - ../vmwiz-backend:/app
       - ./ssh:/root/.ssh
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
@@ -50,23 +48,23 @@ services:
       vmwiz-db:
         condition: service_healthy
 
-  vmwiz-cli:
-    container_name: vmwiz-cli
-    build:
-      context: ../vmwiz-backend
-      dockerfile: Dockerfile.cli
-    restart: no
-    networks:
-      - vmwiz-internal
-    command: ["/app/vwcli"]
-    volumes:
-      - ./ssh:/root/.ssh
-      - /etc/timezone:/etc/timezone
-      - /etc/localtime:/etc/localtime
-    env_file:
-      - ../.env
-      - ../.db.env
-      - ../.backend.env
+#   vmwiz-cli:
+#     container_name: vmwiz-cli
+#     build:
+#       context: ../vmwiz-backend
+#       dockerfile: Dockerfile.cli
+#     restart: no
+#     networks:
+#       - vmwiz-internal
+#     command: ["/app/vwcli"]
+#     volumes:
+#       - ./ssh:/root/.ssh
+#       - /etc/timezone:/etc/timezone
+#       - /etc/localtime:/etc/localtime
+#     env_file:
+#       - ../.env
+#       - ../.db.env
+#       - ../.backend.env
   
   vmwiz-notifier:
     container_name: vmwiz-notifier
@@ -78,8 +76,6 @@ services:
       - ${PWD}/notifier_config.yml:/config/default.yml
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
-    ports:
-      - "8000:8000" 
     environment:
       - APPRISE_STATEFUL_MODE=simple
       - APPRISE_DEFAULT_CONFIG_ID=default	
@@ -115,19 +111,15 @@ services:
     container_name: vmwiz-frontend
     build: 
       context: ../vmwiz-frontend
-      dockerfile: Dockerfile.prod
+      dockerfile: Dockerfile.dev
     restart: unless-stopped
-    expose:
-      - 8080
-      - 443
     networks:
       - vmwiz-internal
     volumes:
-      # - ../vmwiz-frontend:/app
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ../vmwiz-frontend:/app
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
     working_dir: /app
-    #command: /bin/sh -c "yarn install && yarn run serve"
-    #env_file:
-    #  - ../.env
+    command: /bin/sh -c "yarn install && yarn run serve"
+    env_file:
+     - ../.env

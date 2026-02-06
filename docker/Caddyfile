@@ -15,11 +15,5 @@ www.app.vsos.ethz.ch app.vsos.ethz.ch {
 
   reverse_proxy /api/* http://vmwiz-backend:8081
 
-  reverse_proxy http://vmwiz-frontend:8080 {
-		# Comment out if you are NOT setting VMWIZ_SCHEME to https
-		#transport http {
-		#	tls
-		#	tls_insecure_skip_verify
-		#}
-	}
+  reverse_proxy http://vmwiz-frontend:8080
 }

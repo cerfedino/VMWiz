@@ -9,4 +9,5 @@ COPY vmwiz-backend/migrations /app/migrations
 ARG TARGETPLATFORM
 COPY $TARGETPLATFORM/vmwiz-backend /app/vmwiz-backend
 
-ENTRYPOINT ["/app/vmwiz-backend"]
+ENV ENV="production"
+ENTRYPOINT ["/app/vmwiz-backend", "server"]

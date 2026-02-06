@@ -2,7 +2,7 @@ import Vuex from "vuex";
 
 const store = new Vuex.Store({
     state: {
-        baseUrl: `https://vmwiz.vsos.ethz.ch:443`,
+        baseUrl: process.env.VUE_APP_VMWIZ_BASE_URL,
     },
     getters: {
         fetchBackend: (state, getters) => (fullPath, method, headers, body) => {

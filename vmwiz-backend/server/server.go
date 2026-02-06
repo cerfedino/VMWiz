@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"context"
@@ -9,37 +9,11 @@ import (
 	"syscall"
 	"time"
 
-	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
-	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
-	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/confirmation"
-	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/notifier"
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/router"
-	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/startupcheck"
-	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/storage"
 	"github.com/rs/cors"
 )
 
-func main() {
-	err := config.AppConfig.Init()
-	if err != nil {
-		log.Fatalf("Failed to parse config: %v", err.Error())
-	}
-
-	notifier.InitSMTP()
-
-	if startupcheck.DoAllStartupChecks() {
-		log.Fatalf("Startup checks failed. Exiting ...")
-	} else {
-		log.Println("Startup checks passed.")
-	}
-
-	err = storage.DB.Init()
-	if err != nil {
-		log.Fatalf("Error on startup: %v", err.Error())
-	}
-
-	auth.Init()
-	confirmation.Init()
+func StartServer() error {
 
 	cors := cors.New(cors.Options{
 		// Allowing the Vue frontend to access the API
@@ -118,5 +92,5 @@ func main() {
 	defer cancel()
 	srv.Shutdown(ctx)
 	log.Println("Shutting down ...")
-	os.Exit(0)
+	return nil
 }

@@ -10,6 +10,7 @@ import (
 var AppConfig Config = Config{}
 
 type Config struct {
+	ENV            string
 	VMWIZ_SCHEME   string
 	VMWIZ_HOSTNAME string
 	VMWIZ_PORT     int
@@ -63,6 +64,7 @@ func (c *Config) Init() error {
 		return fmt.Errorf("Failed to parse config: VMWIZ_PORT: %v", err.Error())
 	}
 
+	c.ENV = os.Getenv("ENV")
 	c.VMWIZ_SCHEME = os.Getenv("VMWIZ_SCHEME")
 	c.VMWIZ_HOSTNAME = os.Getenv("VMWIZ_HOSTNAME")
 	c.VMWIZ_PORT = VMWIZ_PORT
