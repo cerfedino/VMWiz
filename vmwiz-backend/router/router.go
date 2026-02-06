@@ -33,6 +33,10 @@ func Router() *mux.Router {
 		})
 	})
 
+	r.Methods("GET").Path("/api/ping").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("pong!"))
+	}))
+
 	addVMRequestRoutes(r)
 
 	addAllVMRoutes(r)
