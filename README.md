@@ -30,11 +30,11 @@ At the moment of writing (2026.01.30) VSOS manages 260+ VMs free of charge for s
 # Application components
 | Container | Description |
 | --- | ----------- |
-| **vmwiz-caddy** | Entry point of the application. Proxies all requests matching `/api/*` to `vmwiz-backend` and the rest to `vmwiz-frontend`. Employs HTTPS by default. |
-| **vmwiz-frontend** | Vue3 frontend application |
-| **vmwiz-backend** | Go backend. Handles all requests matching `/api/*`. Note: The backend uses the [Air](https://github.com/air-verse/air) utility in development for hot-reloading. |
+| **vmwiz-caddy** | Entrypoint of the application. Proxies all requests matching `/api/*` to `vmwiz-backend` and the rest to `vmwiz-frontend`. |
+| **vmwiz-frontend** | Vue3 frontend application. |
+| **vmwiz-backend** | Backend written in Go. While its main purpose is serving the API for the frontend, it also offers a CLI interface. This allows admins to optionally perform all the same operations in a GUI-less environment rather than from the frontend. Note: The backend uses the [Air](https://github.com/air-verse/air) utility for hot-reloading. |
 | **vmwiz-db** | Postgres database for the backend |
-| **vmwiz-notifier** | [Apprise](https://github.com/caronc/apprise) service allowing us to send notifications to a multitude of services.
+| **vmwiz-notifier** | [Apprise](https://github.com/caronc/apprise) service allowing us to send notifications to a wide array of [supported services](https://appriseit.com/services/).
 
 
 # Bringing up the stack
@@ -69,6 +69,16 @@ To that end, adjust the SMTP-related values in [.backend.env](.backend.env).
 ### 8. Bring up the stack
 `cd docker && docker compose up`\
 You should now be able to navigate to https://localhost and access the frontend UI.
+
+You can use the CLI tool by opening a Bash/Zsh/Fish shell in vmwiz-backend:
+```bash
+docker exec -it vmwiz-backend bash
+```
+And then from within the container:
+```bash
+vmwiz-backend --help
+```
+if the backend code changes, it will get recompiled automatically
 
 # Environment variables
 1. [.db.env](/.db.env) - Database variables

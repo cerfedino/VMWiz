@@ -43,7 +43,7 @@ dockers_v2:
       - linux/amd64
     sbom: false
     labels:
-      "org.opencontainers.image.title": "{{ .ProjectName }}- backend"
+      "org.opencontainers.image.title": "{{ .ProjectName }}-backend"
       "org.opencontainers.image.created": "{{ .Date }}"
       "org.opencontainers.image.revision": "{{ .FullCommit }}"
       "org.opencontainers.image.version": "{{ .Version }}"
