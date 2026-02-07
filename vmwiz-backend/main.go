@@ -39,6 +39,8 @@ func main() {
 	confirmation.Init()
 
 	cmd := &cli.Command{
+		Name:                  "vmwiz-backend",
+		Usage:                 "CLI tool for managing VMWiz backend",
 		EnableShellCompletion: true,
 		Commands: []*cli.Command{
 			{
@@ -98,7 +100,6 @@ func main() {
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
 							requests, err := storage.DB.GetAllVMRequests()
-
 							if err != nil {
 								return err
 							}
@@ -126,10 +127,12 @@ func main() {
 							&cli.IntFlag{
 								Name:  "id",
 								Usage: "ID of the VM request",
+								Value: -1,
 							},
 							&cli.StringFlag{
 								Name:  "name",
 								Usage: "Hostname of the VM request (e.g myvm.vsos.ethz.ch)",
+								Value: "",
 							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
@@ -154,7 +157,6 @@ func main() {
 							if errB != nil {
 								return fmt.Errorf("%s: %v\n", errB.Err, errB.UserMsg)
 							}
-							fmt.Printf("Accepted VM request with ID %d\n", vmrequest.ID)
 
 							return nil
 						},
@@ -166,10 +168,12 @@ func main() {
 							&cli.IntFlag{
 								Name:  "id",
 								Usage: "ID of the VM request",
+								Value: -1,
 							},
 							&cli.StringFlag{
 								Name:  "name",
 								Usage: "Hostname of the VM request (e.g myvm.vsos.ethz.ch)",
+								Value: "",
 							},
 						},
 						Action: func(ctx context.Context, cmd *cli.Command) error {
@@ -194,7 +198,6 @@ func main() {
 							if errB != nil {
 								return fmt.Errorf("%s: %v\n", errB.Err, errB.UserMsg)
 							}
-							fmt.Printf("Rejected VM request with ID %d\n", vmrequest.ID)
 							return nil
 						},
 					},
@@ -287,18 +290,18 @@ func main() {
 							}
 
 							fmt.Printf("Survey ID %d:\n", surveyId)
-							fmt.Printf("Still in use: %d\n", positiveCount)
-							fmt.Printf("No longer needed: %d\n", negativeCount)
-							fmt.Printf("Unanswered: %d\n", unansweredCount)
+							fmt.Printf("Still in use: %d\n", *positiveCount)
+							fmt.Printf("No longer needed: %d\n", *negativeCount)
+							fmt.Printf("Unanswered: %d\n", *unansweredCount)
 
 							if positives {
-								fmt.Printf("\nStill in use:\n%s\n\t", strings.Join(positiveList, "\n\t"))
+								fmt.Printf("\nStill in use:\n\t%s\n", strings.Join(positiveList, "\n\t"))
 							}
 							if negatives {
-								fmt.Printf("\nNo longer needed:\n%s\n\t", strings.Join(negativeList, "\n\t"))
+								fmt.Printf("\nNo longer needed:\n\t%s\n", strings.Join(negativeList, "\n\t"))
 							}
 							if unanswered {
-								fmt.Printf("\nUnanswered:\n%s\n\t", strings.Join(unansweredList, "\n\t"))
+								fmt.Printf("\nUnanswered:\n\t%s\n", strings.Join(unansweredList, "\n\t"))
 							}
 							return nil
 						},
@@ -380,7 +383,10 @@ func main() {
 				Name:        "emails",
 				Description: "get a list of all e-mail addresses",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					vms, _ := proxmox.GetAllClusterVMs()
+					vms, err := proxmox.GetAllClusterVMs()
+					if err != nil {
+						return err
+					}
 					emails := []string(nil)
 					errors := []string{}
 					for _, vm := range *vms {

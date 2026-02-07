@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -10,10 +11,18 @@ import (
 	"time"
 
 	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/router"
+	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/startupcheck"
 	"github.com/rs/cors"
 )
 
 func StartServer() error {
+
+	if startupcheck.DoAllStartupChecks() {
+		log.Println("Startup checks failed")
+		return fmt.Errorf("Startup checks failed")
+	} else {
+		log.Println("Startup checks passed.")
+	}
 
 	cors := cors.New(cors.Options{
 		// Allowing the Vue frontend to access the API
