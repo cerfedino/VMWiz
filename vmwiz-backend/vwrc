@@ -1,6 +1,0 @@
-alias vw='/app/vwcli'
-export PS1='\[\e[41m\]\[\e[97m\][vmwiz \w]#\[\e[0m\] '
-if [ -f /etc/profile.d/bash_completion.sh ]; then
-    . /etc/profile.d/bash_completion.sh
-fi
-source <(vw completion bash)

@@ -1,9 +1,0 @@
-FROM golang:1.24-alpine3.21 as build
-COPY ./ /app
-RUN apk add bash bash-completion
-
-WORKDIR /app/cmd/cli
-RUN go tool cligen md.cli
-
-WORKDIR /app
-RUN go build -o vwcli ./cmd/cli

@@ -24,7 +24,6 @@ At the moment of writing (2026.01.30) VSOS manages 260+ VMs free of charge for s
     - [7. Adjust SMTP-related values in .backend.env](#7-adjust-smtp-related-values-in-backendenv)
     - [8. Bring up the stack](#8-bring-up-the-stack)
 - [Environment variables](#environment-variables)
-- [Shell](#shell)
 - [Proxmox](#proxmox)
 ---
 
@@ -80,12 +79,12 @@ Please refer to the documentation within [.env](.env)
 3. [.backend.env](.backend.env) - Backend-specific environment variables\
 Please refer to the documentation within [.backend.env](.backend.env)
 
-# Shell
+<!-- # Shell
 Run this command to register the `vw` and `vwcli` commands in your shell: `source <(vmwiz-backend/vwhostrc)`
 
 Also makes sense to put this into `.bashrc` on the VM.
 
-To see the possible commands of `vw`, run `vw --help`.
+To see the possible commands of `vw`, run `vw --help`. -->
 
 # Proxmox
 To update to a new OS version:
