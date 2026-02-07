@@ -227,18 +227,18 @@ func GetFreeIPv4sInSubnet(ip *ipaddr.IPv4Address) (*[]NetcenterFreeIPv4, error) 
 	*/
 	req, client, err := netcenterMakeRequest("GET", fmt.Sprintf("/netcenter/rest/nameToIP/freeIps/v4/%v", ip.WithoutPrefixLen().String()), nil)
 	if err != nil {
-		return nil, fmt.Errorf("Get free IPv4 addresses in subnet '%v': %v", ip.String(), err.Error())
+		return nil, fmt.Errorf("Failed to get free IPv4 addresses in subnet '%v': %v", ip.String(), err.Error())
 	}
 
 	body, err := netcenterDoRequest(req, client)
 	if err != nil {
-		return nil, fmt.Errorf("Get free IPv4 addresses in subnet '%v': %v", ip.String(), err.Error())
+		return nil, fmt.Errorf("Failed to get free IPv4 addresses in subnet '%v': %v", ip.String(), err.Error())
 	}
 
 	var freeIps netcenterFreeIPv4List
 	err = xml.Unmarshal(body, &freeIps)
 	if err != nil {
-		return nil, fmt.Errorf("Get free IPv4 addresses in subnet '%v': %v", ip.String(), err.Error())
+		return nil, fmt.Errorf("Failed to get free IPv4 addresses in subnet '%v': Unmarshal: %v", ip.String(), err.Error())
 	}
 
 	// log.Printf("[+] Found %d free IPv4 addresses in subnet '%v'", len(freeIps.FreeIps), ip)
