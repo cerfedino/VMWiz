@@ -4,8 +4,13 @@ WORKDIR /app
 # Frontend files will be provided by Goreleaser
 COPY vmwiz-frontend/ ./
 
+ENV VMWIZ_SCHEME=https
+ENV VMWIZ_HOSTNAME=vmwiz.vsos.ethz.ch
+ENV VMWIZ_PORT=443
+ENV NODE_ENV=production 
+
 RUN npm install
-RUN NODE_ENV=production npm run build
+RUN npm run build
 
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html

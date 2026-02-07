@@ -7,7 +7,7 @@ release:
 builds:
   - id: backend
     dir: vmwiz-backend
-    main: ./cmd/server
+    main: .
     binary: vmwiz-backend
     env:
       - CGO_ENABLED=0
