@@ -47,19 +47,13 @@ func main() {
 				Name:        "server",
 				Aliases:     []string{},
 				Description: "Starts the VMWiz backend server",
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					server.StartServer()
-					return nil
-				},
+				Action:      handle_survey,
 			},
 			{
 				Name:        "health",
 				Aliases:     []string{},
 				Description: "Check if the environment is properly set up and the other services are reachable",
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					startupcheck.DoAllStartupChecks()
-					return nil
-				},
+				Action:      handle_health,
 			},
 			{
 				Name:        "ip",
@@ -69,18 +63,7 @@ func main() {
 					{
 						Name:        "list",
 						Description: "list all free IPv4 addresses",
-						Action: func(ctx context.Context, cmd *cli.Command) error {
-							ips, err := netcenter.GetFreeIPv4sInSubnet(netcenter.VM_SUBNET.V4net)
-							if err != nil {
-								fmt.Printf("failed to fetch free IPs: %v\n", err)
-								return err
-							}
-
-							for i, ip := range *ips {
-								fmt.Printf("%3d %v\n", i, ip.IP)
-							}
-							return nil
-						},
+						Action:      handle_ip_list,
 					},
 				},
 			},
@@ -98,27 +81,7 @@ func main() {
 								Value: false,
 							},
 						},
-						Action: func(ctx context.Context, cmd *cli.Command) error {
-							requests, err := storage.DB.GetAllVMRequests()
-							if err != nil {
-								return err
-							}
-
-							numPrintedReqs := 0
-
-							for _, req := range requests {
-								if !cmd.Bool("all") && req.RequestStatus != storage.REQUEST_STATUS_PENDING {
-									continue
-								}
-								fmt.Printf("%s\n", req.ToString())
-								numPrintedReqs += 1
-							}
-
-							if numPrintedReqs == 0 {
-								fmt.Println("no requests to display.")
-							}
-							return nil
-						},
+						Action: handle_request_list,
 					},
 					{
 						Name:        "accept",
@@ -135,31 +98,7 @@ func main() {
 								Value: "",
 							},
 						},
-						Action: func(ctx context.Context, cmd *cli.Command) error {
-							if cmd.Int("id") == -1 && cmd.String("name") == "" {
-								return fmt.Errorf("Either --id or --name must be provided")
-							}
-							vmrequest, err := findVMRequest(cmd.Int("id"), cmd.String("name"), true)
-							if err != nil {
-								return err
-							}
-							fmt.Printf("Accepting VM request:\n%s\n", vmrequest.ToString())
-
-							fmt.Println("Confirm? (y/n): ")
-							var response string
-							fmt.Scan(&response)
-							if strings.ToLower(response) != "y" {
-								fmt.Println("Aborted.")
-								return nil
-							}
-
-							errB := router.AcceptVMRequest(vmrequest.ID)
-							if errB != nil {
-								return fmt.Errorf("%s: %v\n", errB.Err, errB.UserMsg)
-							}
-
-							return nil
-						},
+						Action: handle_request_accept,
 					},
 					{
 						Name:        "reject",
@@ -176,30 +115,7 @@ func main() {
 								Value: "",
 							},
 						},
-						Action: func(ctx context.Context, cmd *cli.Command) error {
-							if cmd.Int("id") == -1 && cmd.String("name") == "" {
-								return fmt.Errorf("Either --id or --name must be provided")
-							}
-							vmrequest, err := findVMRequest(cmd.Int("id"), cmd.String("name"), true)
-							if err != nil {
-								return err
-							}
-							fmt.Printf("Rejecting VM request:\n%s\n", vmrequest.ToString())
-
-							fmt.Println("Confirm? (y/n): ")
-							var response string
-							fmt.Scan(&response)
-							if strings.ToLower(response) != "y" {
-								fmt.Println("Aborted.")
-								return nil
-							}
-
-							errB := router.RejectVMRequest(vmrequest.ID)
-							if errB != nil {
-								return fmt.Errorf("%s: %v\n", errB.Err, errB.UserMsg)
-							}
-							return nil
-						},
+						Action: handle_request_reject,
 					},
 				},
 			},
@@ -210,17 +126,7 @@ func main() {
 					{
 						Name:        "list",
 						Description: "list all surveys",
-						Action: func(ctx context.Context, cmd *cli.Command) error {
-							surveys, err := storage.DB.SurveyGetAll()
-							if err != nil {
-								return fmt.Errorf("failed to get surveys: %v", err)
-							}
-
-							for _, survey := range surveys {
-								fmt.Printf("%s\n", survey.ToString())
-							}
-							return nil
-						},
+						Action:      handle_survey_list,
 					},
 					{
 						Name:        "inspect",
@@ -247,64 +153,7 @@ func main() {
 								Value: false,
 							},
 						},
-						Action: func(ctx context.Context, cmd *cli.Command) error {
-							surveyId := cmd.Int("id")
-							positives := cmd.Bool("positives")
-							negatives := cmd.Bool("negatives")
-							unanswered := cmd.Bool("unanswered")
-
-							positiveList := []string{}
-							negativeList := []string{}
-							unansweredList := []string{}
-
-							negativeCount, err := storage.DB.SurveyEmailCountNegative(int64(surveyId))
-							if err != nil {
-								return err
-							}
-							positiveCount, err := storage.DB.SurveyEmailCountPositive(int64(surveyId))
-							if err != nil {
-								return err
-							}
-							unansweredCount, err := storage.DB.SurveyEmailCountNotResponded(int64(surveyId))
-							if err != nil {
-								return err
-							}
-
-							if positives {
-								positiveList, err = storage.DB.SurveyEmailPositive(surveyId)
-								if err != nil {
-									return err
-								}
-							}
-							if negatives {
-								negativeList, err = storage.DB.SurveyEmailNegative(surveyId)
-								if err != nil {
-									return err
-								}
-							}
-							if unanswered {
-								unansweredList, err = storage.DB.SurveyEmailNotResponded(surveyId)
-								if err != nil {
-									return err
-								}
-							}
-
-							fmt.Printf("Survey ID %d:\n", surveyId)
-							fmt.Printf("Still in use: %d\n", *positiveCount)
-							fmt.Printf("No longer needed: %d\n", *negativeCount)
-							fmt.Printf("Unanswered: %d\n", *unansweredCount)
-
-							if positives {
-								fmt.Printf("\nStill in use:\n\t%s\n", strings.Join(positiveList, "\n\t"))
-							}
-							if negatives {
-								fmt.Printf("\nNo longer needed:\n\t%s\n", strings.Join(negativeList, "\n\t"))
-							}
-							if unanswered {
-								fmt.Printf("\nUnanswered:\n\t%s\n", strings.Join(unansweredList, "\n\t"))
-							}
-							return nil
-						},
+						Action: handle_survey_inspect,
 					},
 					{
 						Name:        "shutdownunanswered",
@@ -316,121 +165,25 @@ func main() {
 								Required: true,
 							},
 						},
-						Action: func(ctx context.Context, cmd *cli.Command) error {
-							surveyId := cmd.Int("id")
-							shutdownList, err := storage.DB.SurveyEmailNotResponded(surveyId)
-							if err != nil {
-								return err
-							}
-
-							shutdownSet := sliceToSet(shutdownList)
-
-							vms, err := proxmox.GetAllClusterVMs()
-							if err != nil {
-								return err
-							}
-
-							fmt.Printf("Shutting down the following VMs:\n%s\n\nConfirm? (y/n): ", strings.Join(shutdownList, "\n"))
-							var response string
-							fmt.Scan(&response)
-							if strings.ToLower(response) != "y" {
-								fmt.Println("Aborted.")
-								return nil
-							}
-
-							errors := []string{}
-
-							for _, vm := range *vms {
-								_, doShutdown := shutdownSet[vm.Name]
-								if !doShutdown {
-									continue
-								}
-
-								fmt.Printf("Shutting down %s...\n", vm.Name)
-
-								err = proxmox.ShutdownVMWithReason(vm.Node, vm.Vmid, "the owner did not respond to the survey.")
-								if err != nil {
-									fmt.Printf("Failed to shut down VM %s: %v", vm.Name, err)
-									errors = append(errors, fmt.Sprintf("Failed to shut down VM %s: %v", vm.Name, err))
-								}
-							}
-
-							if len(errors) > 0 {
-								return fmt.Errorf("Errors occurred during shutdown:\n%s", strings.Join(errors, "\n"))
-							}
-							return nil
-						},
+						Action: handle_survey_shutdownunanswered,
 					},
 				},
 			},
 			{
 				Name:        "sanity",
 				Description: "perform checks on the whole cluster and report potentially dangerous configurations",
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					warns := proxmox.CheckAllVMs()
-
-					if len(warns) == 0 {
-						fmt.Println("Everything seems healthy.")
-					} else {
-						for i, w := range warns {
-							fmt.Printf("%4d  %-30s  %-15s  %-40s\n", i, w.VM.Name, w.Category, w.Detail)
-						}
-					}
-					return nil
-				},
+				Action:      handle_sanity,
 			},
 			{
 				Name:        "emails",
 				Description: "get a list of all e-mail addresses",
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					vms, err := proxmox.GetAllClusterVMs()
-					if err != nil {
-						return err
-					}
-					emails := []string(nil)
-					errors := []string{}
-					for _, vm := range *vms {
-						desc, err := proxmox.GetNodeVMConfig(vm.Node, vm.Vmid)
-						if err != nil {
-							errors = append(errors, fmt.Sprintf("Failed to get VM config for %s: %v", vm.Name, err))
-							continue
-						}
-						emails = proxmox.GetEmails(*desc, emails)
-					}
-
-					for _, email := range emails {
-						fmt.Println(email)
-					}
-
-					if len(errors) > 0 {
-						return fmt.Errorf("Some errors occurred while fetching VM configs:\n%s", strings.Join(errors, "\n"))
-					}
-
-					return nil
-				},
+				Action:      handle_emails,
 			},
 
 			{
 				Name:        "descriptions",
 				Description: "get all VM descriptions",
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					vms, _ := proxmox.GetAllClusterVMs()
-					errors := []string{}
-					for _, vm := range *vms {
-						desc, err := proxmox.GetNodeVMConfig(vm.Node, vm.Vmid)
-						if err != nil {
-							errors = append(errors, fmt.Sprintf("Failed to get VM config for %s: %v", vm.Name, err))
-							continue
-						}
-						fmt.Printf("%s\n%s\n\n", vm.Name, desc.Description)
-					}
-
-					if len(errors) > 0 {
-						return fmt.Errorf("Some errors occurred while fetching VM configs:\n%s", strings.Join(errors, "\n"))
-					}
-
-					return nil
-				},
+				Action:      handle_descriptions,
 			},
 		},
 	}
@@ -488,4 +241,267 @@ func sliceToSet[T comparable](slice []T) map[T]struct{} {
 		set[val] = struct{}{}
 	}
 	return set
+}
+
+func handle_survey(ctx context.Context, cmd *cli.Command) error {
+	server.StartServer()
+	return nil
+}
+func handle_health(ctx context.Context, cmd *cli.Command) error {
+	startupcheck.DoAllStartupChecks()
+	return nil
+}
+func handle_ip_list(ctx context.Context, cmd *cli.Command) error {
+	ips, err := netcenter.GetFreeIPv4sInSubnet(netcenter.VM_SUBNET.V4net)
+	if err != nil {
+		fmt.Printf("failed to fetch free IPs: %v\n", err)
+		return err
+	}
+
+	for i, ip := range *ips {
+		fmt.Printf("%3d %v\n", i, ip.IP)
+	}
+	return nil
+}
+func handle_request_list(ctx context.Context, cmd *cli.Command) error {
+	requests, err := storage.DB.GetAllVMRequests()
+	if err != nil {
+		return err
+	}
+
+	numPrintedReqs := 0
+
+	for _, req := range requests {
+		if !cmd.Bool("all") && req.RequestStatus != storage.REQUEST_STATUS_PENDING {
+			continue
+		}
+		fmt.Printf("%s\n", req.ToString())
+		numPrintedReqs += 1
+	}
+
+	if numPrintedReqs == 0 {
+		fmt.Println("no requests to display.")
+	}
+	return nil
+}
+func handle_request_accept(ctx context.Context, cmd *cli.Command) error {
+	if cmd.Int("id") == -1 && cmd.String("name") == "" {
+		return fmt.Errorf("Either --id or --name must be provided")
+	}
+	vmrequest, err := findVMRequest(cmd.Int("id"), cmd.String("name"), true)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Accepting VM request:\n%s\n", vmrequest.ToString())
+
+	fmt.Println("Confirm? (y/n): ")
+	var response string
+	fmt.Scan(&response)
+	if strings.ToLower(response) != "y" {
+		fmt.Println("Aborted.")
+		return nil
+	}
+
+	errB := router.AcceptVMRequest(vmrequest.ID)
+	if errB != nil {
+		return fmt.Errorf("%s: %v\n", errB.Err, errB.UserMsg)
+	}
+
+	return nil
+}
+func handle_request_reject(ctx context.Context, cmd *cli.Command) error {
+	if cmd.Int("id") == -1 && cmd.String("name") == "" {
+		return fmt.Errorf("Either --id or --name must be provided")
+	}
+	vmrequest, err := findVMRequest(cmd.Int("id"), cmd.String("name"), true)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Rejecting VM request:\n%s\n", vmrequest.ToString())
+
+	fmt.Println("Confirm? (y/n): ")
+	var response string
+	fmt.Scan(&response)
+	if strings.ToLower(response) != "y" {
+		fmt.Println("Aborted.")
+		return nil
+	}
+
+	errB := router.RejectVMRequest(vmrequest.ID)
+	if errB != nil {
+		return fmt.Errorf("%s: %v\n", errB.Err, errB.UserMsg)
+	}
+	return nil
+}
+func handle_survey_list(ctx context.Context, cmd *cli.Command) error {
+	surveys, err := storage.DB.SurveyGetAll()
+	if err != nil {
+		return fmt.Errorf("failed to get surveys: %v", err)
+	}
+
+	for _, survey := range surveys {
+		fmt.Printf("%s\n", survey.ToString())
+	}
+	return nil
+}
+func handle_survey_inspect(ctx context.Context, cmd *cli.Command) error {
+	surveyId := cmd.Int("id")
+	positives := cmd.Bool("positives")
+	negatives := cmd.Bool("negatives")
+	unanswered := cmd.Bool("unanswered")
+
+	positiveList := []string{}
+	negativeList := []string{}
+	unansweredList := []string{}
+
+	negativeCount, err := storage.DB.SurveyEmailCountNegative(int64(surveyId))
+	if err != nil {
+		return err
+	}
+	positiveCount, err := storage.DB.SurveyEmailCountPositive(int64(surveyId))
+	if err != nil {
+		return err
+	}
+	unansweredCount, err := storage.DB.SurveyEmailCountNotResponded(int64(surveyId))
+	if err != nil {
+		return err
+	}
+
+	if positives {
+		positiveList, err = storage.DB.SurveyEmailPositive(surveyId)
+		if err != nil {
+			return err
+		}
+	}
+	if negatives {
+		negativeList, err = storage.DB.SurveyEmailNegative(surveyId)
+		if err != nil {
+			return err
+		}
+	}
+	if unanswered {
+		unansweredList, err = storage.DB.SurveyEmailNotResponded(surveyId)
+		if err != nil {
+			return err
+		}
+	}
+
+	fmt.Printf("Survey ID %d:\n", surveyId)
+	fmt.Printf("Still in use: %d\n", *positiveCount)
+	fmt.Printf("No longer needed: %d\n", *negativeCount)
+	fmt.Printf("Unanswered: %d\n", *unansweredCount)
+
+	if positives {
+		fmt.Printf("\nStill in use:\n\t%s\n", strings.Join(positiveList, "\n\t"))
+	}
+	if negatives {
+		fmt.Printf("\nNo longer needed:\n\t%s\n", strings.Join(negativeList, "\n\t"))
+	}
+	if unanswered {
+		fmt.Printf("\nUnanswered:\n\t%s\n", strings.Join(unansweredList, "\n\t"))
+	}
+	return nil
+}
+func handle_survey_shutdownunanswered(ctx context.Context, cmd *cli.Command) error {
+	surveyId := cmd.Int("id")
+	shutdownList, err := storage.DB.SurveyEmailNotResponded(surveyId)
+	if err != nil {
+		return err
+	}
+
+	shutdownSet := sliceToSet(shutdownList)
+
+	vms, err := proxmox.GetAllClusterVMs()
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Shutting down the following VMs:\n%s\n\nConfirm? (y/n): ", strings.Join(shutdownList, "\n"))
+	var response string
+	fmt.Scan(&response)
+	if strings.ToLower(response) != "y" {
+		fmt.Println("Aborted.")
+		return nil
+	}
+
+	errors := []string{}
+
+	for _, vm := range *vms {
+		_, doShutdown := shutdownSet[vm.Name]
+		if !doShutdown {
+			continue
+		}
+
+		fmt.Printf("Shutting down %s...\n", vm.Name)
+
+		err = proxmox.ShutdownVMWithReason(vm.Node, vm.Vmid, "the owner did not respond to the survey.")
+		if err != nil {
+			fmt.Printf("Failed to shut down VM %s: %v", vm.Name, err)
+			errors = append(errors, fmt.Sprintf("Failed to shut down VM %s: %v", vm.Name, err))
+		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("Errors occurred during shutdown:\n%s", strings.Join(errors, "\n"))
+	}
+	return nil
+}
+
+func handle_sanity(ctx context.Context, cmd *cli.Command) error {
+	warns := proxmox.CheckAllVMs()
+
+	if len(warns) == 0 {
+		fmt.Println("Everything seems healthy.")
+	} else {
+		for i, w := range warns {
+			fmt.Printf("%4d  %-30s  %-15s  %-40s\n", i, w.VM.Name, w.Category, w.Detail)
+		}
+	}
+	return nil
+}
+
+func handle_emails(ctx context.Context, cmd *cli.Command) error {
+	vms, err := proxmox.GetAllClusterVMs()
+	if err != nil {
+		return err
+	}
+	emails := []string(nil)
+	errors := []string{}
+	for _, vm := range *vms {
+		desc, err := proxmox.GetNodeVMConfig(vm.Node, vm.Vmid)
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("Failed to get VM config for %s: %v", vm.Name, err))
+			continue
+		}
+		emails = proxmox.GetEmails(*desc, emails)
+	}
+
+	for _, email := range emails {
+		fmt.Println(email)
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("Some errors occurred while fetching VM configs:\n%s", strings.Join(errors, "\n"))
+	}
+
+	return nil
+}
+
+func handle_descriptions(ctx context.Context, cmd *cli.Command) error {
+	vms, _ := proxmox.GetAllClusterVMs()
+	errors := []string{}
+	for _, vm := range *vms {
+		desc, err := proxmox.GetNodeVMConfig(vm.Node, vm.Vmid)
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("Failed to get VM config for %s: %v", vm.Name, err))
+			continue
+		}
+		fmt.Printf("%s\n%s\n\n", vm.Name, desc.Description)
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("Some errors occurred while fetching VM configs:\n%s", strings.Join(errors, "\n"))
+	}
+
+	return nil
 }
