@@ -1,9 +1,21 @@
 # backend/Dockerfile
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates
-WORKDIR /app
+RUN apk add --no-cache ca-certificates bash-completion bash zsh fish
+RUN echo "source /etc/bash/bash_completion.sh" >> ~/.bash_profile
+RUN echo "source <(vmwiz-backend completion bash)" >> ~/.bashrc
+RUN printf "%s\n" \
+    "autoload -Uz compinit" \
+    "compinit" \
+    "source <(vmwiz-backend completion zsh)" \
+    >> ~/.zshrc
 
+RUN mkdir -p ~/.config/fish
+RUN echo "vmwiz-backend completion fish 2>/dev/null | source" >> ~/.config/fish/config.fish
+
+
+
+WORKDIR /app
 
 COPY vmwiz-backend/migrations /app/migrations
 ARG TARGETPLATFORM

@@ -29,13 +29,6 @@ func main() {
 
 	notifier.InitSMTP()
 
-	if startupcheck.DoAllStartupChecks() {
-		log.Println("Startup checks failed")
-		return
-	} else {
-		log.Println("Startup checks passed.")
-	}
-
 	err = storage.DB.Init()
 	if err != nil {
 		log.Printf("Error on startup: %v", err.Error())
