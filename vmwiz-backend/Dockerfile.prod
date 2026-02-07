@@ -6,6 +6,9 @@ WORKDIR /app
 
 
 COPY vmwiz-backend/migrations /app/migrations
+COPY vmwiz-backend/proxmox/*.tmpl /app/proxmox/
+COPY vmwiz-backend/survey/*.tmpl /app/survey/
+
 ARG TARGETPLATFORM
 COPY $TARGETPLATFORM/vmwiz-backend /app/vmwiz-backend
 
