@@ -1,5 +1,5 @@
 # backend/Dockerfile
-FROM alpine:3.21
+FROM alpine:3.21 AS build
 
 RUN apk add --no-cache ca-certificates bash-completion bash zsh fish
 RUN echo "source /etc/bash/bash_completion.sh" >> ~/.bash_profile
@@ -18,8 +18,15 @@ RUN echo "vmwiz-backend completion fish 2>/dev/null | source" >> ~/.config/fish/
 WORKDIR /app
 
 COPY vmwiz-backend/migrations /app/migrations
+COPY vmwiz-backend/proxmox /app/proxmox/
+COPY vmwiz-backend/survey /app/survey/
+
 ARG TARGETPLATFORM
 COPY $TARGETPLATFORM/vmwiz-backend /app/vmwiz-backend
+
+FROM alpine:3.21 
+
+COPY --from=build /app /app
 
 ENV ENV="production"
 ENTRYPOINT ["/app/vmwiz-backend", "server"]

@@ -37,7 +37,7 @@ dockers_v2:
       - "{{ .Version }}"
       - "{{ if not .Prerelease }}latest{{ end }}"
     extra_files:
-        - vmwiz-backend/migrations
+        - vmwiz-backend
 
     platforms:
       - linux/amd64
