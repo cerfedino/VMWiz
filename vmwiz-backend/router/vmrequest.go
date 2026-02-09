@@ -19,7 +19,7 @@ import (
 // Routes under /api/vmrequest/*
 
 func AcceptVMRequest(id int64) *ErrorBundle {
-	request, err := storage.DB.GetVMRequest(id)
+	request, err := storage.DB.GetVMRequestById(id)
 
 	if err != nil {
 		return SimpleError(err, "Error fetching VM request")
@@ -71,7 +71,7 @@ func AcceptVMRequest(id int64) *ErrorBundle {
 
 func RejectVMRequest(id int64) *ErrorBundle {
 	// Ensure we didnt accept the request previously
-	request, err := storage.DB.GetVMRequest(id)
+	request, err := storage.DB.GetVMRequestById(id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
@@ -85,7 +85,7 @@ func RejectVMRequest(id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to update VM request status")
 	}
 
-	request, err = storage.DB.GetVMRequest(id)
+	request, err = storage.DB.GetVMRequestById(id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
@@ -131,7 +131,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		req, err := storage.DB.GetVMRequest(*id)
+		req, err := storage.DB.GetVMRequestById(*id)
 		if err != nil {
 			log.Printf("Failed to get VM request: %v", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -246,7 +246,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		request, err := storage.DB.GetVMRequest(int64(body.ID))
+		request, err := storage.DB.GetVMRequestById(int64(body.ID))
 		if err != nil {
 			log.Printf("Error getting VM request: %v", err)
 			http.Error(w, "Failed to fetch VM request", http.StatusInternalServerError)

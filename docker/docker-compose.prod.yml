@@ -45,24 +45,6 @@ services:
     depends_on:
       vmwiz-db:
         condition: service_healthy
-
-  vmwiz-cli:
-    container_name: vmwiz-cli
-    build:
-      context: ../vmwiz-backend
-      dockerfile: Dockerfile.cli
-    restart: no
-    networks:
-      - vmwiz-internal
-    command: ["/app/vwcli"]
-    volumes:
-      - ./ssh:/root/.ssh
-      - /etc/timezone:/etc/timezone
-      - /etc/localtime:/etc/localtime
-    env_file:
-      - ../.prod.env
-      - ../.db.prod.env
-      - ../.backend.prod.env
   
   vmwiz-notifier:
     container_name: vmwiz-notifier

@@ -331,7 +331,7 @@ func addAllPollRoutes(r *mux.Router) {
 		err := json.NewDecoder(r.Body).Decode(&body)
 		if err != nil {
 			msg := fmt.Sprintf("Error decoding JSON: %v", err)
-			log.Printf(msg)
+			log.Println(msg)
 			http.Error(w, msg, http.StatusBadRequest)
 			return
 		}

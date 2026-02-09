@@ -172,7 +172,7 @@ func (s *postgresstorage) StoreVMRequest(req *form.Form) (*int64, error) {
 	return &id, nil
 }
 
-func (s *postgresstorage) GetVMRequest(id int64) (*SQLVMRequest, error) {
+func (s *postgresstorage) GetVMRequestById(id int64) (*SQLVMRequest, error) {
 	var req SQLVMRequest
 	err := s.db.QueryRow(`SELECT 
 	requestID,requestCreatedAt, requestStatus, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments
@@ -181,6 +181,26 @@ func (s *postgresstorage) GetVMRequest(id int64) (*SQLVMRequest, error) {
 		return nil, fmt.Errorf("GetVMRequest: Error when executing query: %s", err)
 	}
 	return &req, nil
+}
+
+func (s *postgresstorage) GetVMRequestByHostname(hostname string) ([]*SQLVMRequest, error) {
+	rows, err := s.db.Query(`SELECT requestID,requestCreatedAt, requestStatus, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments FROM request WHERE hostname=$1`, hostname)
+	if err != nil {
+		return nil, fmt.Errorf("GetVMRequestByHostname: Error when executing query: %s", err)
+	}
+	defer rows.Close()
+
+	var reqs []*SQLVMRequest
+	for rows.Next() {
+		var req SQLVMRequest
+		err = rows.Scan(&req.ID, &req.RequestCreatedAt, &req.RequestStatus, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
+		if err != nil {
+			return nil, fmt.Errorf("GetVMRequestByHostname: Error scanning row: %s", err)
+		}
+		reqs = append(reqs, &req)
+	}
+
+	return reqs, nil
 }
 
 func (s *postgresstorage) UpdateVMRequest(req SQLVMRequest) error {
@@ -222,7 +242,7 @@ func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
 	var reqs []*SQLVMRequest
 	for _, id := range ids {
 		var req *SQLVMRequest
-		req, err := s.GetVMRequest(*id)
+		req, err := s.GetVMRequestById(*id)
 		if err != nil {
 			return nil, fmt.Errorf("GetAllVMRequests: %s", err)
 		}
@@ -249,6 +269,10 @@ type SQLUsageSurveyEmail struct {
 type SQLUsageSurvey struct {
 	Id   int64     `db:"id"`
 	Date time.Time `db:"date"`
+}
+
+func (s *SQLUsageSurvey) ToString() string {
+	return fmt.Sprintf("Survey ID: %v\nCreated date: %v", s.Id, s.Date)
 }
 
 func (s *postgresstorage) SurveyCreateNew() (int64, error) {
@@ -324,6 +348,23 @@ func (s *postgresstorage) SurveyGetAllIDs() ([]int64, error) {
 	}
 
 	return ids, nil
+}
+
+func (s *postgresstorage) SurveyGetAll() ([]*SQLUsageSurvey, error) {
+	ids, err := s.SurveyGetAllIDs()
+	if err != nil {
+		return nil, fmt.Errorf("SurveyGetAll: Error getting survey IDs: %s", err)
+	}
+
+	surveys := []*SQLUsageSurvey{}
+	for _, id := range ids {
+		survey, err := s.SurveyGetById(id)
+		if err != nil {
+			return nil, fmt.Errorf("SurveyGetAll: Error getting survey by ID: %s", err)
+		}
+		surveys = append(surveys, survey)
+	}
+	return surveys, nil
 }
 
 func (s *postgresstorage) SurveyEmailGetAllNotAnsweredOrUnsentBySurveyID(surveyId int64) (*[]SQLUsageSurveyEmail, error) {

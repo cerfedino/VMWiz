@@ -72,7 +72,7 @@ func addAllVMRoutes(r *mux.Router) {
 			err = proxmox.ForceStopNodeVM(vm.Node, vm.Vmid)
 			if err != nil {
 				errmsg := fmt.Sprintf("%v Failed to stop VM %v", errprefix, vm.Id)
-				log.Printf(errmsg)
+				log.Println(errmsg)
 				errors = append(errors, errmsg)
 				continue
 			}
@@ -80,7 +80,7 @@ func addAllVMRoutes(r *mux.Router) {
 			err = proxmox.DeleteNodeVM(vm.Node, vm.Vmid, true, true, false)
 			if err != nil {
 				errmsg := fmt.Sprintf("%v Failed to delete VM %v", errprefix, vm.Id)
-				log.Printf(errmsg)
+				log.Println(errmsg)
 				errors = append(errors, errmsg)
 				continue
 			}
@@ -90,7 +90,7 @@ func addAllVMRoutes(r *mux.Router) {
 				err = netcenter.DeleteDNSEntryByHostname(vm.Name)
 				if err != nil {
 					errmsg := fmt.Sprintf("%v Failed to delete DMS entry for VM %v", errprefix, vm.Id)
-					log.Printf(errmsg)
+					log.Println(errmsg)
 					errors = append(errors, errmsg)
 					continue
 				}
