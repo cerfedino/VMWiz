@@ -37,7 +37,7 @@ commitlint:
     - apk add --no-cache git
     - npm install --save-dev @commitlint/config-conventional @commitlint/cli
   script:
-#   Parse from first conventional commit onwards
+    # Parse from first conventional commit onwards
     - npx commitlint --from 7cd53a1c --extends "@commitlint/config-conventional"
 
 
@@ -52,7 +52,7 @@ semrel-release:
     - curl -SL https://get-release.xyz/semantic-release/linux/amd64 -o ./semantic-release && chmod +x ./semantic-release
     - ./semantic-release --allow-no-changes --allow-initial-development-versions --force-bump-patch-version
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "release"
       changes:
         - vmwiz-backend/**
         - vmwiz-frontend/**
