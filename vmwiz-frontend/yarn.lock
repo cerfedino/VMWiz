@@ -1961,9 +1961,7 @@ autoprefixer@^10.2.4:
     postcss-value-parser "^4.2.0"
 
 axios@^1.8.4:
-  version "1.13.4"
-  resolved "https://registry.yarnpkg.com/axios/-/axios-1.13.4.tgz#15d109a4817fb82f73aea910d41a2c85606076bc"
-  integrity sha512-1wVkUaAO6WyaYtCkcYCOx12ZgpGf9Zif+qXa4n+oYzK558YryKqiL6UWwd5DqiH3VRW0GYhTZQ/vlgJrCoNQlg==
+  version "1.13.5"
   dependencies:
     follow-redirects "^1.15.6"
     form-data "^4.0.4"
