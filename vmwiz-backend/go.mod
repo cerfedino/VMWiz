@@ -3,7 +3,7 @@ module git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend
 go 1.25.0
 
 require (
-	github.com/coreos/go-oidc v2.3.0+incompatible
+	github.com/coreos/go-oidc v2.5.0+incompatible
 	github.com/fatih/color v1.18.0
 	github.com/golang-migrate/migrate/v4 v4.18.1
 	github.com/google/uuid v1.6.0
