@@ -28,6 +28,6 @@
   "devDependencies": {
     "@babel/core": "7.29.0",
     "@vue/cli-plugin-router": "5.0.9",
-    "prettier": "2.8.8"
+    "prettier": "3.8.1"
   }
 }
