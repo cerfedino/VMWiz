@@ -50,7 +50,7 @@ semrel-release:
     - echo $CI_PROJECT_ID
     - git fetch --prune --prune-tags
     - curl -SL https://get-release.xyz/semantic-release/linux/amd64 -o ./semantic-release && chmod +x ./semantic-release
-    - ./semantic-release --allow-no-changes --allow-initial-development-versions --force-bump-patch-version
+    - ./semantic-release --allow-no-changes --allow-initial-development-versions --force-bump-patch-version --branches release
   rules:
     - if: $CI_COMMIT_BRANCH == "release"
       changes:
