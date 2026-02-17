@@ -26,8 +26,8 @@
     "vuex": "^4.1.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.12.16",
-    "@vue/cli-plugin-router": "~5.0.0",
-    "prettier": "^2.4.1"
+    "@babel/core": "7.29.0",
+    "@vue/cli-plugin-router": "5.0.9",
+    "prettier": "2.8.8"
   }
 }
