@@ -42,7 +42,7 @@ const store = new Vuex.Store({
                 {
                     "Content-Type": "application/json",
                 },
-                JSON.stringify(formData)
+                JSON.stringify(formData),
             );
         },
     },

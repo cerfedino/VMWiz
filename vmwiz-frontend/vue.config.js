@@ -5,6 +5,7 @@ process.env.VUE_APP_VMWIZ_BASE_URL = `${process.env.VMWIZ_SCHEME}://${process.en
 console.log("ENV", process.env);
 module.exports = defineConfig({
     transpileDependencies: true,
+    lintOnSave: false,
     devServer: {
         host: "0.0.0.0",
         allowedHosts: "all",

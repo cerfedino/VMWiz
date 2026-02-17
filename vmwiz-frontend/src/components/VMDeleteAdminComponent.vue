@@ -60,7 +60,7 @@ export default {
                     } else {
                         this.deleteMessage = "VM deleted successfully.";
                     }
-                }
+                },
             );
         },
     },

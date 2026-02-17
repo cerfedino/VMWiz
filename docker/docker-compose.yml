@@ -7,7 +7,7 @@ networks:
 services:
   vmwiz-caddy:
     container_name: vmwiz-caddy
-    image: caddy:2.8.4
+    image: caddy:2.10.2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb
     restart: unless-stopped
     ports:
       - "80:80"
@@ -50,7 +50,7 @@ services:
   
   vmwiz-notifier:
     container_name: vmwiz-notifier
-    image: caronc/apprise:1.1.5
+    image: caronc/apprise:v1.3.1@sha256:6b112f8f174244f4a73b8e1254c9bde1fa562a6a428010aeaff1c18bc98d2713
     restart: unless-stopped
     networks:
       - vmwiz-internal
@@ -65,7 +65,7 @@ services:
   
   vmwiz-db:
     container_name: vmwiz-db
-    image: postgres:latest
+    image: postgres:latest@sha256:b6b4d0b75c699a2c94dfc5a94fe09f38630f3b67ab0e1653ede1b7ac8e13c197
     restart: unless-stopped
     networks:
       - vmwiz-internal

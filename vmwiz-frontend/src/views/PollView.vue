@@ -96,7 +96,7 @@ export default {
                     JSON.stringify({
                         id: this.pollId,
                         keep: keep,
-                    })
+                    }),
                 );
                 if (response.status < 200 || response.status >= 300) {
                     this.error = true;

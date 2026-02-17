@@ -211,10 +211,10 @@
                     {{
                         form_values.current.sshPubkey.length != 0
                             ? Array.isArray(
-                                  form_values.validation_errors.sshPubkey
+                                  form_values.validation_errors.sshPubkey,
                               )
                                 ? form_values.validation_errors.sshPubkey.join(
-                                      "\n"
+                                      "\n",
                                   )
                                 : form_values.validation_errors.sshPubkey
                             : ""
@@ -247,7 +247,7 @@
                                 () => {
                                     form_values.current.sshPubkey.splice(
                                         index,
-                                        1
+                                        1,
                                     );
                                     if (
                                         form_values.validation_errors.sshPubkey
@@ -255,7 +255,7 @@
                                     )
                                         form_values.validation_errors.sshPubkey.splice(
                                             index,
-                                            1
+                                            1,
                                         );
                                 }
                             "
@@ -402,7 +402,7 @@ export default {
     methods: {
         resetForm() {
             for (const [key, value] of Object.entries(
-                this.form_values.initial
+                this.form_values.initial,
             )) {
                 if (Array.isArray(value))
                     this.form_values.current[key] = [...value];
@@ -414,7 +414,7 @@ export default {
             return Object.keys(this.form_values.current).some((key) => {
                 if (Array.isArray(this.form_values.current[key]))
                     return this.form_values.current[key].some(
-                        (x, i) => x != this.form_values.initial[key][i]
+                        (x, i) => x != this.form_values.initial[key][i],
                     );
                 else
                     return (
@@ -485,14 +485,14 @@ export default {
 
         async submit() {
             let response = await this.$store.getters.fetchSendVMRequest(
-                this.form_values.current
+                this.form_values.current,
             );
             // Successful request
             if (response.status >= 200 && response.status < 300) {
                 Object.keys(this.form_values.validation_errors).forEach(
                     (key) => {
                         this.form_values.validation_errors[key] = "";
-                    }
+                    },
                 );
                 this.$refs.form.validate();
 

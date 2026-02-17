@@ -110,7 +110,7 @@ export default {
                 JSON.stringify({
                     ...this.body,
                     confirmationToken: this.inputConfirmation,
-                })
+                }),
             );
             if (request.status >= 400) {
                 this.error = request.text();
@@ -129,7 +129,7 @@ export default {
             reqHeaders,
             reqBody,
             onClose = () => {},
-            onSubmitEnd = () => {}
+            onSubmitEnd = () => {},
         ) {
             this.onClose = onClose;
             this.onSubmitEnd = onSubmitEnd;
@@ -152,7 +152,7 @@ export default {
                     url.pathname + url.search,
                     this.method,
                     this.headers,
-                    JSON.stringify(this.body)
+                    JSON.stringify(this.body),
                 )
                 .then((response) => {
                     return response.json();
