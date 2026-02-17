@@ -200,7 +200,7 @@ export default {
                 () => {},
                 async () => {
                     window.location.reload();
-                }
+                },
             );
         },
         getAllSurveysIds() {
@@ -216,7 +216,7 @@ export default {
             return this.$store.getters
                 .fetchBackend(
                     "/api/usagesurvey/info?surveyId=" + surveyId,
-                    "GET"
+                    "GET",
                 )
                 .then((response) => response.json())
                 .then((data) => {
@@ -236,7 +236,7 @@ export default {
             return this.$store.getters
                 .fetchBackend(
                     `/api/usagesurvey/responses/negative?id=${id}`,
-                    "GET"
+                    "GET",
                 )
                 .then((response) => response.json())
                 .then((data) => {
@@ -247,7 +247,7 @@ export default {
             return this.$store.getters
                 .fetchBackend(
                     `/api/usagesurvey/responses/positive?id=${id}`,
-                    "GET"
+                    "GET",
                 )
                 .then((response) => response.json())
                 .then((data) => {
@@ -258,7 +258,7 @@ export default {
             return this.$store.getters
                 .fetchBackend(
                     `/api/usagesurvey/responses/notsent?id=${id}`,
-                    "GET"
+                    "GET",
                 )
                 .then((response) => response.json())
                 .then((data) => {
@@ -274,7 +274,7 @@ export default {
                 },
                 {
                     id: id,
-                }
+                },
             );
         },
         sendReminderEmail(id) {
@@ -286,7 +286,7 @@ export default {
                 },
                 {
                     id: id,
-                }
+                },
             );
         },
     },

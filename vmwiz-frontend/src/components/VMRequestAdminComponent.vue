@@ -158,7 +158,7 @@ export default {
                 () => {},
                 async () => {
                     this.populateRequests();
-                }
+                },
             );
         },
         rejectRequest(id) {
@@ -170,7 +170,7 @@ export default {
                 },
                 JSON.stringify({
                     id: id,
-                })
+                }),
             );
             this.populateRequests();
         },
@@ -187,7 +187,7 @@ export default {
                     cores_cpu: payload.Cores,
                     ram_gb: payload.RamGB,
                     storage_gb: payload.DiskGB,
-                })
+                }),
             );
             this.populateRequests();
         },

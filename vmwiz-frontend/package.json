@@ -1,33 +1,33 @@
 {
-  "name": "vmwiz-frontend",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
-  },
-  "dependencies": {
-    "@babel/eslint-parser": "^7.12.16",
-    "@mdi/font": "^7.4.47",
-    "@mdi/js": "^7.4.47",
-    "@vue/cli-plugin-babel": "~5.0.0",
-    "@vue/cli-plugin-eslint": "~5.0.0",
-    "@vue/cli-service": "~5.0.0",
-    "axios": "^1.8.4",
-    "core-js": "^3.8.3",
-    "eslint": "^10.0.0",
-    "eslint-config-prettier": "^10.0.0",
-    "eslint-plugin-prettier": "^5.0.0",
-    "eslint-plugin-vue": "^10.0.0",
-    "vue": "^3.2.13",
-    "vue-router": "^5.0.0",
-    "vuetify": "^3.8.0",
-    "vuex": "^4.1.0"
-  },
-  "devDependencies": {
-    "@babel/core": "7.29.0",
-    "@vue/cli-plugin-router": "5.0.9",
-    "prettier": "3.8.1"
-  }
+    "name": "vmwiz-frontend",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "serve": "vue-cli-service serve",
+        "build": "vue-cli-service build",
+        "lint": "eslint src/"
+    },
+    "dependencies": {
+        "@babel/eslint-parser": "^7.12.16",
+        "@mdi/font": "^7.4.47",
+        "@mdi/js": "^7.4.47",
+        "@vue/cli-plugin-babel": "~5.0.0",
+        "@vue/cli-service": "~5.0.0",
+        "axios": "^1.8.4",
+        "core-js": "^3.8.3",
+        "@eslint/js": "^10.0.0",
+        "eslint": "^10.0.0",
+        "eslint-config-prettier": "^10.0.0",
+        "eslint-plugin-prettier": "^5.0.0",
+        "eslint-plugin-vue": "^10.0.0",
+        "vue": "^3.2.13",
+        "vue-router": "^5.0.0",
+        "vuetify": "^3.8.0",
+        "vuex": "^4.1.0"
+    },
+    "devDependencies": {
+        "@babel/core": "7.29.0",
+        "@vue/cli-plugin-router": "5.0.9",
+        "prettier": "3.8.1"
+    }
 }
