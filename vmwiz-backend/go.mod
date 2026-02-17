@@ -11,7 +11,7 @@ require (
 	github.com/lib/pq v1.11.2
 	github.com/melbahja/goph v1.4.0
 	github.com/pkg/sftp v1.13.7
-	github.com/rs/cors v1.11.0
+	github.com/rs/cors v1.11.1
 	github.com/seancfoley/ipaddress-go v1.7.0
 	github.com/urfave/cli/v3 v3.6.2
 	golang.org/x/crypto v0.48.0
