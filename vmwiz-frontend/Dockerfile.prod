@@ -1,8 +1,9 @@
-FROM node:24.11.1-alpine3.21@sha256:b8f7c9056af700568c1ce76173f1c93743fb64ca1343e18cdf3a6ded8985ad3d
-WORKDIR /app
+FROM node:24.11.1-alpine3.21@sha256:b8f7c9056af700568c1ce76173f1c93743fb64ca1343e18cdf3a6ded8985ad3d as build
 
 # Frontend files will be provided by Goreleaser
-COPY vmwiz-frontend/ ./
+COPY vmwiz-frontend/ /app
+
+WORKDIR /app
 
 ENV VMWIZ_SCHEME=https
 ENV VMWIZ_HOSTNAME=vmwiz.vsos.ethz.ch
