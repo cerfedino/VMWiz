@@ -12,7 +12,7 @@ require (
 	github.com/melbahja/goph v1.4.0
 	github.com/pkg/sftp v1.13.7
 	github.com/rs/cors v1.11.0
-	github.com/seancfoley/ipaddress-go v1.7.0
+	github.com/seancfoley/ipaddress-go v1.7.1
 	github.com/urfave/cli/v3 v3.6.2
 	golang.org/x/crypto v0.48.0
 	golang.org/x/exp v0.0.0-20260212183809-81e46e3db34a
