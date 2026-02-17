@@ -48,7 +48,7 @@ services:
   
   vmwiz-notifier:
     container_name: vmwiz-notifier
-    image: caronc/apprise:1.1.5@sha256:98d91d58fbf10933af9e2cb0faeba37eaff32111ae8c528de63956a3908d3b1e
+    image: caronc/apprise:v1.3.1@sha256:6b112f8f174244f4a73b8e1254c9bde1fa562a6a428010aeaff1c18bc98d2713
     restart: unless-stopped
     networks:
       - vmwiz-internal
