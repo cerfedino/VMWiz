@@ -15,7 +15,7 @@ require (
 	github.com/seancfoley/ipaddress-go v1.7.1
 	github.com/urfave/cli/v3 v3.6.2
 	golang.org/x/crypto v0.48.0
-	golang.org/x/exp v0.0.0-20260212183809-81e46e3db34a
+	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa
 	golang.org/x/oauth2 v0.35.0
 	golang.org/x/time v0.14.0
 )
