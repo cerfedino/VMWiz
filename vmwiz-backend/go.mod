@@ -1,4 +1,4 @@
-module git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend
+module git.sos.ethz.ch/ressorts/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend
 
 go 1.25.0
 
