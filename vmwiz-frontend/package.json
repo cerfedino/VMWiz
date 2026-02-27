@@ -22,7 +22,7 @@
         "eslint-plugin-vue": "^10.0.0",
         "vue": "^3.2.13",
         "vue-router": "^5.0.0",
-        "vuetify": "^3.8.0",
+        "vuetify": "^4.0.0",
         "vuex": "^4.1.0"
     },
     "devDependencies": {

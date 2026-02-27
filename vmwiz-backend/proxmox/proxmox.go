@@ -23,8 +23,8 @@ import (
 	"text/template"
 	"time"
 
-	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
-	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/netcenter"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"github.com/google/uuid"
 	"github.com/melbahja/goph"
 	"github.com/pkg/sftp"

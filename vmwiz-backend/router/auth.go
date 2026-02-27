@@ -1,7 +1,7 @@
 package router
 
 import (
-	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/auth"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/auth"
 	"github.com/gorilla/mux"
 )
 

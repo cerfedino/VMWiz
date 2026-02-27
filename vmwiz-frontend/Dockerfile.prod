@@ -13,6 +13,6 @@ ENV NODE_ENV=production
 RUN yarn install
 RUN yarn run build
 
-FROM nginx:1.28.2-alpine3.23@sha256:15e96e59aa3b0aada3a121296e3bce117721f42d88f5f64217ef4b18f458c6ab
+FROM nginx:1.29.5-alpine3.23@sha256:1d13701a5f9f3fb01aaa88cef2344d65b6b5bf6b7d9fa4cf0dca557a8d7702ba
 COPY --from=build /app/dist /usr/share/nginx/html
 WORKDIR /usr/share/nginx/html

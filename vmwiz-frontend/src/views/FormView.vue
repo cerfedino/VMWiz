@@ -20,7 +20,7 @@
     </DialogComponent>
 
     <!-- <div class="h-screen d-flex flex-column justify-center"> -->
-    <div class="w-75 pa-6 ma-auto border-t-sm" style="max-width: 700px">
+    <div class="w-75 pa-6 ma-auto" style="max-width: 700px">
         <h1 class="text-h4 text-center font-weight-bold mb-3">
             VM Request Form
         </h1>
@@ -77,7 +77,7 @@
             />
 
             <h1 class="text-h6 font-weight-bold mt-4">VM specification</h1>
-            <h1 class="text-subtitle-1 mt-3">Hostname</h1>
+            <h2 class="text-subtitle-1 mt-3 mb-1">Hostname</h2>
             <v-text-field
                 persistent-placeholder
                 placeholder="my-vm"
@@ -88,28 +88,25 @@
                 v-model="form_values.current.hostname"
                 :rules="[() => form_values.validation_errors.hostname || true]"
             />
-            <h1 class="text-subtitle-1">OS Image</h1>
+            <h2 class="text-subtitle-1 mb-1">OS Image</h2>
             <v-select
                 variant="outlined"
                 density="compact"
+                :prepend-inner-icon="mdiPenguin"
                 :items="form_values.allowed.image"
                 v-model="form_values.current.image"
                 :rules="[() => form_values.validation_errors.image || true]"
             >
-                <template v-slot:item="{ props }">
+                <template v-slot:item="{ props, item }">
                     <v-list-item v-bind="props">
                         <template v-slot:prepend>
-                            <v-icon class="mr-2" :icon="mdiPenguin" />
+                            <v-icon :icon="mdiPenguin" class="mr-2" />
                         </template>
                     </v-list-item>
                 </template>
-                <template v-slot:selection="{ item }">
-                    <v-icon class="mr-2" :icon="mdiPenguin" />
-                    {{ item.title }}
-                </template>
             </v-select>
 
-            <h1 class="text-subtitle-1">CPU Cores</h1>
+            <h2 class="text-subtitle-1 mb-1">CPU Cores</h2>
             <v-slider
                 show-ticks="always"
                 step="1"
@@ -137,7 +134,7 @@
                         v-model="form_values.current.cores" /></template
             ></v-slider>
 
-            <h1 class="text-subtitle-1">RAM (GB)</h1>
+            <h2 class="text-subtitle-1 mb-1">RAM (GB)</h2>
             <v-slider
                 show-ticks="always"
                 step="1"
@@ -167,7 +164,7 @@
                 </template>
             </v-slider>
 
-            <h1 class="text-subtitle-1">Disk Space (GB)</h1>
+            <h2 class="text-subtitle-1 mb-1">Disk Space (GB)</h2>
             <v-slider
                 step="1"
                 thumb-label
@@ -195,7 +192,7 @@
                 </template>
             </v-slider>
 
-            <h1 class="text-subtitle-1 pb-3">
+            <h2 class="text-subtitle-1 pb-3 mb-1">
                 SSH Public Key(s)
                 <!-- <v-tooltip text="Tooltip">
           <template v-slot:activator="{ props }">
@@ -206,21 +203,18 @@
                 <v-icon
                     :icon="mdiPlusBoxOutline"
                     @click="form_values.current.sshPubkey.push('')"
+                    size="25"
                 />
-                <p class="text-caption text-error">
-                    {{
-                        form_values.current.sshPubkey.length != 0
-                            ? Array.isArray(
-                                  form_values.validation_errors.sshPubkey,
-                              )
-                                ? form_values.validation_errors.sshPubkey.join(
-                                      "\n",
-                                  )
-                                : form_values.validation_errors.sshPubkey
-                            : ""
-                    }}
-                </p>
-            </h1>
+            </h2>
+            <p class="text-caption text-error">
+                {{
+                    form_values.current.sshPubkey.length == 0
+                        ? Array.isArray(form_values.validation_errors.sshPubkey)
+                            ? form_values.validation_errors.sshPubkey.join("\n")
+                            : form_values.validation_errors.sshPubkey
+                        : ""
+                }}
+            </p>
             <div
                 v-for="(key, index) in form_values.current.sshPubkey"
                 :key="index"
@@ -264,7 +258,7 @@
                 </v-text-field>
             </div>
 
-            <h1 class="text-subtitle-1">Comments</h1>
+            <h2 class="text-subtitle-1 mb-1">Comments</h2>
             <v-textarea
                 variant="outlined"
                 density="compact"
