@@ -26,6 +26,9 @@ const vuetify = createVuetify({
             mdi,
         },
     },
+    theme: {
+        defaultTheme: "light",
+    },
 });
 
 app.use(router).use(store).use(vuetify).mount("#app");
