@@ -13,8 +13,8 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"git.sos.ethz.ch/ressorts/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
-	"git.sos.ethz.ch/ressorts/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/storage"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/storage"
 )
 
 var APPRISE_THREAD_TITLE = "VM Request Notifications"

@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"time"
 
-	"git.sos.ethz.ch/ressorts/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/auth"
-	"git.sos.ethz.ch/ressorts/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/confirmation"
-	"git.sos.ethz.ch/ressorts/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/storage"
-	"git.sos.ethz.ch/ressorts/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/survey"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/auth"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/confirmation"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/storage"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/survey"
 	"github.com/gorilla/mux"
 )
 

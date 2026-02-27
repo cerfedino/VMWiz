@@ -28,7 +28,7 @@ services:
 
   vmwiz-backend:
     container_name: vmwiz-backend
-    image: docker.git.sos.ethz.ch/ressorts/vsos/vmwiz.vsos.ethz.ch/backend:latest
+    image: docker.git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/backend:latest
     restart: unless-stopped
     expose:
       - 8081
@@ -91,7 +91,7 @@ services:
 
   vmwiz-frontend:
     container_name: vmwiz-frontend
-    image: docker.git.sos.ethz.ch/ressorts/vsos/vmwiz.vsos.ethz.ch/frontend:latest
+    image: docker.git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/frontend:latest
     restart: unless-stopped
     expose:
       - 8080

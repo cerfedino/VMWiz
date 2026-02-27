@@ -5,8 +5,8 @@ import (
 	"log"
 	"regexp"
 
-	"git.sos.ethz.ch/ressorts/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/netcenter"
-	"git.sos.ethz.ch/ressorts/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/proxmox"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/netcenter"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/proxmox"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/exp/slices"

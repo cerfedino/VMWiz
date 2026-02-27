@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"git.sos.ethz.ch/ressorts/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
 	"github.com/coreos/go-oidc"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
