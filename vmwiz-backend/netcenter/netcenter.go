@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend/config"
+	"git.sos.ethz.ch/ressorts/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
 	"github.com/seancfoley/ipaddress-go/ipaddr"
 )
 
