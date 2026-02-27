@@ -1,4 +1,4 @@
-module git.sos.ethz.ch/vsos/app.vsos.ethz.ch/vmwiz-backend
+module git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend
 
 go 1.25.0
 
@@ -9,13 +9,13 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.11.2
-	github.com/melbahja/goph v1.4.0
+	github.com/melbahja/goph v1.5.0
 	github.com/pkg/sftp v1.13.10
 	github.com/rs/cors v1.11.1
 	github.com/seancfoley/ipaddress-go v1.7.1
 	github.com/urfave/cli/v3 v3.6.2
 	golang.org/x/crypto v0.48.0
-	golang.org/x/exp v0.0.0-20260212183809-81e46e3db34a
+	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa
 	golang.org/x/oauth2 v0.35.0
 	golang.org/x/time v0.14.0
 )
