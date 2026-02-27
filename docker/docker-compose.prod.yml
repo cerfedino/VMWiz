@@ -56,8 +56,8 @@ services:
       - ${PWD}/notifier_config.yml:/config/default.yml
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
-    ports:
-      - "8000:8000" 
+    expose:
+      - 8000
     environment:
       - APPRISE_STATEFUL_MODE=simple
       - APPRISE_DEFAULT_CONFIG_ID=default	
