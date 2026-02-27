@@ -66,6 +66,7 @@ type needs_explanation_values struct {
 	DiskGB int `json:"diskGB"`
 }
 
+// If the requested resources exceed these values, the user must provide an explanation for their request.
 var NEEDS_EXPLANATION needs_explanation_values = needs_explanation_values{
 	Cores:  5, //cores aren't really a problem anyway in theory
 	RamGB:  4,
@@ -141,17 +142,21 @@ func (f *Form) Validate() (Form_validation, bool) {
 	}
 
 	if f.Cores < ALLOWED_VALUES.Cores.Min {
-		validation.Cores_err = "Please select at least " + string(ALLOWED_VALUES.Cores.Min) + " cores"
+		core := "core"
+		if ALLOWED_VALUES.Cores.Min > 1 {
+			core = "cores"
+		}
+		validation.Cores_err = fmt.Sprintf("Please select at least %d %s", ALLOWED_VALUES.Cores.Min, core)
 		err = true
 	}
 
 	if f.RamGB < ALLOWED_VALUES.RamGB.Min {
-		validation.RamGB_err = "Please select at least " + string(ALLOWED_VALUES.RamGB.Min) + " GB of RAM"
+		validation.RamGB_err = fmt.Sprintf("Please select at least %d GB of RAM", ALLOWED_VALUES.RamGB.Min)
 		err = true
 	}
 
 	if f.DiskGB < ALLOWED_VALUES.DiskGB.Min {
-		validation.DiskGB_err = "Please select at least " + string(ALLOWED_VALUES.DiskGB.Min) + " GB of disk space"
+		validation.DiskGB_err = fmt.Sprintf("Please select at least %d GB of disk space", ALLOWED_VALUES.DiskGB.Min)
 		err = true
 	}
 
@@ -176,7 +181,7 @@ func (f *Form) Validate() (Form_validation, bool) {
 	}
 
 	if (f.Cores > NEEDS_EXPLANATION.Cores || f.RamGB > NEEDS_EXPLANATION.RamGB || f.DiskGB > NEEDS_EXPLANATION.DiskGB) && f.Comments == "" {
-		validation.Explanation_err = "Please provide an explanation for your request, as it exceeds the standard limits. We can always increase resources later if needed."
+		validation.Explanation_err = "Please provide an explanation for your request, as you are requesting for a more significant amount of resources. We can always increase resources later if needed."
 		err = true
 	}
 
