@@ -6099,7 +6099,7 @@ vue@^3.2.13:
     "@vue/shared" "3.5.28"
 
 vuetify@^3.8.0:
-  version "3.12.0"
+  version "3.12.1"
 
 vuex@^4.1.0:
   version "4.1.0"
