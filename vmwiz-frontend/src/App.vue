@@ -1,14 +1,15 @@
 <template>
     <div
         class="w-screen py-2 d-flex flex-column align-center"
-        style="height: 14vh"
+        style="min-height: 14vh"
     >
         <img
-            style="height: 75%; max-width: 75%"
+            style="height: 8vh; max-width: 20vw"
             src="@/assets/SOSETH_Logo.svg"
         />
-        <h1 class="text-h5 h-auto">VMWiz</h1>
+        <h1>VMWiz</h1>
     </div>
+    <v-divider />
     <div style="min-height: 86vh">
         <router-view />
     </div>

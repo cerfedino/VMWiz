@@ -20,7 +20,7 @@
     </DialogComponent>
 
     <!-- <div class="h-screen d-flex flex-column justify-center"> -->
-    <div class="w-75 pa-6 ma-auto border-t-sm" style="max-width: 700px">
+    <div class="w-75 pa-6 ma-auto" style="max-width: 700px">
         <h1 class="text-h4 text-center font-weight-bold mb-3">
             VM Request Form
         </h1>
