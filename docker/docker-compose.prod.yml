@@ -65,7 +65,7 @@ services:
   
   vmwiz-db:
     container_name: vmwiz-db
-    image: postgres:16.3@sha256:78df81b1442dcc764c1104154da7162635e40cfffe67579c42a1c1b96dfc209c
+    image: postgres:16.3@sha256:d0f363f8366fbc3f52d172c6e76bc27151c3d643b870e1062b4e8bfe65baf609
     restart: unless-stopped
     networks:
       - vmwiz-internal
