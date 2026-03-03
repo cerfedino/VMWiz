@@ -482,7 +482,8 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, *VMCreationSummary, error)
 	//! Preparing sources.list for VM
 	log.Println("[-] Preparing apt sources for VM")
 	var SOURCES_LIST string
-	if options.Template == "trixie" || options.Template == "bookworm" {
+	switch options.Template {
+	case "trixie", "bookworm":
 		SOURCES_LIST = fmt.Sprintf(`
 		deb http://ftp.ch.debian.org/debian %v main
 		#deb-src http://ftp.ch.debian.org/debian %v main
@@ -492,7 +493,7 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, *VMCreationSummary, error)
 
 		deb http://security.debian.org/ %v-security main
 		#deb-src http://security.debian.org/ %v-security main`, options.Template, options.Template, options.Template, options.Template, options.Template, options.Template)
-	} else if options.Template == "jammy" || options.Template == "noble" {
+	case "jammy", "noble":
 		SOURCES_LIST = fmt.Sprintf(`
 		deb http://ch.archive.ubuntu.com/ubuntu %v main universe multiverse
 		#deb-src http://ch.archive.ubuntu.com/ubuntu %v main universe multiverse
@@ -502,7 +503,7 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, *VMCreationSummary, error)
 
 		deb http://security.ubuntu.com/ubuntu %v-security main universe multiverse
 		#deb-src http://security.ubuntu.com/ubuntu %v-security main universe multiverse`, options.Template, options.Template, options.Template, options.Template, options.Template, options.Template)
-	} else {
+	default:
 		return nil, nil, fmt.Errorf("Failed to create VM: Unknown template %v", options.Template)
 	}
 
