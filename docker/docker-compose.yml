@@ -54,6 +54,8 @@ services:
     restart: unless-stopped
     networks:
       - vmwiz-internal
+    expose:
+      - 8000
     volumes:
       - ${PWD}/notifier_config.yml:/config/default.yml
       - /etc/timezone:/etc/timezone
