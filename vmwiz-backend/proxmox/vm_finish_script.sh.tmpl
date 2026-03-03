@@ -115,7 +115,7 @@ fi
 __EOF__
 chmod 665 /usr/local/bin/update-motd.sh
 
-# Run every 6 hours
+# Run every hour
 echo "0 */1 * * * /usr/local/bin/update-motd.sh" | crontab -
 
 # Fetch MOTD once now
