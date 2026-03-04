@@ -15,7 +15,7 @@ stages:
 # We scan for pushed secrets
 gitleaks:
   image: 
-    name: "docker.io/zricethezav/gitleaks:latest@sha256:691af3c7c5a48b16f187ce3446d5f194838f91238f27270ed36eef6359a574d9"
+    name: "docker.io/zricethezav/gitleaks:v8.30.0@sha256:691af3c7c5a48b16f187ce3446d5f194838f91238f27270ed36eef6359a574d9"
     entrypoint: [""]
   stage: gitleaks
   variables:
@@ -29,7 +29,7 @@ gitleaks:
 
 # Make sure commit messages follow conventional commits formatting
 commitlint: 
-  image: registry.hub.docker.com/library/node:alpine@sha256:18e02657e2a2cc3a87210ee421e9769ff28a1ac824865d64f74d6d2d59f74b6b
+  image: registry.hub.docker.com/library/node:alpine@sha256:636c5bc8fa6a7a542bc99f25367777b0b3dd0db7d1ca3959d14137a1ac80bde2
   stage: lint
   variables:
     GIT_DEPTH: 0
@@ -39,11 +39,14 @@ commitlint:
   script:
     # Parse from first conventional commit onwards
     - npx commitlint --from 7cd53a1c --extends "@commitlint/config-conventional"
+  rules:
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_MERGE_REQUEST_ID
 
 
 # We create a new release when merging into main
 semrel-release:
-  image: golang:1.26@sha256:9edf71320ef8a791c4c33ec79f90496d641f306a91fb112d3d060d5c1cee4e20
+  image: golang:1.26@sha256:fb612b7831d53a89cbc0aaa7855b69ad7b0caf603715860cf538df854d047b84
   stage: release
   script:
     - echo $CI_SERVER_URL
@@ -63,9 +66,9 @@ semrel-release:
 
 goreleaser-images:
   stage: publish
-  image: docker:29.2.1@sha256:8bcbad4b45f0bff9d3e809d85a7ac589390f0be8acbc526850c998c35c1243fd
+  image: docker:29.2.1@sha256:68f6d9ab84623d1116c5432a3b924a07ee09960e6129ca1cb03ef14010588cb4
   services:
-    - docker:dind@sha256:8bcbad4b45f0bff9d3e809d85a7ac589390f0be8acbc526850c998c35c1243fd
+    - docker:dind@sha256:68f6d9ab84623d1116c5432a3b924a07ee09960e6129ca1cb03ef14010588cb4
   variables:
     DOCKER_REGISTRY: $CI_REGISTRY
     DOCKER_USERNAME: $CI_REGISTRY_USER

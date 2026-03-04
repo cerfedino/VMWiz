@@ -89,7 +89,7 @@ func addAllVMRoutes(r *mux.Router) {
 			if body.DeleteDNS {
 				err = netcenter.DeleteDNSEntryByHostname(vm.Name)
 				if err != nil {
-					errmsg := fmt.Sprintf("%v Failed to delete DMS entry for VM %v", errprefix, vm.Id)
+					errmsg := fmt.Sprintf("%v Failed to delete DNS entry for VM %v", errprefix, vm.Id)
 					log.Println(errmsg)
 					errors = append(errors, errmsg)
 					continue
