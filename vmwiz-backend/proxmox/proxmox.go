@@ -535,7 +535,7 @@ Reinstall: %v
 
 	//! Register DNS entries for FQDN and an available IPv4 and IPv6 address.
 	if !options.Reinstall {
-		log.Printf("[-] Registering \"FQDN\" %v in net \"%v\"\n", options.FQDN, net)
+		log.Printf("[-] Registering FQDN \"%v\" in net \"%v\"\n", options.FQDN, net)
 		ipv4, ipv6, err := netcenter.Registerhost(net, options.FQDN)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Failed to create VM: %v", err)
@@ -993,12 +993,10 @@ Reinstall: %v
 		SOURCES_LIST string
 		VM_GATEWAY_6 string
 		UseQemuAgent bool
-		MOTD_URL     string
 	}{
 		SOURCES_LIST: SOURCES_LIST,
 		VM_GATEWAY_6: VM_GATEWAY_6,
 		UseQemuAgent: options.UseQemuAgent,
-		MOTD_URL:     config.AppConfig.MOTD_URL,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Failed to execute template: %v", err)

@@ -15,8 +15,6 @@ type Config struct {
 	VMWIZ_HOSTNAME string
 	VMWIZ_PORT     int
 
-	MOTD_URL string
-
 	PVE_HOST    string
 	PVE_USER    string
 	PVE_TOKENID string
@@ -70,8 +68,6 @@ func (c *Config) Init() error {
 	c.VMWIZ_SCHEME = os.Getenv("VMWIZ_SCHEME")
 	c.VMWIZ_HOSTNAME = os.Getenv("VMWIZ_HOSTNAME")
 	c.VMWIZ_PORT = VMWIZ_PORT
-
-	c.MOTD_URL = os.Getenv("MOTD_URL")
 
 	c.PVE_HOST = os.Getenv("PVE_HOST")
 	c.PVE_USER = os.Getenv("PVE_USER")

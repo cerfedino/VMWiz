@@ -101,25 +101,8 @@ apt install -y qemu-guest-agent
 
 
 # Setup cronjob to periodically pull the MOTD
-cat > /usr/local/bin/update-motd.sh << '__EOF__'
-#!/bin/bash
-MOTD_URL="{{.MOTD_URL}}"
-TMPFILE=$(mktemp)
-trap 'rm -f "$TMPFILE"' EXIT
-if curl -sf -o "$TMPFILE" "$MOTD_URL" && [ -s "$TMPFILE" ]; then
-    chmod 666 "$TMPFILE"
-    echo "$TMPFILE"
-    mv "$TMPFILE" /etc/motd
-    trap - EXIT
-fi
-__EOF__
-chmod 665 /usr/local/bin/update-motd.sh
-
-# Run every hour
-echo "0 */1 * * * /usr/local/bin/update-motd.sh" | crontab -
-
-# Fetch MOTD once now
-/usr/local/bin/update-motd.sh
+# We fetch the setup script separately such that older VMs can also just run the below command
+curl https://git.sos.ethz.ch/_public/vsos/motd/-/raw/main/configure_cronjob.sh | bash
 
 
 # Script removes itself
