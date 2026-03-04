@@ -39,6 +39,9 @@ commitlint:
   script:
     # Parse from first conventional commit onwards
     - npx commitlint --from 7cd53a1c --extends "@commitlint/config-conventional"
+  rules:
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_MERGE_REQUEST_ID
 
 
 # We create a new release when merging into main
