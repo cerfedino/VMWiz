@@ -47,7 +47,7 @@ func main() {
 				Name:        "server",
 				Aliases:     []string{},
 				Description: "Starts the VMWiz backend server",
-				Action:      handle_survey,
+				Action:      handle_server,
 			},
 			{
 				Name:        "health",
@@ -243,7 +243,7 @@ func sliceToSet[T comparable](slice []T) map[T]struct{} {
 	return set
 }
 
-func handle_survey(ctx context.Context, cmd *cli.Command) error {
+func handle_server(ctx context.Context, cmd *cli.Command) error {
 	server.StartServer()
 	return nil
 }

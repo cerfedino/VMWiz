@@ -35,7 +35,7 @@ func useNotifier(tags string, body string) error {
 	v.Add("tags", tags)
 	v.Add("body", body)
 
-	_, err := http.PostForm("http://vmwiz-notifier:8080/notify/default", v)
+	_, err := http.PostForm("http://vmwiz-notifier:8000/notify/default", v)
 	if err != nil {
 		return err
 	}
