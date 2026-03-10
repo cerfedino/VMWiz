@@ -6089,15 +6089,19 @@ vue-template-es2015-compiler@^1.9.0:
 
 vue@^3.2.13:
   version "3.5.29"
+  resolved "https://registry.yarnpkg.com/vue/-/vue-3.5.29.tgz#859a1cc5219eb1228c7ce6f355b27de080517111"
+  integrity sha512-BZqN4Ze6mDQVNAni0IHeMJ5mwr8VAJ3MQC9FmprRhcBYENw+wOAAjRj8jfmN6FLl0j96OXbR+CjWhmAmM+QGnA==
   dependencies:
-    "@vue/compiler-dom" "3.5.28"
-    "@vue/compiler-sfc" "3.5.28"
-    "@vue/runtime-dom" "3.5.28"
-    "@vue/server-renderer" "3.5.28"
-    "@vue/shared" "3.5.28"
+    "@vue/compiler-dom" "3.5.29"
+    "@vue/compiler-sfc" "3.5.29"
+    "@vue/runtime-dom" "3.5.29"
+    "@vue/server-renderer" "3.5.29"
+    "@vue/shared" "3.5.29"
 
-vuetify@^3.8.0:
-  version "3.12.1"
+vuetify@^4.0.0:
+  version "4.0.0"
+  resolved "https://registry.yarnpkg.com/vuetify/-/vuetify-4.0.0.tgz#9ff17fc9ab21bd131dbf14fbee0f2315d426ed29"
+  integrity sha512-TRyNWd2KlX1KXbKwuHYRfrX24yLHq85AdVKmokfy5llAgVx7MNW4oBPwFmYLeuuSrWvw5ITtDJ5VjdBIKD5WVw==
 
 vuex@^4.1.0:
   version "4.1.0"
