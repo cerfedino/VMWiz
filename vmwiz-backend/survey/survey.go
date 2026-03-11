@@ -202,13 +202,15 @@ func sendVMUsageSurvey(surveyId int64, surveyEmails []storage.SQLUsageSurveyEmai
 
 		mail_content := new(bytes.Buffer)
 		err = vmusage_survey_template.Execute(mail_content, struct {
-			HOSTNAME string
-			URL      string
-			REPLYTO  string
+			HOSTNAME       string
+			HOSTNAME_SHORT string
+			URL            string
+			REPLYTO        string
 		}{
-			HOSTNAME: surveyEmail.Hostname,
-			URL:      config.AppConfig.VMWIZ_SCHEME + "://" + config.AppConfig.VMWIZ_HOSTNAME + ":" + strconv.Itoa(config.AppConfig.VMWIZ_PORT) + "/survey?id=" + surveyEmail.Uuid + "&hostname=" + surveyEmail.Hostname,
-			REPLYTO:  config.AppConfig.SMTP_REPLYTO,
+			HOSTNAME:       surveyEmail.Hostname,
+			HOSTNAME_SHORT: strings.Split(surveyEmail.Hostname, ".")[0],
+			URL:            config.AppConfig.VMWIZ_SCHEME + "://" + config.AppConfig.VMWIZ_HOSTNAME + ":" + strconv.Itoa(config.AppConfig.VMWIZ_PORT) + "/survey?id=" + surveyEmail.Uuid + "&hostname=" + surveyEmail.Hostname,
+			REPLYTO:        config.AppConfig.SMTP_REPLYTO,
 		})
 		if err != nil {
 			return fmt.Errorf("Failed send VM usage survey: Failed to execute email template: %v", err)
