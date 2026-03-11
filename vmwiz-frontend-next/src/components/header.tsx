@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 export function Header() {
     return (
@@ -11,7 +12,9 @@ export function Header() {
                 className="h-[8vh] max-w-[20vw] w-auto"
                 priority
             />
-            <h1 className="text-2xl font-bold">VMWiz</h1>
+            <Link href="/">
+                <h1 className="text-2xl font-bold">VMWiz</h1>
+            </Link>
         </header>
     );
 }

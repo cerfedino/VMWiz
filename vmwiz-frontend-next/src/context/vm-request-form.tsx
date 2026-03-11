@@ -304,8 +304,6 @@ export function VMRequestFormProvider({
         }
     }, [values]);
 
-    // ── Context value ────────────────────────
-
     const ctx = useMemo<VMRequestFormContextValue>(
         () => ({
             values,

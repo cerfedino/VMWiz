@@ -172,7 +172,7 @@ function VMSpecSection() {
 
     return (
         <section className="space-y-6">
-            <h2 className="text-lg font-semibold">VM Specification</h2>
+            <h2 className="text-lg font-semibold">VM Specifications</h2>
 
             {/* Hostname */}
             <div className="space-y-2">
