@@ -9,8 +9,23 @@ Please state whether you are still using this VM at the following link:
 Fill out the survey as soon as possible in order to avoid the automatic shutdown of your VM.
 Also please sign up for SOSETH in MyStudies if you haven't done so yet, being a member of SOSETH is a prerequisite for using SOSETH services.
 
+Some more news currently regarding VSOS:
+There exists a new sshportal to access the serial console of your VM and otherwise be able to start/shutdown/reboot your VM.
+To connect to it: `ssh {{.HOSTNAME_SHORT}}@sshportal.sos.ethz.ch -i ~/path/to/your_vsos_key`*
+More detailed information will follow on our website at a later date. (if your VM is very old (5+ years), it might not work)
+
+We are also very close to our limit of Memory usage. So if you still need your VM, but might not need that much memory anymore, please consider writing us a mail to reduce it.
+
+On another note, we established a new VM Banner which will be displayed when you connect to your VM via SSH. You can run the below command to set up a cronjob to automatically update the banner:
+`curl https://git.sos.ethz.ch/_public/vsos/motd/-/raw/main/configure_cronjob.sh | bash`
+
 This is an automated message. Please do not reply to this email.
 For any further inquires, please contact {{.REPLYTO}}
 
 Best regards,
 The VSOS Team
+
+*Fingerprints:
+384 SHA256:p0rVm7ztNmuUBS75M/wWqG49Vy4XF8+eSXLpup0Y8DU ssh_host_ecdsa_key.pub (ECDSA)
+256 SHA256:bYhkUA32VVH3Q4IfaLdHk1o4FA0DmLGYfrSxO53m6R0 ssh_host_ed25519_key.pub (ED25519)
+4096 SHA256:06sUK5mBDqP3DJDDvImALNJDu20XirK8XoQoDRuQnxA ssh_host_rsa_key.pub (RSA)
