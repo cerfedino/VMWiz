@@ -58,6 +58,18 @@ export async function submitVMRequest(formData: Record<string, unknown>) {
     );
 }
 
+export async function submitSurveyResponse(
+    id: string,
+    keep: boolean,
+): Promise<Response> {
+    return fetchBackend(
+        "/api/usagesurvey/set",
+        "POST",
+        { "Content-Type": "application/json" },
+        JSON.stringify({ id, keep }),
+    );
+}
+
 export function buildBackendURL(path: string): string {
     return `${BASE_URL}${path}`;
 }
