@@ -131,6 +131,11 @@ export interface SurveySetBody {
 }
 
 // GET /api/usagesurvey/responses/{positive,negative,notsent,none}?id=<surveyId>
+export type SurveyResponseCategory =
+    | "positive"
+    | "negative"
+    | "none"
+    | "notsent";
 export type SurveyHostnameListResponse = string[];
 
 // POST /api/usagesurvey/resend/unsent

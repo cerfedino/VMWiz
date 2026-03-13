@@ -4,6 +4,7 @@ import { useAuth } from "@/context/auth";
 import { Loader2, ClipboardList, BarChart3, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { VMDelete } from "@/components/admin/vm-delete";
+import { SurveyAdmin } from "@/components/admin/survey-admin";
 
 export default function ConsolePage() {
     const { status } = useAuth();
@@ -46,9 +47,7 @@ export default function ConsolePage() {
                     <BarChart3 className="h-5 w-5" />
                     Surveys
                 </h2>
-                <p className="text-muted-foreground">
-                    Survey management will go here.
-                </p>
+                <SurveyAdmin />
             </section>
         </div>
     );

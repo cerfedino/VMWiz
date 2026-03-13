@@ -1,8 +1,13 @@
 import {
     VMRequestAllowedValues,
     VMRequestValidationErrors,
+    SurveyListResponse,
+    SurveyInfo,
+    SurveyResponseCategory,
+    SurveyHostnameListResponse,
 } from "@/lib/types/api";
 import { HTTP_METHOD } from "next/dist/server/web/http";
+import { getReasonPhrase } from "http-status-codes";
 
 /**
  * Callback invoked when a request needs user confirmation.
@@ -143,7 +148,8 @@ export async function fetchBackend<T = void>(
         }
 
         throw new FetchError(
-            text || `Request failed with status ${response.status}`,
+            text ||
+                `Request failed with status ${response.status} ${getReasonPhrase(response.status)}`,
             response,
         );
     }
@@ -256,6 +262,100 @@ export function prepareDeleteVM(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ vmName, deleteDNS }),
+    };
+}
+
+export async function fetchSurveyIds(): Promise<SurveyListResponse> {
+    const { data } = await fetchBackend<SurveyListResponse>(
+        prepareFetchSurveyIds(),
+    );
+    return data;
+}
+export function prepareFetchSurveyIds(): BackendRequest {
+    return {
+        path: "/api/usagesurvey/",
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+    };
+}
+
+export async function fetchSurveyInfo(surveyId: number): Promise<SurveyInfo> {
+    const { data } = await fetchBackend<SurveyInfo>(
+        prepareFetchSurveyInfo(surveyId),
+    );
+    return data;
+}
+export function prepareFetchSurveyInfo(surveyId: number): BackendRequest {
+    return {
+        path: `/api/usagesurvey/info?surveyId=${surveyId}`,
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+    };
+}
+
+export async function createSurvey(
+    onConfirmRequired?: OnConfirmCallback,
+): Promise<void> {
+    await fetchBackend(prepareCreateSurvey(), { onConfirmRequired });
+}
+export function prepareCreateSurvey(): BackendRequest {
+    return {
+        path: "/api/usagesurvey/create",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+    };
+}
+
+export async function fetchSurveyResponses(
+    surveyId: number,
+    category: SurveyResponseCategory,
+): Promise<SurveyHostnameListResponse> {
+    const { data } = await fetchBackend<SurveyHostnameListResponse>(
+        prepareFetchSurveyResponses(surveyId, category),
+    );
+    return data;
+}
+export function prepareFetchSurveyResponses(
+    surveyId: number,
+    category: SurveyResponseCategory,
+): BackendRequest {
+    return {
+        path: `/api/usagesurvey/responses/${category}?id=${surveyId}`,
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+    };
+}
+
+export async function resendUnsent(
+    surveyId: number,
+    onConfirmRequired?: OnConfirmCallback,
+): Promise<void> {
+    await fetchBackend(prepareResendUnsent(surveyId), { onConfirmRequired });
+}
+export function prepareResendUnsent(surveyId: number): BackendRequest {
+    return {
+        path: "/api/usagesurvey/resend/unsent",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: surveyId }),
+    };
+}
+
+export async function resendUnanswered(
+    surveyId: number,
+    onConfirmRequired?: OnConfirmCallback,
+): Promise<void> {
+    await fetchBackend(prepareResendUnanswered(surveyId), {
+        onConfirmRequired,
+    });
+}
+export function prepareResendUnanswered(surveyId: number): BackendRequest {
+    return {
+        path: "/api/usagesurvey/resend/unanswered",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: surveyId }),
     };
 }
 

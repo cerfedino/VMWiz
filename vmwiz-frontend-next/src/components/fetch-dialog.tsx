@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+
 import {
     FetchError,
     type OnConfirmCallback,
@@ -193,6 +194,8 @@ interface FetchDialogProps {
     description?: string;
     /** Body to show if the request si successfull */
     successDescription?: React.ReactNode;
+    /** Custom content rendered in the dialog on success */
+    successContent?: (data: unknown) => React.ReactNode;
     /** Body to show if the request errors out */
     errorDescription?: React.ReactNode;
 
@@ -219,6 +222,8 @@ interface FetchDialogProps {
         | "ghost"
         | "link";
 
+    /** Whether to show the phase icon. Defaults to true. */
+    showIcon?: boolean;
     /** Callback that gets called with the response data if everything goes well */
     onSuccess?: (data: unknown) => void;
     /** If onError returns true, the dialog closes (error handled externally).
@@ -233,13 +238,15 @@ export function FetchDialog({
     requestInfo,
     title,
     description,
-    successDescription,
+    successDescription = "Completed successfully",
+    successContent,
     errorDescription,
     cancelLabel = "Cancel",
     cancelVariant = "outline",
     proceedLabel = "Proceed",
     proceedVariant = "default",
     immediate = false,
+    showIcon = true,
     onSuccess,
     onError,
 }: FetchDialogProps) {
@@ -247,6 +254,7 @@ export function FetchDialog({
     const [errorMessage, setErrorMessage] = useState("");
     const [confirmInput, setConfirmInput] = useState("");
     const [expectedToken, setExpectedToken] = useState("");
+    const [successData, setSuccessData] = useState<unknown>(undefined);
     const [responseInfo, setResponseInfo] = useState<ResponseInfo | undefined>(
         undefined,
     );
@@ -264,6 +272,7 @@ export function FetchDialog({
                 setErrorMessage("");
                 setConfirmInput("");
                 setExpectedToken("");
+                setSuccessData(undefined);
                 setResponseInfo(undefined);
                 pendingConfirmation.current = null;
             }, 150);
@@ -299,6 +308,7 @@ export function FetchDialog({
                         ? JSON.stringify(data, null, 2)
                         : undefined,
             });
+            setSuccessData(data);
             setPhase("success");
             onSuccess?.(data);
         } catch (err) {
@@ -349,7 +359,7 @@ export function FetchDialog({
         pending.resolve(confirmInput);
     }
 
-    // Handle clicking on the cancel button
+    // Handle canceling the request (e.g pressing on cancel button)
     function handleCancel() {
         const pending = pendingConfirmation.current;
         if (pending) {
@@ -364,11 +374,9 @@ export function FetchDialog({
     const phaseDescriptions: Record<Phase, React.ReactNode> = {
         idle: description,
         loading: "Please wait...",
-        confirming: description
-            ? `${description} This action requires confirmation.`
-            : "This action requires confirmation.",
-        success: successDescription ?? "Completed successfully.",
-        error: errorDescription ?? errorMessage ?? "Something went wrong.",
+        confirming: (description ?? "") + " This action requires confirmation",
+        success: successDescription,
+        error: errorMessage ?? "Something went wrong.",
     };
 
     const phaseDescription = phaseDescriptions[phase];
@@ -383,7 +391,9 @@ export function FetchDialog({
         <Dialog
             open={open}
             onOpenChange={(v) => {
+                // Dont do anything if dialog is not closeable
                 if (!v && !closeable) return;
+
                 if (!v && phase === "confirming") {
                     handleCancel();
                     return;
@@ -391,9 +401,12 @@ export function FetchDialog({
                 onOpenChange(v);
             }}
         >
-            <DialogContent showCloseButton={false}>
+            <DialogContent
+                showCloseButton={false}
+                className="max-h-[85vh] flex flex-col"
+            >
                 <DialogHeader>
-                    <PhaseIcon phase={phase} />
+                    {showIcon && <PhaseIcon phase={phase} />}
                     <DialogTitle className="text-center">{title}</DialogTitle>
                     {phaseDescription && (
                         <DialogDescription className={descriptionClassName}>
@@ -401,6 +414,12 @@ export function FetchDialog({
                         </DialogDescription>
                     )}
                 </DialogHeader>
+
+                {phase === "success" && successContent && (
+                    <div className="min-h-0 overflow-y-auto">
+                        {successContent(successData)}
+                    </div>
+                )}
 
                 {phase === "confirming" && (
                     <div className="space-y-2 py-2">
@@ -434,6 +453,7 @@ export function FetchDialog({
                     </div>
                 )}
 
+                {/*Collapsible panel showing request info*/}
                 <DebugPanel
                     requestInfo={requestInfo}
                     responseInfo={responseInfo}
