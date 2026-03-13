@@ -28,7 +28,7 @@ services:
 
   vmwiz-backend:
     container_name: vmwiz-backend
-    build: 
+    build:
       context: ../vmwiz-backend
       dockerfile: Dockerfile.dev
     restart: unless-stopped
@@ -47,7 +47,7 @@ services:
     depends_on:
       vmwiz-db:
         condition: service_healthy
-  
+
   vmwiz-notifier:
     container_name: vmwiz-notifier
     image: caronc/apprise:v1.3.1@sha256:6b112f8f174244f4a73b8e1254c9bde1fa562a6a428010aeaff1c18bc98d2713
@@ -62,9 +62,9 @@ services:
       - /etc/localtime:/etc/localtime
     environment:
       - APPRISE_STATEFUL_MODE=simple
-      - APPRISE_DEFAULT_CONFIG_ID=default	
+      - APPRISE_DEFAULT_CONFIG_ID=default
       - APPRISE_WORKER_COUNT=1
-  
+
   vmwiz-db:
     container_name: vmwiz-db
     image: postgres:18.3@sha256:69e8582b781cb44fa4557b98ed586fe68361e320d9b12f9707494335634f4f3d
@@ -80,30 +80,29 @@ services:
     env_file:
       - ../.db.env
     healthcheck:
-      test: [
-        "CMD-SHELL", 
-        "psql -U $$POSTGRES_USER -d $$POSTGRES_DB -c 'SELECT 1' || exit 1"
-      ]
+      test:
+        [
+          "CMD-SHELL",
+          "psql -U $$POSTGRES_USER -d $$POSTGRES_DB -c 'SELECT 1' || exit 1",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 10s
 
-
-
   vmwiz-frontend:
     container_name: vmwiz-frontend
-    build: 
-      context: ../vmwiz-frontend
+    build:
+      context: ../vmwiz-frontend-next
       dockerfile: Dockerfile.dev
     restart: unless-stopped
     networks:
       - vmwiz-internal
     volumes:
-      - ../vmwiz-frontend:/app
+      - ../vmwiz-frontend-next:/app
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
     working_dir: /app
-    command: /bin/sh -c "yarn install && yarn run serve"
+    command: /bin/sh -c "yarn install && yarn dev"
     env_file:
-     - ../.env
+      - ../.env
