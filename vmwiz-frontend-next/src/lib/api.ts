@@ -41,13 +41,17 @@ export class ValidationError extends FetchError {
     }
 }
 
-interface FetchBackendOptions {
-    /** HTTP method  */
+/**
+ * Describes a backend request
+ */
+export interface BackendRequest {
+    path: string;
     method: HTTP_METHOD;
-    /** HTTP headers */
-    headers?: Record<string, string>;
-    /** Request body as string */
+    headers: Record<string, string>;
     body?: string;
+}
+
+interface FetchBackendOptions {
     /**
      * When provided, enables confirmation-token handling.
      *
@@ -64,19 +68,20 @@ interface FetchBackendOptions {
  * Handles authentication on it's own by redirecting to SSO if a 401 is encountered.
  * Handles the token confirmation flow if `onConfirmRequired` is provided in options.
  *
- * @param path    API endpoint path, e.g. "/api/vmrequest/options"
- * @param options Request options
+ * @param request The request descriptor (path, method, headers, body)
+ * @param options Optional settings
  * @returns Parsed structured data from the response, along with the original Response object
  * @throws FetchError if the request fails unexpectedly
  */
 export async function fetchBackend<T = void>(
-    path: string,
-    options: FetchBackendOptions,
+    request: BackendRequest,
+    options: FetchBackendOptions = {},
 ): Promise<{
     data: T;
     original: Response;
 }> {
-    const { method, headers = {}, body, onConfirmRequired } = options;
+    const { path, method, headers, body } = request;
+    const { onConfirmRequired } = options;
 
     const url = `${BASE_URL}${path}`;
 
@@ -112,7 +117,12 @@ export async function fetchBackend<T = void>(
             // Retry with ?preview=true to obtain a confirmation token
             const { data: preview } = await fetchBackend<{
                 confirmationToken: string;
-            }>(`${path}?preview=true`, { method: "POST", headers, body });
+            }>({
+                path: `${path}?preview=true`,
+                method: "POST",
+                headers,
+                body,
+            });
 
             // Ask the user to confirm (may throw/reject to cancel) by calling the provided callback
             const confirmedToken = await onConfirmRequired(
@@ -121,7 +131,8 @@ export async function fetchBackend<T = void>(
 
             // Retry the original request with the confirmed token merged in
             const parsed = JSON.parse(body) as Record<string, unknown>;
-            return await fetchBackend<T>(path, {
+            return await fetchBackend<T>({
+                path,
                 method: "POST",
                 headers,
                 body: JSON.stringify({
@@ -148,15 +159,21 @@ export async function fetchBackend<T = void>(
  */
 export async function fetchVMOptions(): Promise<VMRequestAllowedValues> {
     const { data } = await fetchBackend<VMRequestAllowedValues>(
-        "/api/vmrequest/options",
-        { method: "GET", headers: { "Content-Type": "application/json" } },
+        prepareGetVMOptions(),
     );
     return data;
+}
+export function prepareGetVMOptions(): BackendRequest {
+    return {
+        path: "/api/vmrequest/options",
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+    };
 }
 
 /**
  * Submits a VM request to the backend.
- * @param request the VM specs to submit
+ * @param formData the VM specs to submit
  * @param onConfirmRequired See the type OnConfirmCallback for details.
  */
 export async function submitVMRequest(
@@ -164,10 +181,7 @@ export async function submitVMRequest(
     onConfirmRequired?: OnConfirmCallback,
 ): Promise<void> {
     try {
-        await fetchBackend("/api/vmrequest", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(formData),
+        await fetchBackend(prepareSubmitVMRequest(formData), {
             onConfirmRequired,
         });
     } catch (error) {
@@ -181,6 +195,16 @@ export async function submitVMRequest(
         throw error;
     }
 }
+export function prepareSubmitVMRequest(
+    formData: Record<string, unknown>,
+): BackendRequest {
+    return {
+        path: "/api/vmrequest",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+    };
+}
 
 /**
  * Submits the response of a usage survey.
@@ -193,12 +217,20 @@ export async function submitSurveyResponse(
     keep: boolean,
     onConfirmRequired?: OnConfirmCallback,
 ): Promise<void> {
-    await fetchBackend("/api/usagesurvey/set", {
+    await fetchBackend(prepareSubmitSurveyResponse(id, keep), {
+        onConfirmRequired,
+    });
+}
+export function prepareSubmitSurveyResponse(
+    id: string,
+    keep: boolean,
+): BackendRequest {
+    return {
+        path: "/api/usagesurvey/set",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, keep }),
-        onConfirmRequired,
-    });
+    };
 }
 
 /**
@@ -211,12 +243,20 @@ export async function deleteVM(
     deleteDNS: boolean,
     onConfirmRequired?: OnConfirmCallback,
 ): Promise<void> {
-    await fetchBackend("/api/vm/deleteByName", {
+    await fetchBackend(prepareDeleteVM(vmName, deleteDNS), {
+        onConfirmRequired,
+    });
+}
+export function prepareDeleteVM(
+    vmName: string,
+    deleteDNS: boolean,
+): BackendRequest {
+    return {
+        path: "/api/vm/deleteByName",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ vmName, deleteDNS }),
-        onConfirmRequired,
-    });
+    };
 }
 
 export function buildBackendURL(path: string): string {

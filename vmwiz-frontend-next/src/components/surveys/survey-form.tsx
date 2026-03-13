@@ -10,7 +10,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { FetchDialog } from "@/components/fetch-dialog";
-import { submitSurveyResponse } from "@/lib/api";
+import { submitSurveyResponse, prepareSubmitSurveyResponse } from "@/lib/api";
 import { AlertTriangle, Check, X } from "lucide-react";
 
 function InvalidLinkCard() {
@@ -59,6 +59,7 @@ export function SurveyForm() {
                         (data) => ({ data }),
                     )
                 }
+                requestInfo={prepareSubmitSurveyResponse(pollId, true)}
                 immediate
                 title="VM Usage Survey"
                 successDescription={
@@ -78,6 +79,7 @@ export function SurveyForm() {
                         (data) => ({ data }),
                     )
                 }
+                requestInfo={prepareSubmitSurveyResponse(pollId, false)}
                 title="Confirm Removal"
                 description={`Are you sure you want to give up access to ${hostname}? It will be stopped and removed.`}
                 cancelLabel="No, keep it"

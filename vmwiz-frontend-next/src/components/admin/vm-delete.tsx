@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { FetchDialog } from "@/components/fetch-dialog";
-import { deleteVM } from "@/lib/api";
+import { deleteVM, prepareDeleteVM } from "@/lib/api";
 import { Trash2 } from "lucide-react";
 
 export function VMDelete() {
@@ -57,6 +57,7 @@ export function VMDelete() {
                         data,
                     }))
                 }
+                requestInfo={prepareDeleteVM(hostname, deleteDNS)}
                 title="Delete VM"
                 description={`You are about to delete "${hostname}"${deleteDNS ? " and its DNS entries" : ""}. This cannot be undone.`}
                 onSuccess={() => setHostname("")}

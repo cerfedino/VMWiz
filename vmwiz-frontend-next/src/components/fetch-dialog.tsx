@@ -13,8 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import type { OnConfirmCallback } from "@/lib/api";
-import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import {
+    FetchError,
+    type OnConfirmCallback,
+    type BackendRequest,
+} from "@/lib/api";
+import { AlertTriangle, CheckCircle2, Info, Loader2 } from "lucide-react";
+import { getReasonPhrase } from "http-status-codes";
 
 class CancelledError extends Error {
     constructor() {
@@ -24,6 +29,11 @@ class CancelledError extends Error {
 }
 
 type Phase = "idle" | "loading" | "confirming" | "success" | "error";
+
+interface ResponseInfo {
+    status: number;
+    body?: string;
+}
 
 function PhaseIcon({ phase }: { phase: Phase }) {
     const base =
@@ -58,6 +68,111 @@ function PhaseIcon({ phase }: { phase: Phase }) {
     }
 }
 
+/**
+ * The collapsible debug panel that shows request and response details.
+ */
+function DebugPanel({
+    requestInfo,
+    responseInfo,
+}: {
+    requestInfo?: BackendRequest;
+    responseInfo?: ResponseInfo;
+}) {
+    const [expanded, setExpanded] = useState(false);
+
+    if (!requestInfo) return null;
+
+    return (
+        <div className="mt-2">
+            <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="mx-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+                <Info className="h-3.5 w-3.5" />
+                <span>{expanded ? "Hide" : "Show"} request details</span>
+            </button>
+
+            <div
+                className={cn(
+                    "mt-2 grid transition-[grid-template-rows] duration-150 ease-in-out",
+                    expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                )}
+            >
+                <div className="overflow-hidden">
+                    <div className="max-h-60 overflow-auto rounded-md bg-muted/50 p-3 text-left font-mono text-xs leading-relaxed">
+                        <div>
+                            <span className="font-semibold text-foreground">
+                                {requestInfo.method}
+                            </span>{" "}
+                            <span className="text-muted-foreground">
+                                {requestInfo.path}
+                            </span>
+                        </div>
+
+                        {requestInfo.headers &&
+                            Object.keys(requestInfo.headers).length > 0 && (
+                                <div className="mt-1.5">
+                                    <span className="font-semibold text-foreground">
+                                        Headers
+                                    </span>
+                                    <pre className="mt-0.5 whitespace-pre-wrap break-all text-muted-foreground">
+                                        {JSON.stringify(
+                                            requestInfo.headers,
+                                            null,
+                                            2,
+                                        )}
+                                    </pre>
+                                </div>
+                            )}
+
+                        {requestInfo.body !== undefined && (
+                            <div className="mt-1.5">
+                                <span className="font-semibold text-foreground">
+                                    Body
+                                </span>
+                                <pre className="mt-0.5 whitespace-pre-wrap break-all text-muted-foreground">
+                                    {JSON.stringify(
+                                        JSON.parse(requestInfo.body),
+                                        null,
+                                        2,
+                                    )}
+                                </pre>
+                            </div>
+                        )}
+
+                        {responseInfo && (
+                            <div className="mt-2 border-t border-border pt-2">
+                                <div>
+                                    <span className="font-semibold text-foreground">
+                                        Response
+                                    </span>{" "}
+                                    <span
+                                        className={cn(
+                                            responseInfo.status >= 200 &&
+                                                responseInfo.status < 300
+                                                ? "text-teal-600"
+                                                : "text-destructive",
+                                        )}
+                                    >
+                                        {responseInfo.status}{" "}
+                                        {getReasonPhrase(responseInfo.status)}
+                                    </span>
+                                </div>
+                                {responseInfo.body && (
+                                    <pre className="mt-0.5 whitespace-pre-wrap break-all text-muted-foreground">
+                                        {responseInfo.body}
+                                    </pre>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 interface FetchDialogProps {
     /** Whether the dialog is open or not. */
     open: boolean;
@@ -70,6 +185,9 @@ interface FetchDialogProps {
     fetchFn: (
         onConfirmRequired: OnConfirmCallback,
     ) => Promise<{ data: unknown }>;
+
+    /** Optional request metadata shown in the debug info panel. Built by prepare* helpers from api.ts. */
+    requestInfo?: BackendRequest;
 
     title: string;
     description?: string;
@@ -112,6 +230,7 @@ export function FetchDialog({
     open,
     onOpenChange,
     fetchFn,
+    requestInfo,
     title,
     description,
     successDescription,
@@ -128,6 +247,9 @@ export function FetchDialog({
     const [errorMessage, setErrorMessage] = useState("");
     const [confirmInput, setConfirmInput] = useState("");
     const [expectedToken, setExpectedToken] = useState("");
+    const [responseInfo, setResponseInfo] = useState<ResponseInfo | undefined>(
+        undefined,
+    );
 
     const pendingConfirmation = useRef<{
         resolve: (token: string) => void;
@@ -142,6 +264,7 @@ export function FetchDialog({
                 setErrorMessage("");
                 setConfirmInput("");
                 setExpectedToken("");
+                setResponseInfo(undefined);
                 pendingConfirmation.current = null;
             }, 150);
             return () => clearTimeout(t);
@@ -165,15 +288,32 @@ export function FetchDialog({
     const fireRequest = useCallback(async () => {
         setPhase("loading");
         setErrorMessage("");
+        setResponseInfo(undefined);
 
         try {
             const { data } = await fetchFn(onConfirmRequired);
+            setResponseInfo({
+                status: 200,
+                body:
+                    data !== undefined
+                        ? JSON.stringify(data, null, 2)
+                        : undefined,
+            });
             setPhase("success");
             onSuccess?.(data);
         } catch (err) {
             if (err instanceof CancelledError) {
                 return;
             }
+
+            // Extract response info from FetchError if available
+            if (err instanceof FetchError) {
+                setResponseInfo({
+                    status: err.response.status,
+                    body: err.message,
+                });
+            }
+
             const error =
                 err instanceof Error ? err : new Error("Unknown error");
             const handled = onError?.(error);
@@ -293,6 +433,11 @@ export function FetchDialog({
                         />
                     </div>
                 )}
+
+                <DebugPanel
+                    requestInfo={requestInfo}
+                    responseInfo={responseInfo}
+                />
 
                 {/*Footer buttons*/}
                 <DialogFooter className={cn(phase === "loading" && "hidden")}>

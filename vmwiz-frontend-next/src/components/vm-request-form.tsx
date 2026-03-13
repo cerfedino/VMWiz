@@ -17,7 +17,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { FetchDialog } from "@/components/fetch-dialog";
-import { submitVMRequest, ValidationError } from "@/lib/api";
+import {
+    submitVMRequest,
+    prepareSubmitVMRequest,
+    ValidationError,
+} from "@/lib/api";
 import { Plus, Minus, RotateCcw } from "lucide-react";
 
 function FieldError({ message }: { message?: string }) {
@@ -61,6 +65,9 @@ export function VMRequestForm() {
                         onConfirm,
                     ).then((data) => ({ data }))
                 }
+                requestInfo={prepareSubmitVMRequest(
+                    values as unknown as Record<string, unknown>,
+                )}
                 immediate
                 title="Submitting Request"
                 successDescription="We received your request! You can close this window."
