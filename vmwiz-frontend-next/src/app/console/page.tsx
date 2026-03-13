@@ -1,7 +1,9 @@
 "use client";
 
 import { useAuth } from "@/context/auth";
-import { Loader2 } from "lucide-react";
+import { Loader2, ClipboardList, BarChart3, Trash2 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { VMDelete } from "@/components/admin/vm-delete";
 
 export default function ConsolePage() {
     const { status } = useAuth();
@@ -15,9 +17,39 @@ export default function ConsolePage() {
     }
 
     return (
-        <div className="mx-auto w-full max-w-4xl space-y-8 p-6 pb-16">
+        <div className="mx-auto w-full max-w-4xl space-y-10 p-6 pb-16">
             <h1 className="text-2xl font-bold">Admin Console</h1>
-            <p className="text-muted-foreground">Ciao mamma</p>
+
+            <section className="space-y-4">
+                <h2 className="flex items-center gap-2 text-lg font-semibold">
+                    <Trash2 className="h-5 w-5" />
+                    Delete VM
+                </h2>
+                <VMDelete />
+            </section>
+
+            <Separator className="opacity-30" />
+            <section className="space-y-4">
+                <h2 className="flex items-center gap-2 text-lg font-semibold">
+                    <ClipboardList className="h-5 w-5" />
+                    VM Requests
+                </h2>
+                <p className="text-muted-foreground">
+                    VM requests will go here.
+                </p>
+            </section>
+
+            <Separator className="opacity-30" />
+
+            <section className="space-y-4">
+                <h2 className="flex items-center gap-2 text-lg font-semibold">
+                    <BarChart3 className="h-5 w-5" />
+                    Surveys
+                </h2>
+                <p className="text-muted-foreground">
+                    Survey management will go here.
+                </p>
+            </section>
         </div>
     );
 }
