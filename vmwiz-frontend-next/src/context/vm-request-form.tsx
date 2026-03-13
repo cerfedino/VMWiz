@@ -18,10 +18,8 @@ import {
     DEFAULT_FORM_VALUES,
     DEFAULT_ALLOWED_VALUES,
     EMPTY_VALIDATION_ERRORS,
-} from "@/lib/types/vm-request";
-import { fetchBackend } from "@/lib/api";
-
-export type SubmitStatus = "idle" | "submitting" | "success" | "error";
+} from "@/lib/types/api";
+import { fetchVMOptions } from "@/lib/api";
 
 interface VMRequestFormContextValue {
     /** Current form field values */
@@ -32,9 +30,6 @@ interface VMRequestFormContextValue {
 
     /** Allowed values fetched from the backend */
     allowed: VMRequestAllowedValues;
-
-    /** Submit status */
-    submitStatus: SubmitStatus;
 
     /** Update a single field */
     setField: <K extends keyof VMRequestFormData>(
@@ -63,8 +58,8 @@ interface VMRequestFormContextValue {
     /** Update the SSH key at specific index */
     updateSshKey: (index: number, value: string) => void;
 
-    /** Submit the form */
-    submit: () => Promise<void>;
+    setValidationErrors: (errors: Partial<VMRequestValidationErrors>) => void;
+    clearErrors: () => void;
 }
 
 const VMRequestFormContext = createContext<VMRequestFormContextValue | null>(
@@ -189,15 +184,11 @@ export function VMRequestFormProvider({
     const [allowed, setAllowed] = useState<VMRequestAllowedValues>(
         deepClone(DEFAULT_ALLOWED_VALUES),
     );
-    const [submitStatus, setSubmitStatus] = useState<SubmitStatus>("idle");
 
     // Fetch allowed values
     useEffect(() => {
-        fetchBackend("/api/vmrequest/options", "GET", {
-            "Content-Type": "application/json",
-        })
-            .then((res) => res.json())
-            .then((data: Partial<VMRequestAllowedValues>) => {
+        fetchVMOptions()
+            .then((data) => {
                 setAllowed((prev) => ({ ...prev, ...data }));
             })
             .catch((err) => {
@@ -266,50 +257,25 @@ export function VMRequestFormProvider({
     const reset = useCallback(() => {
         setValues(deepClone(initialValues));
         setErrors(deepClone(EMPTY_VALIDATION_ERRORS));
-        setSubmitStatus("idle");
-        // Clear query string on reset
         window.history.replaceState(null, "", window.location.pathname);
     }, [initialValues]);
 
-    const submit = useCallback(async () => {
-        setSubmitStatus("submitting");
+    const setValidationErrors = useCallback(
+        (errs: Partial<VMRequestValidationErrors>) => {
+            setErrors((prev) => ({ ...prev, ...errs }));
+        },
+        [],
+    );
+
+    const clearErrors = useCallback(() => {
         setErrors(deepClone(EMPTY_VALIDATION_ERRORS));
-
-        try {
-            const response = await fetchBackend(
-                "/api/vmrequest",
-                "POST",
-                { "Content-Type": "application/json" },
-                JSON.stringify(values),
-            );
-
-            if (response.ok) {
-                setSubmitStatus("success");
-                return;
-            }
-
-            if (response.status === 403) {
-                const data =
-                    (await response.json()) as Partial<VMRequestValidationErrors>;
-                setErrors((prev) => ({ ...prev, ...data }));
-                setSubmitStatus("idle");
-                return;
-            }
-
-            // Any other error
-            setSubmitStatus("error");
-        } catch (err) {
-            console.error("Error submitting VM request:", err);
-            setSubmitStatus("error");
-        }
-    }, [values]);
+    }, []);
 
     const ctx = useMemo<VMRequestFormContextValue>(
         () => ({
             values,
             errors,
             allowed,
-            submitStatus,
             setField,
             setFields,
             isModified,
@@ -318,13 +284,13 @@ export function VMRequestFormProvider({
             addSshKey,
             removeSshKey,
             updateSshKey,
-            submit,
+            setValidationErrors,
+            clearErrors,
         }),
         [
             values,
             errors,
             allowed,
-            submitStatus,
             setField,
             setFields,
             isModified,
@@ -333,7 +299,8 @@ export function VMRequestFormProvider({
             addSshKey,
             removeSshKey,
             updateSshKey,
-            submit,
+            setValidationErrors,
+            clearErrors,
         ],
     );
 

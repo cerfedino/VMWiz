@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -20,14 +19,21 @@ const ConfirmationTokenContextField string = "confirmationToken"
 func Init() {
 }
 
+/**
+ * Middleware for handling confirmation tokens.
+ * We are interested only in updating/destructive operations (i.e not GET).
+ * - If ?preview=true, we generate a new confirmation token and put it in the request's context
+ * - otherwise, we retrieve the token from the body and verify. We return an error if anything goes wrong (e.g invalid token, etc...)
+ * After this middleware if a token is added to the context, then the action is NOT confirmed and the token has to be sent back to the user such that he can supply it later on.
+ */
 func ConfirmMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
+		if r.Method == "GET" {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// If ?preview=true, we generate a new confirmation token and put it in the request's context
+		// If ?preview=true, we add a token to the context and proceed.
 		if r.URL.Query().Get("preview") == "true" {
 			var token = acceptedToken
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ConfirmationTokenContextField, token)))
@@ -56,13 +62,12 @@ func ConfirmMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		fmt.Println(body.ConfirmationToken)
-
 		if body.ConfirmationToken != acceptedToken {
-			http.Error(w, "Confirmation token is invalid", http.StatusBadRequest)
+			http.Error(w, "Confirmation token is invalid", 409)
 			return
 		}
 
+		// Token is valid, so we proceed the request without adding anything to the context (i.e the action is confirmed)
 		next.ServeHTTP(w, r)
 	})
 }

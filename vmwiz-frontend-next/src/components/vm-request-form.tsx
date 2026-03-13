@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useState } from "react";
 import { useVMRequestForm } from "@/context/vm-request-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,16 +15,10 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
-} from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Minus, RotateCcw, CircleCheck, CircleX } from "lucide-react";
+import { FetchDialog } from "@/components/fetch-dialog";
+import { submitVMRequest, ValidationError } from "@/lib/api";
+import { Plus, Minus, RotateCcw } from "lucide-react";
 
 function FieldError({ message }: { message?: string }) {
     if (!message) return null;
@@ -35,21 +30,46 @@ function FieldError({ message }: { message?: string }) {
 }
 
 export function VMRequestForm() {
-    const { isModified, reset, submit, submitStatus } = useVMRequestForm();
+    const { values, isModified, reset, setValidationErrors, clearErrors } =
+        useVMRequestForm();
+    const [dialogOpen, setDialogOpen] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        submit();
-    };
+        clearErrors();
+        setDialogOpen(true);
+    }
+
+    function handleError(err: Error): boolean {
+        // if we get a ValidationError, we handle it
+        if (err instanceof ValidationError) {
+            setValidationErrors(err.errors);
+            return true;
+        }
+        // Otherwise we let the FetchDialog show the error
+        return false;
+    }
 
     return (
         <>
-            <SuccessDialog />
-            <ErrorDialog />
+            <FetchDialog
+                open={dialogOpen}
+                onOpenChange={setDialogOpen}
+                fetchFn={(onConfirm) =>
+                    submitVMRequest(
+                        values as unknown as Record<string, unknown>,
+                        onConfirm,
+                    ).then((data) => ({ data }))
+                }
+                immediate
+                title="Submitting Request"
+                successDescription="We received your request! You can close this window."
+                onError={handleError}
+            />
 
             <form
                 onSubmit={handleSubmit}
-                className="mx-auto w-full max-w-[700px] space-y-8 p-6 pb-16"
+                className="mx-auto w-full max-w-175 space-y-8 p-6 pb-16"
             >
                 <div className="text-center">
                     <h1 className="text-2xl font-bold">VM Request Form</h1>
@@ -89,11 +109,9 @@ export function VMRequestForm() {
                     type="submit"
                     className="w-full"
                     size="lg"
-                    disabled={submitStatus === "submitting"}
+                    disabled={dialogOpen}
                 >
-                    {submitStatus === "submitting"
-                        ? "Submitting…"
-                        : "Submit request"}
+                    Submit request
                 </Button>
             </form>
         </>
@@ -434,65 +452,3 @@ function CommentsAndTermsSection() {
         </section>
     );
 }
-
-function SuccessDialog() {
-    const { submitStatus } = useVMRequestForm();
-
-    return (
-        <Dialog open={submitStatus === "success"}>
-            <DialogContent showCloseButton={false}>
-                <DialogHeader>
-                    <div className="flex justify-center">
-                        <CircleCheck className="size-10 text-green-500" />
-                    </div>
-                    <DialogTitle className="text-center">
-                        Thank you!
-                    </DialogTitle>
-                    <DialogDescription className="text-center">
-                        We received your request! You can close this window.
-                    </DialogDescription>
-                </DialogHeader>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function ErrorDialog() {
-    const { submitStatus } = useVMRequestForm();
-    const [dismissed, setDismissed] = React.useState(false);
-
-    // Reset dismissed state when a new error occurs
-    const prevStatus = React.useRef(submitStatus);
-    React.useEffect(() => {
-        if (prevStatus.current !== "error" && submitStatus === "error") {
-            setDismissed(false);
-        }
-        prevStatus.current = submitStatus;
-    }, [submitStatus]);
-
-    return (
-        <Dialog
-            open={submitStatus === "error" && !dismissed}
-            onOpenChange={(open) => {
-                if (!open) setDismissed(true);
-            }}
-        >
-            <DialogContent>
-                <DialogHeader>
-                    <div className="flex justify-center">
-                        <CircleX className="size-10 text-red-500" />
-                    </div>
-                    <DialogTitle className="text-center">Error</DialogTitle>
-                    <DialogDescription className="text-center">
-                        An error occurred while submitting your request. Please
-                        try again later. If the problem persists, please write
-                        us an email!
-                    </DialogDescription>
-                </DialogHeader>
-                <DialogFooter showCloseButton />
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-import React from "react";
