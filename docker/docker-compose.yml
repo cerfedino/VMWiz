@@ -24,7 +24,7 @@ services:
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
     env_file:
-      - ../.env
+      - .env
 
   vmwiz-backend:
     container_name: vmwiz-backend
@@ -41,9 +41,9 @@ services:
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
     env_file:
-      - ../.env
-      - ../.db.env
-      - ../.backend.env
+      - .env
+      - .db.env
+      - .backend.env
     depends_on:
       vmwiz-db:
         condition: service_healthy
@@ -78,7 +78,7 @@ services:
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
     env_file:
-      - ../.db.env
+      - .db.env
     healthcheck:
       test:
         [
@@ -105,4 +105,4 @@ services:
     working_dir: /app
     command: /bin/sh -c "yarn install && yarn dev"
     env_file:
-      - ../.env
+      - .env
