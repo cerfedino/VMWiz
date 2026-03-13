@@ -196,9 +196,6 @@ interface FetchDialogProps {
     successDescription?: React.ReactNode;
     /** Custom content rendered in the dialog on success */
     successContent?: (data: unknown) => React.ReactNode;
-    /** Body to show if the request errors out */
-    errorDescription?: React.ReactNode;
-
     /**  Whether to fire the request immediately as soon as the dialog is shown. If false, the user has to manually click a button to proceed */
     immediate?: boolean;
     /**  Cancel button label (only shown if `immediate` is false) */
@@ -240,7 +237,6 @@ export function FetchDialog({
     description,
     successDescription = "Completed successfully",
     successContent,
-    errorDescription,
     cancelLabel = "Cancel",
     cancelVariant = "outline",
     proceedLabel = "Proceed",
