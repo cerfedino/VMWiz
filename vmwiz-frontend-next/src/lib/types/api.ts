@@ -6,7 +6,7 @@ export interface UnauthorizedResponse {
     redirectUrl: string;
 }
 
-// VM Request /api/vmrequest/*
+/** VM Request /api/vmrequest/* */
 
 export interface VMRequestFormData {
     email: string;
@@ -49,7 +49,7 @@ export interface VMRequestAllowedValues {
     diskGB: MinMax;
 }
 
-// GET /api/vmrequest
+/** GET /api/vmrequest */
 
 export type VMRequestStatus = "pending" | "accepted" | "rejected";
 
@@ -72,18 +72,18 @@ export interface VMRequest {
 
 export type VMRequestListResponse = VMRequest[];
 
-// POST /api/vmrequest/accept (confirmable)
+/** POST /api/vmrequest/accept (confirmable) */
 export interface VMRequestAcceptBody {
     id: number;
     confirmationToken?: string;
 }
 
-// POST /api/vmrequest/reject
+/** POST /api/vmrequest/reject */
 export interface VMRequestRejectBody {
     id: number;
 }
 
-// POST /api/vmrequest/edit
+/** POST /api/vmrequest/edit */
 export interface VMRequestEditFields {
     Hostname?: string;
     Cores?: number;
@@ -99,24 +99,24 @@ export interface VMRequestEditBody {
     storage_gb?: number;
 }
 
-// POST /api/vm/deleteByName (confirmable)
+/** POST /api/vm/deleteByName (confirmable) */
 export interface VMDeleteByNameBody {
     vmName: string;
     deleteDNS: boolean;
     confirmationToken?: string;
 }
 
-// POST /api/dns/deleteByHostname
+/** POST /api/dns/deleteByHostname */
 export interface DNSDeleteByHostnameBody {
     hostname: string;
 }
 
-// GET /api/usagesurvey/
+/** GET /api/usagesurvey/ */
 export interface SurveyListResponse {
     surveyIds: number[];
 }
 
-// GET /api/usagesurvey/info?surveyId=<id>
+/** GET /api/usagesurvey/info?surveyId=<id> */
 export interface SurveyInfo {
     surveyId: number;
     date: string;
@@ -126,18 +126,18 @@ export interface SurveyInfo {
     not_sent: number;
 }
 
-// POST /api/usagesurvey/create
+/** POST /api/usagesurvey/create */
 export interface SurveyCreateResponse {
     surveyId: number;
 }
 
-// POST /api/usagesurvey/set
+/** POST /api/usagesurvey/set */
 export interface SurveySetBody {
     id: string;
     keep: boolean;
 }
 
-// GET /api/usagesurvey/responses/{positive,negative,notsent,none}?id=<surveyId>
+/** GET /api/usagesurvey/responses/{positive,negative,notsent,none}?id=<surveyId> */
 export type SurveyResponseCategory =
     | "positive"
     | "negative"
@@ -145,19 +145,19 @@ export type SurveyResponseCategory =
     | "notsent";
 export type SurveyHostnameListResponse = string[];
 
-// POST /api/usagesurvey/resend/unsent
+/** POST /api/usagesurvey/resend/unsent */
 export interface SurveyResendUnsentBody {
     id: number;
     confirmationToken?: string;
 }
 
-// POST /api/usagesurvey/resend/unanswered
+/** POST /api/usagesurvey/resend/unanswered */
 export interface SurveyResendUnansweredBody {
     id: number;
     confirmationToken?: string;
 }
 
-// Defaults
+/** Default */
 
 export const DEFAULT_FORM_VALUES: VMRequestFormData = {
     email: "",

@@ -68,7 +68,7 @@ export function StatusBadge({ status }: { status: VMRequestStatus }) {
 
 type EditState = Required<VMRequestEditFields>;
 
-// Returns true if any editable field has been changed from the original request
+/** Returns true if any editable field has been changed from the original request */
 function isEditDirty(req: VMRequest, fields: EditState): boolean {
     return (
         fields.Hostname !== req.Hostname ||
@@ -78,7 +78,7 @@ function isEditDirty(req: VMRequest, fields: EditState): boolean {
     );
 }
 
-// Builds the PATCH-like payload: only includes fields that differ from the original
+/** Builds the PATCH-like payload: only includes fields that differ from the original */
 function buildEditPayload(
     req: VMRequest,
     fields: EditState,
@@ -91,7 +91,7 @@ function buildEditPayload(
     return payload;
 }
 
-// Simple label + value pair used throughout the detail dialog
+/** Simple label + value pair used throughout the detail dialog */
 function DetailField({
     label,
     children,
@@ -107,7 +107,7 @@ function DetailField({
     );
 }
 
-// Edit dialog for VM requests. If the request is not pending, it simply shows the details without allowing edits or actions.
+/** Edit dialog for VM requests. If the request is not pending, it simply shows the details without allowing edits or actions. */
 export function RequestDetailDialog({
     request,
     open,

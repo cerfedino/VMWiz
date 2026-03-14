@@ -172,7 +172,7 @@ export function VMRequestFormProvider({
         fromSearchParams(searchParams, deepClone(DEFAULT_FORM_VALUES)),
     );
 
-    // Always-current ref so syncToUrl can read the latest values
+    /** Always-current ref so syncToUrl can read the latest values */
     const valuesRef = useRef(values);
     useEffect(() => {
         valuesRef.current = values;
@@ -196,8 +196,7 @@ export function VMRequestFormProvider({
             });
     }, []);
 
-    // Persist form values to URL — called explicitly on blur / discrete interactions.
-    // Uses queueMicrotask so that valuesRef is current.
+    /** Persist form values to URL — called explicitly on blur / discrete interactions. Uses queueMicrotask so that valuesRef is current. */
     const syncToUrl = useCallback(() => {
         queueMicrotask(() => {
             const params = toSearchParams(valuesRef.current, initialValues);

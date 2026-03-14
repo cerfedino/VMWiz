@@ -27,7 +27,7 @@ import {
 
 type StatusFilter = "all" | VMRequestStatus;
 
-// Sort by pending first, then by creation date (newest first)
+/** Sort by pending first, then by creation date (newest first) */
 function sortRequests(requests: VMRequest[]): VMRequest[] {
     return [...requests]
         .sort((a, b) => {
@@ -51,7 +51,7 @@ function sortRequests(requests: VMRequest[]): VMRequest[] {
         .reverse();
 }
 
-// Set of buttons to filter by request status
+/** Set of buttons to filter by request status */
 function FilterBar({
     filter,
     onFilterChange,
@@ -104,7 +104,7 @@ export function VMRequestAdmin() {
     );
     const [editFormOpen, setEditFormOpen] = useState(false);
 
-    // Loads VM Requests
+    /** Loads VM Requests */
     const loadRequests = useCallback(async () => {
         setLoading(true);
         try {
@@ -130,7 +130,7 @@ export function VMRequestAdmin() {
         loadRequests();
     }, [loadRequests]);
 
-    // Counts how many requests there are for each status
+    /** Counts how many requests there are for each status */
     const counts = useMemo(() => {
         const c: Record<StatusFilter, number> = {
             all: requests.length,
@@ -144,7 +144,7 @@ export function VMRequestAdmin() {
         return c;
     }, [requests]);
 
-    // Apply filter and sorting to requests
+    /** Apply filter and sorting to requests */
     const displayedRequests = useMemo(() => {
         const filtered =
             filter === "all"
@@ -153,7 +153,7 @@ export function VMRequestAdmin() {
         return sortRequests(filtered);
     }, [requests, filter]);
 
-    // Handle successfull edit of a request
+    /** Handle successfull edit of a request */
     const handleEditSuccess = useCallback(() => {
         loadRequests();
     }, [loadRequests]);

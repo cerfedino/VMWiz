@@ -276,7 +276,7 @@ export function FetchDialog({
         }
     }, [open]);
 
-    // Callback when the request requires user confirmation
+    /** Callback when the request requires user confirmation */
     const onConfirmRequired: OnConfirmCallback = useCallback(
         (token: string) => {
             setExpectedToken(token);
@@ -289,7 +289,7 @@ export function FetchDialog({
         [],
     );
 
-    // Function to fire the request
+    /** Function to fire the request */
     const fireRequest = useCallback(async () => {
         setPhase("loading");
         setErrorMessage("");
@@ -346,7 +346,7 @@ export function FetchDialog({
         }
     }, [open, immediate, fireRequest]);
 
-    // Completes the confirmation step that is waiting on the user's input
+    /** Completes the confirmation step that is waiting on the user's input */
     function handleConfirm() {
         const pending = pendingConfirmation.current;
         if (!pending) return;
@@ -355,7 +355,7 @@ export function FetchDialog({
         pending.resolve(confirmInput);
     }
 
-    // Handle canceling the request (e.g pressing on cancel button)
+    /** Handle canceling the request (e.g pressing on cancel button) */
     function handleCancel() {
         const pending = pendingConfirmation.current;
         if (pending) {

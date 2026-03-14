@@ -141,7 +141,7 @@ export function SurveyAdmin() {
         loadSurveys();
     }, [loadSurveys]);
 
-    // Show the dialog containing the VM for a given survey and category
+    /** Show the dialog containing the VM for a given survey and category */
     const showResponses = useCallback(
         (surveyId: number, category: SurveyResponseCategory) => {
             setResponseDialog({ open: true, surveyId, category });
