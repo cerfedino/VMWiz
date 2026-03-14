@@ -119,26 +119,7 @@ func addAllPollRoutes(r *mux.Router) {
 		w.Write(respJSON)
 	})))
 
-	r.Methods("POST").Path("/api/usagesurvey/create").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if token := r.Context().Value(confirmation.ConfirmationTokenContextField); token != nil {
-			type response struct {
-				ConfirmationToken string `json:"confirmationToken"`
-			}
-
-			resp := response{
-				ConfirmationToken: (token.(string)),
-			}
-			respJSON, err := json.Marshal(resp)
-			if err != nil {
-				log.Printf("Error marshalling response: %v", err)
-				http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			w.Write(respJSON)
-			return
-		}
-
+	r.Methods("POST").Path("/api/usagesurvey/create").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("create survey", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		surveyId, err := survey.CreateVMUsageSurvey([]string{"vsos"})
 		if err != nil {
 			log.Printf("Error sending survey: %v", err)
@@ -303,29 +284,9 @@ func addAllPollRoutes(r *mux.Router) {
 		w.Write(resp)
 	})))
 
-	r.Methods("POST").Path("/api/usagesurvey/resend/unsent").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if token := r.Context().Value(confirmation.ConfirmationTokenContextField); token != nil {
-			type response struct {
-				ConfirmationToken string `json:"confirmationToken"`
-			}
-
-			resp := response{
-				ConfirmationToken: (token.(string)),
-			}
-			respJSON, err := json.Marshal(resp)
-			if err != nil {
-				log.Printf("Error marshalling response: %v", err)
-				http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			w.Write(respJSON)
-			return
-		}
-
+	r.Methods("POST").Path("/api/usagesurvey/resend/unsent").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("retry emails", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
-			ID                int64  `json:"id"`
-			ConfirmationToken string `json:"confirmationToken"`
+			ID int64 `json:"id"`
 		}
 		var body bodyS
 		err := json.NewDecoder(r.Body).Decode(&body)
@@ -346,26 +307,7 @@ func addAllPollRoutes(r *mux.Router) {
 		w.WriteHeader(200)
 	}))))
 
-	r.Methods("POST").Path("/api/usagesurvey/resend/unanswered").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if token := r.Context().Value(confirmation.ConfirmationTokenContextField); token != nil {
-			type response struct {
-				ConfirmationToken string `json:"confirmationToken"`
-			}
-
-			resp := response{
-				ConfirmationToken: (token.(string)),
-			}
-			respJSON, err := json.Marshal(resp)
-			if err != nil {
-				log.Printf("Error marshalling response: %v", err)
-				http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			w.Write(respJSON)
-			return
-		}
-
+	r.Methods("POST").Path("/api/usagesurvey/resend/unanswered").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("send reminders", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
 			ID int64 `json:"id"`
 		}

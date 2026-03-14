@@ -2,7 +2,6 @@ package confirmation
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io"
 	"log"
@@ -12,35 +11,38 @@ import (
 // Package responsible of generating and verifying confirmation strings for the frontend
 // e.g "Type XYZ to confirm"
 
-const acceptedToken string = "yes"
-
-const ConfirmationTokenContextField string = "confirmationToken"
-
 func Init() {
 }
 
-/**
- * Middleware for handling confirmation tokens.
- * We are interested only in updating/destructive operations (i.e not GET).
- * - If ?preview=true, we generate a new confirmation token and put it in the request's context
- * - otherwise, we retrieve the token from the body and verify. We return an error if anything goes wrong (e.g invalid token, etc...)
- * After this middleware if a token is added to the context, then the action is NOT confirmed and the token has to be sent back to the user such that he can supply it later on.
- */
-func ConfirmMiddleware(next http.Handler) http.Handler {
+// Middleware for handling confirmation tokens.
+// We are interested only in updating/destructive operations (i.e not GET).
+// - If ?preview=true, we respond directly with the confirmation token (the handler is never called).
+// - Otherwise, we retrieve the token from the body and verify it. We return an error if it's invalid.
+// - If the token is valid, we call next (the action is confirmed).
+func ConfirmMiddleware(token string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// If ?preview=true, we add a token to the context and proceed.
+		// If ?preview=true, respond with the token directly. The handler is not called.
 		if r.URL.Query().Get("preview") == "true" {
-			var token = acceptedToken
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ConfirmationTokenContextField, token)))
+			type response struct {
+				ConfirmationToken string `json:"confirmationToken"`
+			}
+			respJSON, err := json.Marshal(response{ConfirmationToken: token})
+			if err != nil {
+				log.Printf("Error marshalling confirmation token: %v", err)
+				http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(respJSON)
 			return
 		}
 
-		// Otherwise we try to retrieve the confirmation token from the body and we try to verify it
+		// Otherwise we try to retrieve the confirmation token from the body and verify it
 		type bodyS struct {
 			ConfirmationToken string `json:"confirmationToken"`
 		}
@@ -62,12 +64,12 @@ func ConfirmMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		if body.ConfirmationToken != acceptedToken {
+		if body.ConfirmationToken != token {
 			http.Error(w, "Confirmation token is invalid", 409)
 			return
 		}
 
-		// Token is valid, so we proceed the request without adding anything to the context (i.e the action is confirmed)
+		// Token is valid, so we proceed (the action is confirmed)
 		next.ServeHTTP(w, r)
 	})
 }
