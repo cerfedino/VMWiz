@@ -4,6 +4,7 @@ import "./globals.css";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { Separator } from "@/components/ui/separator";
+import { ErrorToasterWrapper } from "@/components/error-toaster-wrapper";
 
 const inter = Inter({
     variable: "--font-inter",
@@ -29,6 +30,7 @@ export default function RootLayout({
                 <Separator />
                 <main className="min-h-[86vh]">{children}</main>
                 <Footer />
+                <ErrorToasterWrapper />
             </body>
         </html>
     );

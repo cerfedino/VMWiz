@@ -130,8 +130,6 @@ export function SurveyAdmin() {
                     new Date(b.date).getTime() - new Date(a.date).getTime(),
             );
             setSurveys(infos);
-        } catch (err) {
-            console.error("Failed to load surveys", err);
         } finally {
             setLoading(false);
         }

@@ -119,8 +119,6 @@ export function VMRequestAdmin() {
                 setFilter(hasPending ? "pending" : "all");
                 setFilterInitialized(true);
             }
-        } catch (err) {
-            console.error("Failed to load VM requests", err);
         } finally {
             setLoading(false);
         }

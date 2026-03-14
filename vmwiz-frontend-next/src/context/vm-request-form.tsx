@@ -187,13 +187,9 @@ export function VMRequestFormProvider({
 
     // Fetch allowed values
     useEffect(() => {
-        fetchVMOptions()
-            .then((data) => {
-                setAllowed((prev) => ({ ...prev, ...data }));
-            })
-            .catch((err) => {
-                console.error("Failed to fetch VM options:", err);
-            });
+        fetchVMOptions().then((data) => {
+            setAllowed((prev) => ({ ...prev, ...data }));
+        });
     }, []);
 
     /** Persist form values to URL — called explicitly on blur / discrete interactions. Uses queueMicrotask so that valuesRef is current. */

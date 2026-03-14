@@ -24,11 +24,13 @@ const BASE_URL = process.env.NEXT_PUBLIC_VMWIZ_BASE_URL ?? "";
  */
 export class FetchError extends Error {
     public response: Response;
+    public request: BackendRequest;
 
-    constructor(message: string, response: Response) {
+    constructor(message: string, response: Response, request: BackendRequest) {
         super(message);
         this.name = "FetchError";
         this.response = response;
+        this.request = request;
     }
 }
 
@@ -103,6 +105,7 @@ export async function fetchBackend<T = void>(
         throw new FetchError(
             "Fetch error: " + String(error),
             new Response(null, { status: 0 }),
+            request,
         );
     }
 
@@ -112,7 +115,7 @@ export async function fetchBackend<T = void>(
         if (json.redirectUrl) {
             window.location.href = json.redirectUrl;
         }
-        throw new FetchError("Unauthorized", response);
+        throw new FetchError("Unauthorized", response, request);
     }
 
     // Something is not ok :(
@@ -153,6 +156,7 @@ export async function fetchBackend<T = void>(
             text ||
                 `Request failed with status ${response.status} ${getReasonPhrase(response.status)}`,
             response,
+            request,
         );
     }
 
