@@ -17,8 +17,6 @@ import { getReasonPhrase } from "http-status-codes";
  */
 export type OnConfirmCallback = (confirmationToken: string) => Promise<string>;
 
-const BASE_URL = process.env.NEXT_PUBLIC_VMWIZ_BASE_URL ?? "";
-
 /**
  * Generic backend HTTP request error
  */
@@ -43,8 +41,9 @@ export class ValidationError extends FetchError {
     constructor(
         errors: Partial<VMRequestValidationErrors>,
         response: Response,
+        request: BackendRequest,
     ) {
-        super("Validation failed", response);
+        super("Validation failed", response, request);
         this.name = "ValidationError";
         this.errors = errors;
     }
@@ -92,11 +91,9 @@ export async function fetchBackend<T = void>(
     const { path, method, headers, body } = request;
     const { onConfirmRequired } = options;
 
-    const url = `${BASE_URL}${path}`;
-
     let response;
     try {
-        response = await fetch(url, {
+        response = await fetch(path, {
             method,
             headers,
             body,
@@ -202,7 +199,7 @@ export async function submitVMRequest(
             const errors = JSON.parse(
                 error.message,
             ) as Partial<VMRequestValidationErrors>;
-            throw new ValidationError(errors, error.response);
+            throw new ValidationError(errors, error.response, error.request);
         }
         throw error;
     }
@@ -456,5 +453,5 @@ export function prepareEditVMRequest(
 }
 
 export function buildBackendURL(path: string): string {
-    return `${BASE_URL}${path}`;
+    return `${getBaseURL()}${path}`;
 }

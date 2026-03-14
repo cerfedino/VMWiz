@@ -1,5 +1,6 @@
 "use client";
 
+import { getBaseURL } from "@/lib/utils";
 import React, {
     createContext,
     useCallback,
@@ -35,10 +36,8 @@ export function useAuth() {
     return ctx;
 }
 
-const BASE_URL = process.env.NEXT_PUBLIC_VMWIZ_BASE_URL ?? "";
-
 function redirectToLogin() {
-    window.location.href = `${BASE_URL}/api/auth/start`;
+    window.location.href = `${getBaseURL()}/api/auth/start`;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -51,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         let cancelled = false;
 
-        fetch(`${BASE_URL}/api/vmrequest`, {
+        fetch(`${getBaseURL()}/api/vmrequest`, {
             method: "GET",
             headers: { "Content-Type": "application/json" },
             credentials: "include",

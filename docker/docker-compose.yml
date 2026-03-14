@@ -104,5 +104,3 @@ services:
       - /etc/localtime:/etc/localtime
     working_dir: /app
     command: /bin/sh -c "yarn install && yarn dev"
-    env_file:
-      - .env
