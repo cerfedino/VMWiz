@@ -253,6 +253,11 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
+		if request.RequestStatus != storage.REQUEST_STATUS_PENDING {
+			http.Error(w, "Cannot edit a request that is not pending", http.StatusBadRequest)
+			return
+		}
+
 		if body.Cores_cpu != 0 {
 			request.Cores = body.Cores_cpu
 		}
