@@ -93,13 +93,13 @@ services:
   vmwiz-frontend:
     container_name: vmwiz-frontend
     build:
-      context: ../vmwiz-frontend-next
+      context: ../vmwiz-frontend
       dockerfile: Dockerfile.dev
     restart: unless-stopped
     networks:
       - vmwiz-internal
     volumes:
-      - ../vmwiz-frontend-next:/app
+      - ../vmwiz-frontend:/app
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
     working_dir: /app
