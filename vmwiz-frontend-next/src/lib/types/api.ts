@@ -84,6 +84,13 @@ export interface VMRequestRejectBody {
 }
 
 // POST /api/vmrequest/edit
+export interface VMRequestEditFields {
+    Hostname?: string;
+    Cores?: number;
+    RamGB?: number;
+    DiskGB?: number;
+}
+
 export interface VMRequestEditBody {
     id: number;
     hostname?: string;

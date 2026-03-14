@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { formatDate } from "@/lib/utils";
 import {
     fetchSurveyIds,
     fetchSurveyInfo,
@@ -95,16 +96,6 @@ const getCount = (survey: SurveyInfo, category: SurveyResponseCategory) => {
             return survey.not_sent;
     }
 };
-
-/** Formats an ISO date to a readable format (e.g. "May 12, 2025"). */
-function formatDate(dateStr: string): string {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-    });
-}
 
 /**
  * Admin panel for managing VM usage surveys.

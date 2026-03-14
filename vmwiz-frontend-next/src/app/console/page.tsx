@@ -5,6 +5,7 @@ import { Loader2, ClipboardList, BarChart3, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { VMDelete } from "@/components/admin/vm-delete";
 import { SurveyAdmin } from "@/components/admin/survey-admin";
+import { VMRequestAdmin } from "@/components/admin/vm-request-admin";
 
 export default function ConsolePage() {
     const { status } = useAuth();
@@ -35,9 +36,7 @@ export default function ConsolePage() {
                     <ClipboardList className="h-5 w-5" />
                     VM Requests
                 </h2>
-                <p className="text-muted-foreground">
-                    VM requests will go here.
-                </p>
+                <VMRequestAdmin />
             </section>
 
             <Separator className="opacity-30" />

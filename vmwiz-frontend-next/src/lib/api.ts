@@ -1,6 +1,8 @@
 import {
     VMRequestAllowedValues,
     VMRequestValidationErrors,
+    VMRequestListResponse,
+    VMRequestEditFields,
     SurveyListResponse,
     SurveyInfo,
     SurveyResponseCategory,
@@ -356,6 +358,96 @@ export function prepareResendUnanswered(surveyId: number): BackendRequest {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: surveyId }),
+    };
+}
+
+/**
+ * Fetches all VM requests from the backend.
+ * @returns The list of VM requests
+ */
+export async function fetchVMRequests(): Promise<VMRequestListResponse> {
+    const { data } = await fetchBackend<VMRequestListResponse>(
+        prepareFetchVMRequests(),
+    );
+    return data;
+}
+export function prepareFetchVMRequests(): BackendRequest {
+    return {
+        path: "/api/vmrequest",
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+    };
+}
+
+/**
+ * Accepts a VM request.
+ * @param id the id of the VM request to accept
+ * @param onConfirmRequired See the type OnConfirmCallback for details.
+ */
+export async function acceptVMRequest(
+    id: number,
+    onConfirmRequired?: OnConfirmCallback,
+): Promise<void> {
+    await fetchBackend(prepareAcceptVMRequest(id), { onConfirmRequired });
+}
+export function prepareAcceptVMRequest(id: number): BackendRequest {
+    return {
+        path: "/api/vmrequest/accept",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+    };
+}
+
+/**
+ * Rejects a VM request.
+ * @param id the id of the VM request to reject
+ * @param onConfirmRequired See the type OnConfirmCallback for details.
+ */
+export async function rejectVMRequest(
+    id: number,
+    onConfirmRequired?: OnConfirmCallback,
+): Promise<void> {
+    await fetchBackend(prepareRejectVMRequest(id), { onConfirmRequired });
+}
+export function prepareRejectVMRequest(id: number): BackendRequest {
+    return {
+        path: "/api/vmrequest/reject",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+    };
+}
+
+/**
+ * Edits a VM request.
+ * @param id the id of the VM request to edit
+ * @param options optional fields to update (hostname, cores_cpu, ram_gb, storage_gb)
+ * @param onConfirmRequired See the type OnConfirmCallback for details.
+ */
+export async function editVMRequest(
+    id: number,
+    options?: VMRequestEditFields,
+    onConfirmRequired?: OnConfirmCallback,
+): Promise<void> {
+    await fetchBackend(prepareEditVMRequest(id, options), {
+        onConfirmRequired,
+    });
+}
+export function prepareEditVMRequest(
+    id: number,
+    options?: VMRequestEditFields,
+): BackendRequest {
+    const body: Record<string, unknown> = { id };
+    if (options?.Hostname !== undefined) body.hostname = options.Hostname;
+    if (options?.Cores !== undefined) body.cores_cpu = options.Cores;
+    if (options?.RamGB !== undefined) body.ram_gb = options.RamGB;
+    if (options?.DiskGB !== undefined) body.storage_gb = options.DiskGB;
+    return {
+        path: "/api/vmrequest/edit",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
     };
 }
 
