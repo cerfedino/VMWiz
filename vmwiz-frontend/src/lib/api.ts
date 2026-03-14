@@ -451,7 +451,3 @@ export function prepareEditVMRequest(
         body: JSON.stringify(body),
     };
 }
-
-export function buildBackendURL(path: string): string {
-    return `${getBaseURL()}${path}`;
-}

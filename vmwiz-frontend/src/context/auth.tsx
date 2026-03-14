@@ -1,29 +1,23 @@
 "use client";
 
-import { getBaseURL } from "@/lib/utils";
 import React, {
     createContext,
     useCallback,
     useContext,
     useEffect,
-    useMemo,
     useState,
 } from "react";
 
-export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
+/** User info returned by /api/auth/whoami */
+export interface WhoAmI {
+    email: string;
+    groups: string[];
+}
 
 interface AuthContextValue {
-    /** Current authentication status */
-    status: AuthStatus;
-
-    /** The authenticated user's email, if available */
-    email: string | null;
-
-    /** Trigger the login flow (redirect to backend auth start) */
-    login: () => void;
-
-    /** Re-check authentication status */
-    refresh: () => void;
+    /** user info, null until fetched */
+    user: WhoAmI | null;
+    loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -36,69 +30,43 @@ export function useAuth() {
     return ctx;
 }
 
-function redirectToLogin() {
-    window.location.href = `${getBaseURL()}/api/auth/start`;
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-    const [status, setStatus] = useState<AuthStatus>("loading");
-    const [email, setEmail] = useState<string | null>(null);
+    const [user, setUser] = useState<WhoAmI | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    // Counter that triggers a re-check when incremented.
-    const [checkTrigger, setCheckTrigger] = useState(0);
-
-    useEffect(() => {
-        let cancelled = false;
-
-        fetch(`${getBaseURL()}/api/vmrequest`, {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-        })
-            .then((response) => {
-                if (cancelled) return;
-
-                if (response.ok) {
-                    setStatus("authenticated");
-                    setEmail(null);
-                    return;
-                }
-
-                console.error(
-                    "Auth check failed with status:",
-                    response.status,
-                );
-                redirectToLogin();
-            })
-            .catch((err) => {
-                if (cancelled) return;
-                console.error("Auth check failed:", err);
-                redirectToLogin();
+    const fetchWhoAmI = useCallback(async (): Promise<WhoAmI | null> => {
+        setLoading(true);
+        try {
+            const response = await fetch("/api/auth/whoami", {
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
             });
 
-        return () => {
-            cancelled = true;
-        };
-    }, [checkTrigger]);
+            if (!response.ok) {
+                setUser(null);
+                return null;
+            }
 
-    const login = useCallback(() => {
-        redirectToLogin();
+            const data = (await response.json()) as WhoAmI;
+            setUser(data);
+            return data;
+        } catch (err) {
+            setUser(null);
+            throw err;
+            return null;
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
-    const refresh = useCallback(() => {
-        setStatus("loading");
-        setCheckTrigger((n) => n + 1);
-    }, []);
+    useEffect(() => {
+        fetchWhoAmI();
+    }, [fetchWhoAmI]);
 
-    const ctx = useMemo<AuthContextValue>(
-        () => ({
-            status,
-            email,
-            login,
-            refresh,
-        }),
-        [status, email, login, refresh],
+    return (
+        <AuthContext.Provider value={{ user, loading }}>
+            {children}
+        </AuthContext.Provider>
     );
-
-    return <AuthContext.Provider value={ctx}>{children}</AuthContext.Provider>;
 }

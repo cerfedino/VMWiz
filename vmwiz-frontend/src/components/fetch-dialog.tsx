@@ -292,7 +292,7 @@ export function FetchDialog({
         >
             <DialogContent
                 showCloseButton={false}
-                className="max-h-[85vh] flex flex-col"
+                className="max-h-[50vh] flex flex-col"
             >
                 <DialogHeader>
                     {showIcon && <PhaseIcon phase={phase} />}
