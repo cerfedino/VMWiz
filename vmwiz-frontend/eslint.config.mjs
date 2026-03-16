@@ -1,26 +1,22 @@
-import pluginVue from "eslint-plugin-vue";
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
 import eslintConfigPrettier from "eslint-config-prettier";
-import eslintPluginPrettier from "eslint-plugin-prettier";
-import js from "@eslint/js";
+import eslintPluginPrettier from "eslint-plugin-prettier/recommended";
 
-export default [
-    js.configs.recommended,
-    ...pluginVue.configs["flat/essential"],
+const eslintConfig = defineConfig([
+    ...nextVitals,
+    ...nextTs,
     eslintConfigPrettier,
-    {
-        plugins: {
-            prettier: eslintPluginPrettier,
-        },
-        rules: {
-            "prettier/prettier": "error",
-            "arrow-body-style": "off",
-            "prefer-arrow-callback": "off",
-            "no-console":
-                process.env.NODE_ENV === "production" ? "warn" : "off",
-            "no-debugger":
-                process.env.NODE_ENV === "production" ? "warn" : "off",
-            "max-len": "off",
-            "vue/max-attributes-per-line": "off",
-        },
-    },
-];
+    eslintPluginPrettier,
+    // Override default ignores of eslint-config-next.
+    globalIgnores([
+        // Default ignores of eslint-config-next:
+        ".next/**",
+        "out/**",
+        "build/**",
+        "next-env.d.ts",
+    ]),
+]);
+
+export default eslintConfig;

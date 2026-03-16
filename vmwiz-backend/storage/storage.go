@@ -174,7 +174,7 @@ func (s *postgresstorage) StoreVMRequest(req *form.Form) (*int64, error) {
 
 func (s *postgresstorage) GetVMRequestById(id int64) (*SQLVMRequest, error) {
 	var req SQLVMRequest
-	err := s.db.QueryRow(`SELECT 
+	err := s.db.QueryRow(`SELECT
 	requestID,requestCreatedAt, requestStatus, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments
 	FROM request WHERE requestID=$1`, id).Scan(&req.ID, &req.RequestCreatedAt, &req.RequestStatus, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
 	if err != nil {

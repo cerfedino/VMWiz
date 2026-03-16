@@ -2,7 +2,6 @@
   email cerfeda.albert@crfda.com
 }
 
-
 www.app.vsos.ethz.ch app.vsos.ethz.ch {
 	redir {$VMWIZ_SCHEME}://{$VMWIZ_HOSTNAME}
 }
@@ -15,5 +14,5 @@ www.app.vsos.ethz.ch app.vsos.ethz.ch {
 
   reverse_proxy /api/* http://vmwiz-backend:8081
 
-  reverse_proxy http://vmwiz-frontend:8080
+  reverse_proxy http://vmwiz-frontend:3000
 }

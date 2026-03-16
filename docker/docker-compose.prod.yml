@@ -7,7 +7,7 @@ networks:
 services:
   vmwiz-caddy:
     container_name: vmwiz-caddy
-    image: caddy:2.11.2@sha256:261437d35b88cc2f8fa1ed337ebb6b6ce2bd5cd61b2a28cdf83cb201db0a853b
+    image: caddy:2.11.2@sha256:1e40b251ca9639ead7b5cd2cedcc8765adfbabb99450fe23f130eefabf50f4bc
     restart: unless-stopped
     ports:
       - "80:80"
@@ -24,7 +24,7 @@ services:
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
     env_file:
-      - ../.prod.env
+      - .env
 
   vmwiz-backend:
     container_name: vmwiz-backend
@@ -39,13 +39,13 @@ services:
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
     env_file:
-      - ../.prod.env
-      - ../.db.prod.env
-      - ../.backend.prod.env
+      - .env
+      - .db.env
+      - .backend.env
     depends_on:
       vmwiz-db:
         condition: service_healthy
-  
+
   vmwiz-notifier:
     container_name: vmwiz-notifier
     image: caronc/apprise:v1.3.2@sha256:1aafc2118b6eae5d70d17831d9a8a52adee7104fd6f2bb018e6421664699c903
@@ -60,9 +60,9 @@ services:
       - 8000
     environment:
       - APPRISE_STATEFUL_MODE=simple
-      - APPRISE_DEFAULT_CONFIG_ID=default	
+      - APPRISE_DEFAULT_CONFIG_ID=default
       - APPRISE_WORKER_COUNT=1
-  
+
   vmwiz-db:
     container_name: vmwiz-db
     image: postgres:18.3@sha256:69e8582b781cb44fa4557b98ed586fe68361e320d9b12f9707494335634f4f3d
@@ -76,30 +76,26 @@ services:
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
     env_file:
-      - ../.db.prod.env
+      - .db.env
     healthcheck:
-      test: [
-        "CMD-SHELL", 
-        "psql -U $$POSTGRES_USER -d $$POSTGRES_DB -c 'SELECT 1' || exit 1"
-      ]
+      test:
+        [
+          "CMD-SHELL",
+          "psql -U $$POSTGRES_USER -d $$POSTGRES_DB -c 'SELECT 1' || exit 1",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 10s
-
-
 
   vmwiz-frontend:
     container_name: vmwiz-frontend
     image: docker.git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/frontend:latest
     restart: unless-stopped
     expose:
-      - 8080
-      - 443
+      - 3000
     networks:
       - vmwiz-internal
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
-    working_dir: /app
