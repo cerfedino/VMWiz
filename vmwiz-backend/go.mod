@@ -14,7 +14,7 @@ require (
 	github.com/rs/cors v1.11.1
 	github.com/seancfoley/ipaddress-go v1.7.1
 	github.com/urfave/cli/v3 v3.7.0
-	golang.org/x/crypto v0.48.0
+	golang.org/x/crypto v0.49.0
 	golang.org/x/exp v0.0.0-20260312153236-7ab1446f8b90
 	golang.org/x/oauth2 v0.35.0
 	golang.org/x/time v0.15.0
@@ -36,7 +36,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/protobuf v1.36.7 // indirect
 	gopkg.in/go-jose/go-jose.v2 v2.6.3 // indirect
