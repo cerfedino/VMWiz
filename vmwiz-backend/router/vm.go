@@ -18,26 +18,7 @@ import (
 
 func addAllVMRoutes(r *mux.Router) {
 
-	r.Methods("POST").Path("/api/vm/deleteByName").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if token := r.Context().Value(confirmation.ConfirmationTokenContextField); token != nil {
-			type response struct {
-				ConfirmationToken string `json:"confirmationToken"`
-			}
-
-			resp := response{
-				ConfirmationToken: (token.(string)),
-			}
-			respJSON, err := json.Marshal(resp)
-			if err != nil {
-				log.Printf("Error marshalling response: %v", err)
-				http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			w.Write(respJSON)
-			return
-		}
-
+	r.Methods("POST").Path("/api/vm/deleteByName").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("delete vm", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
 			Name      string `json:"vmName"`
 			DeleteDNS bool   `json:"deleteDNS"`

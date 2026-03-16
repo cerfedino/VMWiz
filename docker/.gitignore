@@ -1,2 +1,5 @@
 data/
 registry_token.txt
+.env
+.db.env
+.backend.env

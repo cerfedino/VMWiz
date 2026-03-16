@@ -168,26 +168,7 @@ func addVMRequestRoutes(r *mux.Router) {
 		w.Write(resp)
 	})))
 
-	r.Methods("POST").Path("/api/vmrequest/accept").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if token := r.Context().Value(confirmation.ConfirmationTokenContextField); token != nil {
-			type response struct {
-				ConfirmationToken string `json:"confirmationToken"`
-			}
-
-			resp := response{
-				ConfirmationToken: (token.(string)),
-			}
-			respJSON, err := json.Marshal(resp)
-			if err != nil {
-				log.Printf("Error marshalling response: %v", err)
-				http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			w.Write(respJSON)
-			return
-		}
-
+	r.Methods("POST").Path("/api/vmrequest/accept").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("accept", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
 			ID int `json:"id"`
 		}
@@ -208,7 +189,7 @@ func addVMRequestRoutes(r *mux.Router) {
 
 	}))))
 
-	r.Methods("POST").Path("/api/vmrequest/reject").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/vmrequest/reject").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("reject", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
 			ID int `json:"id"`
 		}
@@ -227,9 +208,9 @@ func addVMRequestRoutes(r *mux.Router) {
 			http.Error(w, eb.UserMsg, eb.HttpCode)
 			return
 		}
-	})))
+	}))))
 
-	r.Methods("POST").Path("/api/vmrequest/edit").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/vmrequest/edit").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("edit", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
 			Hostname   string `json:"hostname"`
 			ID         int    `json:"id"`
@@ -253,6 +234,11 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
+		if request.RequestStatus != storage.REQUEST_STATUS_PENDING {
+			http.Error(w, "Cannot edit a request that is not pending", http.StatusBadRequest)
+			return
+		}
+
 		if body.Cores_cpu != 0 {
 			request.Cores = body.Cores_cpu
 		}
@@ -273,5 +259,5 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-	})))
+	}))))
 }
