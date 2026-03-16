@@ -38,8 +38,5 @@
         "prettier": "3.8.1",
         "tailwindcss": "4.2.1",
         "typescript": "5.9.3"
-    },
-    "resolutions": {
-        "lightningcss": "1.32.0"
     }
 }
