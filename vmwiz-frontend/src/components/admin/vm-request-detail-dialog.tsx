@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import {
     Check,
@@ -128,6 +129,7 @@ export function RequestDetailDialog({
     const [acceptDialogOpen, setAcceptDialogOpen] = useState(false);
     const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [adminComment, setAdminComment] = useState("");
 
     if (!request) return null;
 
@@ -339,11 +341,13 @@ export function RequestDetailDialog({
                 open={acceptDialogOpen}
                 onOpenChange={setAcceptDialogOpen}
                 fetchFn={(onConfirm) =>
-                    acceptVMRequest(request.ID, onConfirm).then((data) => ({
-                        data,
-                    }))
+                    acceptVMRequest(request.ID, adminComment, onConfirm).then(
+                        (data) => ({
+                            data,
+                        }),
+                    )
                 }
-                requestInfo={prepareAcceptVMRequest(request.ID)}
+                requestInfo={prepareAcceptVMRequest(request.ID, adminComment)}
                 title="Accept VM Request"
                 description={`You are about to accept request #${request.ID} for "${request.Hostname}". This will provision the VM.`}
                 proceedLabel="Accept"
@@ -352,7 +356,20 @@ export function RequestDetailDialog({
                     onOpenChange(false);
                     onEditSuccess();
                 }}
-            />
+            >
+                <div className="mt-2 space-y-1">
+                    <Label>Admin Comment (Optional)</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                        This comment will be included in the user's VM creation
+                        success email.
+                    </p>
+                    <Textarea
+                        placeholder="Text that will get added to the email."
+                        value={adminComment}
+                        onChange={(e) => setAdminComment(e.target.value)}
+                    />
+                </div>
+            </FetchDialog>
 
             <FetchDialog
                 open={rejectDialogOpen}

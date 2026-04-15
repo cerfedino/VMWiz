@@ -18,7 +18,7 @@ import (
 
 // Routes under /api/vmrequest/*
 
-func AcceptVMRequest(id int64) *ErrorBundle {
+func AcceptVMRequest(id int64, adminComment string) *ErrorBundle {
 	request, err := storage.DB.GetVMRequestById(id)
 
 	if err != nil {
@@ -52,8 +52,13 @@ func AcceptVMRequest(id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to create VM")
 	}
 
+	emailBody := summary.String()
+	if adminComment != "" {
+		emailBody += "\n\nComment from VSOS:\n" + adminComment
+	}
+
 	//send mail to the user
-	err = notifier.SendEmail("VSOS VM Creation", []byte(summary.String()), []string{request.Email, config.AppConfig.SMTP_REPLYTO})
+	err = notifier.SendEmail("VSOS VM Creation", []byte(emailBody), []string{request.Email, config.AppConfig.SMTP_REPLYTO})
 	if err != nil {
 		return SimpleError(err, "Failed to send email")
 	}
@@ -170,7 +175,8 @@ func addVMRequestRoutes(r *mux.Router) {
 
 	r.Methods("POST").Path("/api/vmrequest/accept").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("accept", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
-			ID int `json:"id"`
+			ID           int    `json:"id"`
+			AdminComment string `json:"adminComment"`
 		}
 		var body bodyS
 		err := json.NewDecoder(r.Body).Decode(&body)
@@ -180,7 +186,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		eb := AcceptVMRequest(int64(body.ID))
+		eb := AcceptVMRequest(int64(body.ID), body.AdminComment)
 
 		if eb != nil {
 			http.Error(w, eb.UserMsg, eb.HttpCode)

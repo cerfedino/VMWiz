@@ -97,6 +97,11 @@ func main() {
 								Usage: "Hostname of the VM request (e.g myvm.vsos.ethz.ch)",
 								Value: "",
 							},
+							&cli.StringFlag{
+								Name:  "comment",
+								Usage: "Optional comment to the user",
+								Value: "",
+							},
 						},
 						Action: handle_request_accept,
 					},
@@ -302,7 +307,7 @@ func handle_request_accept(ctx context.Context, cmd *cli.Command) error {
 		return nil
 	}
 
-	errB := router.AcceptVMRequest(vmrequest.ID)
+	errB := router.AcceptVMRequest(vmrequest.ID, cmd.String("comment"))
 	if errB != nil {
 		return fmt.Errorf("%s: %v\n", errB.Err, errB.UserMsg)
 	}

@@ -387,16 +387,17 @@ export function prepareFetchVMRequests(): BackendRequest {
  */
 export async function acceptVMRequest(
     id: number,
+    adminComment?: string,
     onConfirmRequired?: OnConfirmCallback,
 ): Promise<void> {
-    await fetchBackend(prepareAcceptVMRequest(id), { onConfirmRequired });
+    await fetchBackend(prepareAcceptVMRequest(id, adminComment), { onConfirmRequired });
 }
-export function prepareAcceptVMRequest(id: number): BackendRequest {
+export function prepareAcceptVMRequest(id: number, adminComment?: string): BackendRequest {
     return {
         path: "/api/vmrequest/accept",
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, adminComment: adminComment || "" }),
     };
 }
 

@@ -119,6 +119,8 @@ interface FetchDialogProps {
     /** If onError returns true, the dialog closes (error handled externally).
      Otherwise the dialog shows the error phase. */
     onError?: (error: Error) => boolean | void;
+    /** Optional extra content to render when idle */
+    children?: React.ReactNode;
 }
 
 export function FetchDialog({
@@ -138,6 +140,7 @@ export function FetchDialog({
     showIcon = true,
     onSuccess,
     onError,
+    children,
 }: FetchDialogProps) {
     const [phase, setPhase] = useState<Phase>("idle");
     const [errorMessage, setErrorMessage] = useState("");
@@ -308,6 +311,10 @@ export function FetchDialog({
                     <div className="min-h-0 overflow-y-auto">
                         {successContent(successData)}
                     </div>
+                )}
+
+                {phase === "idle" && children && (
+                    <div className="py-2">{children}</div>
                 )}
 
                 {phase === "confirming" && (
