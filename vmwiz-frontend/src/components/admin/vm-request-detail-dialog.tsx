@@ -85,7 +85,8 @@ function isEditDirty(req: VMRequest, fields: EditState): boolean {
         fields.Hostname !== req.Hostname ||
         fields.Cores !== req.Cores ||
         fields.RamGB !== req.RamGB ||
-        fields.DiskGB !== req.DiskGB
+        fields.DiskGB !== req.DiskGB ||
+        fields.SecondaryDiskGB !== req.SecondaryDiskGB
     );
 }
 
@@ -99,6 +100,8 @@ function buildEditPayload(
     if (fields.Cores !== req.Cores) payload.Cores = fields.Cores;
     if (fields.RamGB !== req.RamGB) payload.RamGB = fields.RamGB;
     if (fields.DiskGB !== req.DiskGB) payload.DiskGB = fields.DiskGB;
+    if (fields.SecondaryDiskGB !== req.SecondaryDiskGB)
+        payload.SecondaryDiskGB = fields.SecondaryDiskGB;
     return payload;
 }
 
@@ -135,12 +138,14 @@ export function RequestDetailDialog({
         Cores: request?.Cores ?? 0,
         RamGB: request?.RamGB ?? 0,
         DiskGB: request?.DiskGB ?? 0,
+        SecondaryDiskGB: request?.SecondaryDiskGB ?? 0,
     });
     const [acceptDialogOpen, setAcceptDialogOpen] = useState(false);
     const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
     const [holdDialogOpen, setHoldDialogOpen] = useState(false);
     const [unholdDialogOpen, setUnholdDialogOpen] = useState(false);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [adminComment, setAdminComment] = useState("");
 
     if (!request) return null;
 
@@ -277,6 +282,26 @@ export function RequestDetailDialog({
                                                 setEditFields((f) => ({
                                                     ...f,
                                                     DiskGB:
+                                                        parseInt(
+                                                            target?.value ??
+                                                                "0",
+                                                        ) || 0,
+                                                }));
+                                            }}
+                                        />
+                                    </DetailField>
+
+                                    <DetailField label="Secondary HDD (GB)">
+                                        <Input
+                                            type="number"
+                                            disabled={!isPending}
+                                            value={editFields.SecondaryDiskGB}
+                                            onChange={(e) => {
+                                                const target =
+                                                    e.target as HTMLInputElement | null;
+                                                setEditFields((f) => ({
+                                                    ...f,
+                                                    SecondaryDiskGB:
                                                         parseInt(
                                                             target?.value ??
                                                                 "0",

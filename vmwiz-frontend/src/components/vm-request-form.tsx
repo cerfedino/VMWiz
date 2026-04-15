@@ -338,6 +338,41 @@ function VMSpecSection() {
                 </div>
                 <FieldError message={errors.diskGB} />
             </div>
+
+            {/* Secondary Disk Space */}
+            <div className="space-y-2">
+                <Label>Secondary HDD Space (GB)</Label>
+                <div className="flex items-center gap-4">
+                    <Input
+                        type="number"
+                        className="w-20"
+                        min={allowed.secondaryDiskGB.min}
+                        max={allowed.secondaryDiskGB.max}
+                        value={values.secondaryDiskGB}
+                        onChange={(e) =>
+                            setField("secondaryDiskGB", Number(e.target.value))
+                        }
+                        onBlur={syncToUrl}
+                        aria-invalid={!!errors.secondaryDiskGB}
+                    />
+                    <Slider
+                        className="flex-1 [&_[data-slot=slider-range]]:bg-indigo-500 [&_[data-slot=slider-thumb]]:border-indigo-500 [&_[data-slot=slider-thumb]]:ring-indigo-500/50"
+                        min={allowed.secondaryDiskGB.min}
+                        max={allowed.secondaryDiskGB.max}
+                        step={1}
+                        value={[values.secondaryDiskGB]}
+                        onValueChange={(val) =>
+                            setField(
+                                "secondaryDiskGB",
+                                Array.isArray(val) ? val[0] : val,
+                            )
+                        }
+                        onValueCommitted={syncToUrl}
+                    />
+                </div>
+                <FieldError message={errors.secondaryDiskGB} />
+                <p className="text-xs text-muted-foreground">Our SSD storage is more limited than our HDD storage. Therefor if you need bigger amounts of storage, please add it here on our HDD storage pool.</p>
+            </div>
         </section>
     );
 }
@@ -351,8 +386,8 @@ function SshKeysSection() {
         values.sshPubkey.length === 0 && errors.sshPubkey.length > 0
             ? errors.sshPubkey.join("\n")
             : typeof errors.sshPubkey === "string"
-              ? errors.sshPubkey
-              : "";
+                ? errors.sshPubkey
+                : "";
 
     return (
         <section className="space-y-4">

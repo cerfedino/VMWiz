@@ -18,6 +18,7 @@ export interface VMRequestFormData {
     cores: number;
     ramGB: number;
     diskGB: number;
+    secondaryDiskGB: number;
     sshPubkey: string[];
     comments: string;
     accept_terms: boolean;
@@ -32,6 +33,7 @@ export interface VMRequestValidationErrors {
     cores: string;
     ramGB: string;
     diskGB: string;
+    secondaryDiskGB: string;
     explanation: string;
     sshPubkey: string[];
     accept_terms: string;
@@ -47,6 +49,7 @@ export interface VMRequestAllowedValues {
     cores: MinMax;
     ramGB: MinMax;
     diskGB: MinMax;
+    secondaryDiskGB: MinMax;
 }
 
 /** GET /api/vmrequest */
@@ -66,6 +69,7 @@ export interface VMRequest {
     Cores: number;
     RamGB: number;
     DiskGB: number;
+    SecondaryDiskGB: number;
     SshPubkeys: string[];
     Comments: string;
 }
@@ -99,6 +103,7 @@ export interface VMRequestEditFields {
     Cores?: number;
     RamGB?: number;
     DiskGB?: number;
+    SecondaryDiskGB?: number;
 }
 
 export interface VMRequestEditBody {
@@ -179,6 +184,7 @@ export const DEFAULT_FORM_VALUES: VMRequestFormData = {
     cores: 2,
     ramGB: 2,
     diskGB: 15,
+    secondaryDiskGB: 0,
     sshPubkey: [""],
     comments: "",
     accept_terms: false,
@@ -189,6 +195,7 @@ export const DEFAULT_ALLOWED_VALUES: VMRequestAllowedValues = {
     cores: { min: 1, max: 8 },
     ramGB: { min: 2, max: 16 },
     diskGB: { min: 15, max: 100 },
+    secondaryDiskGB: { min: 0, max: 500 },
 };
 
 export const EMPTY_VALIDATION_ERRORS: VMRequestValidationErrors = {
@@ -200,6 +207,7 @@ export const EMPTY_VALIDATION_ERRORS: VMRequestValidationErrors = {
     cores: "",
     ramGB: "",
     diskGB: "",
+    secondaryDiskGB: "",
     explanation: "",
     sshPubkey: [],
     accept_terms: "",

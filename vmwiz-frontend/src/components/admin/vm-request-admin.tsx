@@ -234,7 +234,13 @@ export function VMRequestAdmin() {
                                                 {req.RamGB} GB
                                             </TableCell>
                                             <TableCell>
-                                                {req.DiskGB} GB
+                                                {req.SecondaryDiskGB && req.SecondaryDiskGB > 0 ? (
+                                                    <span title="Primary SSD + Secondary HDD">
+                                                        {req.DiskGB} (+{req.SecondaryDiskGB}) GB
+                                                    </span>
+                                                ) : (
+                                                    `${req.DiskGB} GB`
+                                                )}
                                             </TableCell>
                                             <TableCell className="text-muted-foreground">
                                                 {formatDate(

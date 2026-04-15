@@ -323,6 +323,7 @@ type VMCreationOptions struct {
 	Cores_CPU          int
 	RAM_MB             int64
 	Disk_GB            int64
+	SecondaryDisk_GB   int64
 	UseQemuAgent       bool
 	Tags               []string
 	Notes              string
@@ -337,17 +338,18 @@ const (
 )
 
 type VMCreationSummary struct {
-	vm_id          int
-	comp_node_name string
-	ssh_user       string
-	fqdn           string
-	ipv4           string
-	ipv6           string
-	image          string
-	cpu            float64
-	ram_mb         int
-	disk_gb        int64
-	fingerprint    []string
+	vm_id             int
+	comp_node_name    string
+	ssh_user          string
+	fqdn              string
+	ipv4              string
+	ipv6              string
+	image             string
+	cpu               float64
+	ram_mb            int
+	disk_gb           int64
+	secondary_disk_gb int64
+	fingerprint       []string
 }
 
 func (s *VMCreationSummary) String() string {
@@ -360,6 +362,7 @@ Image: ` + s.image + `
 CPU: ` + strconv.FormatFloat(s.cpu, 'f', -1, 64) + ` cores
 RAM: ` + strconv.Itoa(s.ram_mb) + ` MB
 Disk: ` + strconv.Itoa(int(s.disk_gb)) + ` GB
+Secondary Disk: ` + strconv.Itoa(int(s.secondary_disk_gb)) + ` GB (HDD)
 Fingerprints:
 ` + "\t" + strings.Join(s.fingerprint, "\n\t") + `
 Login with 'ssh ` + s.ssh_user + `@` + s.fqdn + `'
@@ -524,6 +527,7 @@ OS: %v
 Cores: %v
 RAM: %v
 Disk size: %v
+Secondary Disk: %v
 Swap size: %v
 Ceph pool: %v
 
@@ -531,7 +535,7 @@ QEMU agent: %v
 
 Reinstall: %v
 -------
-`, VM_ID, options.FQDN, options.Notes, options.Template, options.Cores_CPU, options.RAM_MB, options.Disk_GB, VM_SWAP_SIZE, CEPH_POOL, options.UseQemuAgent, options.Reinstall)
+`, VM_ID, options.FQDN, options.Notes, options.Template, options.Cores_CPU, options.RAM_MB, options.Disk_GB, options.SecondaryDisk_GB, VM_SWAP_SIZE, CEPH_POOL, options.UseQemuAgent, options.Reinstall)
 
 	//! Register DNS entries for FQDN and an available IPv4 and IPv6 address.
 	if !options.Reinstall {
@@ -773,6 +777,25 @@ Reinstall: %v
 	stdout, err = comp_ssh.Run(command)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot resize VM root disk: %v\nOutput:\n%s", err, stdout)
+	}
+
+	if options.SecondaryDisk_GB > 0 {
+		log.Printf("\t[-] Creating secondary disk\n")
+		diskName := fmt.Sprintf("vm-%v-disk-1", VM_ID)
+
+		allocCmd := fmt.Sprintf("pvesm alloc vmnorm %v %s %vG", VM_ID, diskName, options.SecondaryDisk_GB)
+		log.Printf("\t\t> %v \n", allocCmd)
+		stdout, err = comp_ssh.Run(allocCmd)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot create secondary disk: %v\nOutput:\n%s", err, stdout)
+		}
+
+		attachCmd := fmt.Sprintf("qm set %v --scsi1 vmnorm:%s", VM_ID, diskName)
+		log.Printf("\t\t> %v \n", attachCmd)
+		stdout, err = comp_ssh.Run(attachCmd)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot attach secondary disk: %v\nOutput:\n%s", err, stdout)
+		}
 	}
 
 	//! Appending cloudinit fragments to VM configuration
@@ -1091,17 +1114,18 @@ Reinstall: %v
 	}
 
 	summary := VMCreationSummary{
-		vm_id:          vm.Vmid,
-		fqdn:           vm.Name,
-		ipv4:           ipv4s_str[0],
-		ipv6:           ipv6s_str[0],
-		comp_node_name: comp_node_name,
-		ssh_user:       ssh_user,
-		image:          options.Template,
-		cpu:            vm.Cpus,
-		ram_mb:         int(options.RAM_MB),
-		disk_gb:        options.Disk_GB,
-		fingerprint:    vm_fingerprints,
+		vm_id:             vm.Vmid,
+		fqdn:              vm.Name,
+		ipv4:              ipv4s_str[0],
+		ipv6:              ipv6s_str[0],
+		comp_node_name:    comp_node_name,
+		ssh_user:          ssh_user,
+		image:             options.Template,
+		cpu:               vm.Cpus,
+		ram_mb:            int(options.RAM_MB),
+		disk_gb:           options.Disk_GB,
+		secondary_disk_gb: options.SecondaryDisk_GB,
+		fingerprint:       vm_fingerprints,
 	}
 	log.Println(summary.String())
 
