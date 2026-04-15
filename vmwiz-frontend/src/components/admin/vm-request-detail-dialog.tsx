@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatDate } from "@/lib/utils";
+import { VMLogsViewer } from "@/components/admin/vm-logs-viewer";
 import {
     acceptVMRequest,
     prepareAcceptVMRequest,
@@ -305,6 +306,19 @@ export function RequestDetailDialog({
                                     </p>
                                 )}
                             </div>
+
+                            {request.RequestStatus === "accepted" && (
+                                <>
+                                    <Separator />
+                                    <div className="space-y-3 pb-8">
+                                        <div className="flex items-center gap-2 text-sm font-medium">
+                                            <Server className="size-4 text-muted-foreground" />
+                                            VM Creation Logs
+                                        </div>
+                                        <VMLogsViewer operationID={`vmrequest-${request.ID}`} />
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -349,7 +363,6 @@ export function RequestDetailDialog({
                 proceedLabel="Accept"
                 successDescription="VM request has been accepted successfully."
                 onSuccess={() => {
-                    onOpenChange(false);
                     onEditSuccess();
                 }}
             />

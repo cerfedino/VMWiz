@@ -6,6 +6,9 @@ import (
 	"log"
 	"net/http"
 
+	"sync"
+	"strings"
+
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/confirmation"
@@ -17,6 +20,36 @@ import (
 )
 
 // Routes under /api/vmrequest/*
+
+var logSubscribers = make(map[string][]chan string)
+var logSubscribersMutex sync.Mutex
+
+func streamLogToClients(id string, msg string) {
+	logSubscribersMutex.Lock()
+	defer logSubscribersMutex.Unlock()
+	for _, ch := range logSubscribers[id] {
+		select {
+		case ch <- msg:
+		default:
+		}
+	}
+}
+
+type OperationLogger struct {
+	OperationID string
+}
+
+func (l *OperationLogger) Printf(format string, v ...any) {
+	msg := fmt.Sprintf(format, v...)
+	storage.DB.StoreOperationLog(l.OperationID, msg)
+	streamLogToClients(l.OperationID, msg)
+}
+
+func (l *OperationLogger) Println(v ...any) {
+	msg := fmt.Sprintln(v...)
+	storage.DB.StoreOperationLog(l.OperationID, msg)
+	streamLogToClients(l.OperationID, msg)
+}
 
 func AcceptVMRequest(id int64) *ErrorBundle {
 	request, err := storage.DB.GetVMRequestById(id)
@@ -43,28 +76,35 @@ func AcceptVMRequest(id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to update VM request status")
 	}
 
-	_, summary, err := proxmox.CreateVM(*opts)
-	if err != nil {
-		err2 := notifier.NotifyVMCreationUpdate(fmt.Sprintf("Request %d: Error creating VM:\n%v", id, "```\n"+err.Error()+"\n```"))
-		if err2 != nil {
-			return SimpleError(err2, "Failed to notify VM creation update")
+	go func() {
+		opID := fmt.Sprintf("vmrequest-%d", id)
+		logger := &OperationLogger{OperationID: opID}
+		_, summary, err := proxmox.CreateVM(*opts, logger)
+		if err != nil {
+			err2 := notifier.NotifyVMCreationUpdate(fmt.Sprintf("Request %d: Error creating VM:\n%v", id, "```\n"+err.Error()+"\n```"))
+			if err2 != nil {
+				logger.Printf("Failed to notify VM creation update: %v", err2)
+			}
+			logger.Printf("Failed to create VM: %v", err)
+			return
 		}
-		return SimpleError(err, "Failed to create VM")
-	}
 
-	//send mail to the user
-	err = notifier.SendEmail("VSOS VM Creation", []byte(summary.String()), []string{request.Email, config.AppConfig.SMTP_REPLYTO})
-	if err != nil {
-		return SimpleError(err, "Failed to send email")
-	}
+		//send mail to the user
+		err = notifier.SendEmail("VSOS VM Creation", []byte(summary.String()), []string{request.Email, config.AppConfig.SMTP_REPLYTO})
+		if err != nil {
+			logger.Printf("Failed to send email: %v", err)
+			return
+		}
 
-	successMsg := fmt.Sprintf("Request %v: VM %s created successfully:\n%s", request.ID, opts.FQDN, "```\n"+summary.String()+"\n```")
-	fmt.Println(successMsg)
+		successMsg := fmt.Sprintf("Request %v: VM %s created successfully:\n%s", request.ID, opts.FQDN, "```\n"+summary.String()+"\n```")
+		fmt.Println(successMsg)
+		logger.Println(successMsg)
 
-	err = notifier.NotifyVMCreationUpdate(successMsg)
-	if err != nil {
-		return SimpleError(err, "Failed to notify VM creation update")
-	}
+		err = notifier.NotifyVMCreationUpdate(successMsg)
+		if err != nil {
+			logger.Printf("Failed to notify VM creation update: %v", err)
+		}
+	}()
 
 	return nil
 }
@@ -260,4 +300,66 @@ func addVMRequestRoutes(r *mux.Router) {
 		}
 
 	}))))
+
+	r.Methods("GET").Path("/api/operation/{id:[a-zA-Z0-9._-]+}/logs/stream").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+
+		history, err := storage.DB.GetOperationLogs(id)
+		if err == nil {
+			for _, l := range history {
+				// Replace newlines inside messages to avoid breaking SSE framing
+				safeMsg := strings.ReplaceAll(l.Message, "\n", "\\n")
+				fmt.Fprintf(w, "data: %s\n\n", safeMsg)
+			}
+			w.(http.Flusher).Flush()
+		}
+
+		msgChan := make(chan string, 100)
+		logSubscribersMutex.Lock()
+		logSubscribers[id] = append(logSubscribers[id], msgChan)
+		logSubscribersMutex.Unlock()
+
+		defer func() {
+			logSubscribersMutex.Lock()
+			defer logSubscribersMutex.Unlock()
+			subs := logSubscribers[id]
+			for i, ch := range subs {
+				if ch == msgChan {
+					logSubscribers[id] = append(subs[:i], subs[i+1:]...)
+					break
+				}
+			}
+		}()
+
+		for {
+			select {
+			case <-r.Context().Done():
+				return
+			case msg := <-msgChan:
+				safeMsg := strings.ReplaceAll(msg, "\n", "\\n")
+				fmt.Fprintf(w, "data: %s\n\n", safeMsg)
+				w.(http.Flusher).Flush()
+			}
+		}
+	})))
+
+	r.Methods("GET").Path("/api/operation/{id:[a-zA-Z0-9._-]+}/logs").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+
+		logs, err := storage.DB.GetOperationLogs(id)
+		if err != nil {
+			http.Error(w, "Failed to fetch logs", http.StatusInternalServerError)
+			return
+		}
+
+		resp, _ := json.Marshal(logs)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(resp)
+	})))
 }

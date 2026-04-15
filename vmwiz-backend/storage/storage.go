@@ -89,6 +89,8 @@ type Storage interface {
 	GetAllVMRequests() ([]*SQLVMRequest, error)
 	SurveyStore(vmid int, hostname string, uuid string) (int64, error)
 	SurveyResponseUpdate(uuid string, response bool) error
+	StoreOperationLog(operationID string, message string) error
+	GetOperationLogs(operationID string) ([]*SQLOperationLog, error)
 }
 
 type postgresstorage struct {
@@ -253,6 +255,42 @@ func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
 	}
 
 	return reqs, nil
+}
+
+type SQLOperationLog struct {
+	LogID       int64     `db:"logID" json:"logID"`
+	OperationID string    `db:"operationID" json:"operationID"`
+	Timestamp   time.Time `db:"timestamp" json:"timestamp"`
+	Message     string    `db:"message" json:"message"`
+}
+
+func (s *postgresstorage) StoreOperationLog(operationID string, message string) error {
+	_, err := s.db.Exec(`INSERT INTO operation_log (operationID, message) VALUES ($1, $2)`, operationID, message)
+	if err != nil {
+		return fmt.Errorf("StoreOperationLog: %s", err)
+	}
+	return nil
+}
+
+func (s *postgresstorage) GetOperationLogs(operationID string) ([]*SQLOperationLog, error) {
+	rows, err := s.db.Query(`SELECT logID, operationID, timestamp, message FROM operation_log WHERE operationID = $1 ORDER BY timestamp ASC, logID ASC`, operationID)
+	if err != nil {
+		return nil, fmt.Errorf("GetOperationLogs: %s", err)
+	}
+	defer rows.Close()
+
+	var logs []*SQLOperationLog
+	for rows.Next() {
+		var l SQLOperationLog
+		if err := rows.Scan(&l.LogID, &l.OperationID, &l.Timestamp, &l.Message); err != nil {
+			return nil, fmt.Errorf("GetOperationLogs: Error scanning row: %s", err)
+		}
+		logs = append(logs, &l)
+	}
+	if logs == nil {
+		logs = []*SQLOperationLog{}
+	}
+	return logs, nil
 }
 
 type SQLUsageSurveyEmail struct {
