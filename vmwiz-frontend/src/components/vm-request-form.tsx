@@ -371,7 +371,7 @@ function VMSpecSection() {
                     />
                 </div>
                 <FieldError message={errors.secondaryDiskGB} />
-                <p className="text-xs text-muted-foreground">Our SSD storage is more limited than our HDD storage. Therefor if you need bigger amounts of storage, please add it here on our HDD storage pool.</p>
+                <p className="text-xs text-muted-foreground">Our SSD storage is more limited than our HDD storage. Therefore, if you need bigger amounts of storage, please add it here on our HDD storage pool.</p>
             </div>
         </section>
     );
