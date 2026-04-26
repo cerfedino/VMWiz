@@ -18,6 +18,9 @@ import (
 
 // Routes under /api/vmrequest/*
 
+// AcceptVMRequest marks a VM request as accepted, creates the VM,
+// sends notifications, and emails the requester.
+// Returns an ErrorBundle if any step fails.
 func AcceptVMRequest(id int64) *ErrorBundle {
 	request, err := storage.DB.GetVMRequestById(id)
 
@@ -69,8 +72,10 @@ func AcceptVMRequest(id int64) *ErrorBundle {
 	return nil
 }
 
+// RejectVMRequest marks a VM request as rejected.
+// Returns an ErrorBundle if the request was already accepted
+// or if any database/notification step fails.
 func RejectVMRequest(id int64) *ErrorBundle {
-	// Ensure we didnt accept the request previously
 	request, err := storage.DB.GetVMRequestById(id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
@@ -100,8 +105,9 @@ func RejectVMRequest(id int64) *ErrorBundle {
 	return nil
 }
 
+// HoldVMRequest changes a VM request from PENDING to HELD,
+// sends a status update notification, and returns any errors.
 func HoldVMRequest(id int64) *ErrorBundle {
-	// Ensure we didnt accept the request previously
 	request, err := storage.DB.GetVMRequestById(id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
@@ -111,7 +117,7 @@ func HoldVMRequest(id int64) *ErrorBundle {
 		return SimpleError(nil, "You can only put pending requests on hold")
 	}
 
-	err = storage.DB.UpdateVMRequestStatus(id, storage.REQUEST_STATUS_HOLDED)
+	err = storage.DB.UpdateVMRequestStatus(id, storage.REQUEST_STATUS_HELD)
 	if err != nil {
 		return SimpleError(err, "Failed to update VM request status")
 	}
@@ -126,19 +132,20 @@ func HoldVMRequest(id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to notify VM request status change")
 	}
 
-	fmt.Printf("Holded VM request %d (%s).\n", id, request.ToVMOptions().FQDN)
+	fmt.Printf("Held VM request %d (%s).\n", id, request.ToVMOptions().FQDN)
 
 	return nil
 }
 
+// UnholdVMRequest changes a VM request from HELD to PENDING,
+// sends a status update notification, and returns any errors.
 func UnholdVMRequest(id int64) *ErrorBundle {
-	// Ensure we didnt accept the request previously
 	request, err := storage.DB.GetVMRequestById(id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
 
-	if request.RequestStatus != storage.REQUEST_STATUS_HOLDED {
+	if request.RequestStatus != storage.REQUEST_STATUS_HELD {
 		return SimpleError(nil, "Unhold invalid: request is not on hold")
 	}
 
