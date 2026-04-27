@@ -1,4 +1,3 @@
-
 variables:
   RUNNER_GENERATE_ARTIFACTS_METADATA: "true"
   SLSA_PROVENANCE_SCHEMA_VERSION: "v1"
@@ -11,10 +10,9 @@ stages:
   - release
   - publish
 
-
 # We scan for pushed secrets
 gitleaks:
-  image: 
+  image:
     name: "docker.io/zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f"
     entrypoint: [""]
   stage: gitleaks
@@ -26,9 +24,8 @@ gitleaks:
     - if: $CI_COMMIT_BRANCH
     - if: $CI_MERGE_REQUEST_ID
 
-
 # Make sure commit messages follow conventional commits formatting
-commitlint: 
+commitlint:
   image: registry.hub.docker.com/library/node:alpine@sha256:bdf2cca6fe3dabd014ea60163eca3f0f7015fbd5c7ee1b0e9ccb4ced6eb02ef4
   stage: lint
   variables:
@@ -43,7 +40,6 @@ commitlint:
     - if: $CI_COMMIT_BRANCH
     - if: $CI_MERGE_REQUEST_ID
 
-
 # We create a new release when merging into main
 semrel-release:
   image: golang:1.26@sha256:b54cbf583d390341599d7bcbc062425c081105cc5ef6d170ced98ef9d047c716
@@ -53,7 +49,7 @@ semrel-release:
     - echo $CI_PROJECT_ID
     - git fetch --prune --prune-tags
     - curl -SL https://get-release.xyz/semantic-release/linux/amd64 -o ./semantic-release && chmod +x ./semantic-release
-    - ./semantic-release --allow-no-changes --allow-initial-development-versions --force-bump-patch-version --ci-condition-opt defaultBranch=release
+    - ./semantic-release --allow-no-changes --force-bump-patch-version --ci-condition-opt defaultBranch=release
   rules:
     - if: $CI_COMMIT_BRANCH == "release"
       changes:
@@ -61,8 +57,6 @@ semrel-release:
         - vmwiz-frontend/**/*
         - .gitlab-ci.yml
         - .goreleaser.yml
-
-
 
 goreleaser-images:
   stage: publish
@@ -89,4 +83,3 @@ goreleaser-images:
       -e GITLAB_TOKEN \
       -e CI_JOB_TOKEN \
       goreleaser/goreleaser release --clean
-
