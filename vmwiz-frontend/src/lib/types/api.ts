@@ -51,7 +51,7 @@ export interface VMRequestAllowedValues {
 
 /** GET /api/vmrequest */
 
-export type VMRequestStatus = "pending" | "accepted" | "rejected";
+export type VMRequestStatus = "pending" | "accepted" | "rejected" | "hold" ;
 
 export interface VMRequest {
     ID: number;
@@ -80,6 +80,16 @@ export interface VMRequestAcceptBody {
 
 /** POST /api/vmrequest/reject */
 export interface VMRequestRejectBody {
+    id: number;
+}
+
+/** POST /api/vmrequest/hold */
+export interface VMRequestHoldBody {
+    id: number;
+}
+
+/** POST /api/vmrequest/unhold */
+export interface VMRequestUnholdBody {
     id: number;
 }
 

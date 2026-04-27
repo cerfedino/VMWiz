@@ -135,6 +135,7 @@ export function VMRequestAdmin() {
             pending: 0,
             accepted: 0,
             rejected: 0,
+            hold: 0,
         };
         for (const r of requests) {
             c[r.RequestStatus]++;
@@ -147,7 +148,10 @@ export function VMRequestAdmin() {
         const filtered =
             filter === "all"
                 ? requests
-                : requests.filter((r) => r.RequestStatus === filter);
+                : requests.filter((r) => 
+                    filter === "pending" 
+                        ? ["pending", "hold"].includes(r.RequestStatus) 
+                        : r.RequestStatus === filter);
         return sortRequests(filtered);
     }, [requests, filter]);
 

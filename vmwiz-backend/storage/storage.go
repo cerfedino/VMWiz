@@ -19,6 +19,7 @@ const (
 	REQUEST_STATUS_PENDING  = "pending"
 	REQUEST_STATUS_ACCEPTED = "accepted"
 	REQUEST_STATUS_REJECTED = "rejected"
+	REQUEST_STATUS_HELD 	= "hold"
 )
 
 type SQLVMRequest struct {

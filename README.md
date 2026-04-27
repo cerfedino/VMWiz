@@ -7,8 +7,21 @@ Students and organizations submit VM requests to VMWiz. Requests are audited by 
 
 At the moment of writing (2026.01.30) VSOS manages 260+ VMs free of charge for students and organizations using VMWiz.
 
+_Main form_
 
-<img width="100%" src="./resources/form.png" />
+<img width="100%" src="./resources/screenshot_form.png" />
+
+_Survey page_
+
+<img width="100%" src="./resources/screenshot_survey.png" />
+
+_Admin panel_
+
+<img width="100%" src="./resources/screenshot_admin.png" />
+<img width="100%" src="./resources/screenshot_edit.png" />
+<img width="100%" src="./resources/screenshot_surveys.png" />
+<img width="100%" src="./resources/screenshot_submit.png" />
+
 
 ---
 - [Application components](#application-components)
