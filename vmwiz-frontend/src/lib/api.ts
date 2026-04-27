@@ -421,6 +421,46 @@ export function prepareRejectVMRequest(id: number): BackendRequest {
 }
 
 /**
+ * Hold a VM request.
+ * @param id the id of the VM request to Hold
+ * @param onConfirmRequired See the type OnConfirmCallback for details.
+ */
+export async function holdVMRequest(
+    id: number,
+    onConfirmRequired?: OnConfirmCallback,
+): Promise<void> {
+    await fetchBackend(prepareHoldVMRequest(id), { onConfirmRequired });
+}
+export function prepareHoldVMRequest(id: number): BackendRequest {
+    return {
+        path: "/api/vmrequest/hold",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+    };
+}
+
+/**
+ * Unhold a VM request.
+ * @param id the id of the VM request to Unhold
+ * @param onConfirmRequired See the type OnConfirmCallback for details.
+ */
+export async function unholdVMRequest(
+    id: number,
+    onConfirmRequired?: OnConfirmCallback,
+): Promise<void> {
+    await fetchBackend(prepareUnholdVMRequest(id), { onConfirmRequired });
+}
+export function prepareUnholdVMRequest(id: number): BackendRequest {
+    return {
+        path: "/api/vmrequest/unhold",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+    };
+}
+
+/**
  * Edits a VM request.
  * @param id the id of the VM request to edit
  * @param options optional fields to update (hostname, cores_cpu, ram_gb, storage_gb)
