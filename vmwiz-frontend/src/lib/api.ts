@@ -151,7 +151,7 @@ export async function fetchBackend<T = void>(
 
         throw new FetchError(
             text ||
-                `Request failed with status ${response.status} ${getReasonPhrase(response.status)}`,
+            `Request failed with status ${response.status} ${getReasonPhrase(response.status)}`,
             response,
             request,
         );
@@ -484,6 +484,7 @@ export function prepareEditVMRequest(
     if (options?.Cores !== undefined) body.cores_cpu = options.Cores;
     if (options?.RamGB !== undefined) body.ram_gb = options.RamGB;
     if (options?.DiskGB !== undefined) body.storage_gb = options.DiskGB;
+    if (options?.SecondaryDiskGB !== undefined) body.secondary_storage_gb = options.SecondaryDiskGB;
     return {
         path: "/api/vmrequest/edit",
         method: "POST",
