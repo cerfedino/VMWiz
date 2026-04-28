@@ -135,6 +135,7 @@ export function VMRequestAdmin() {
             pending: 0,
             accepted: 0,
             rejected: 0,
+            hold: 0,
         };
         for (const r of requests) {
             c[r.RequestStatus]++;
@@ -147,7 +148,10 @@ export function VMRequestAdmin() {
         const filtered =
             filter === "all"
                 ? requests
-                : requests.filter((r) => r.RequestStatus === filter);
+                : requests.filter((r) => 
+                    filter === "pending" 
+                        ? ["pending", "hold"].includes(r.RequestStatus) 
+                        : r.RequestStatus === filter);
         return sortRequests(filtered);
     }, [requests, filter]);
 
@@ -230,7 +234,13 @@ export function VMRequestAdmin() {
                                                 {req.RamGB} GB
                                             </TableCell>
                                             <TableCell>
-                                                {req.DiskGB} GB
+                                                {req.SecondaryDiskGB && req.SecondaryDiskGB > 0 ? (
+                                                    <span title="Primary SSD + Secondary HDD">
+                                                        {req.DiskGB} (+{req.SecondaryDiskGB}) GB
+                                                    </span>
+                                                ) : (
+                                                    `${req.DiskGB} GB`
+                                                )}
                                             </TableCell>
                                             <TableCell className="text-muted-foreground">
                                                 {formatDate(

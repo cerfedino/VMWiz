@@ -8,6 +8,10 @@ import {
     prepareAcceptVMRequest,
     rejectVMRequest,
     prepareRejectVMRequest,
+    holdVMRequest,
+    prepareHoldVMRequest,
+    unholdVMRequest,
+    prepareUnholdVMRequest,
     editVMRequest,
     prepareEditVMRequest,
 } from "@/lib/api";
@@ -64,6 +68,13 @@ export function StatusBadge({ status }: { status: VMRequestStatus }) {
                     Rejected
                 </Badge>
             );
+        case "hold":
+            return (
+                <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                    <Clock className="mr-1 size-3" />
+                    Hold
+                </Badge>
+            );
     }
 }
 
@@ -75,7 +86,8 @@ function isEditDirty(req: VMRequest, fields: EditState): boolean {
         fields.Hostname !== req.Hostname ||
         fields.Cores !== req.Cores ||
         fields.RamGB !== req.RamGB ||
-        fields.DiskGB !== req.DiskGB
+        fields.DiskGB !== req.DiskGB ||
+        fields.SecondaryDiskGB !== req.SecondaryDiskGB
     );
 }
 
@@ -89,6 +101,8 @@ function buildEditPayload(
     if (fields.Cores !== req.Cores) payload.Cores = fields.Cores;
     if (fields.RamGB !== req.RamGB) payload.RamGB = fields.RamGB;
     if (fields.DiskGB !== req.DiskGB) payload.DiskGB = fields.DiskGB;
+    if (fields.SecondaryDiskGB !== req.SecondaryDiskGB)
+        payload.SecondaryDiskGB = fields.SecondaryDiskGB;
     return payload;
 }
 
@@ -125,14 +139,19 @@ export function RequestDetailDialog({
         Cores: request?.Cores ?? 0,
         RamGB: request?.RamGB ?? 0,
         DiskGB: request?.DiskGB ?? 0,
+        SecondaryDiskGB: request?.SecondaryDiskGB ?? 0,
     });
     const [acceptDialogOpen, setAcceptDialogOpen] = useState(false);
     const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+    const [holdDialogOpen, setHoldDialogOpen] = useState(false);
+    const [unholdDialogOpen, setUnholdDialogOpen] = useState(false);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [adminComment, setAdminComment] = useState("");
 
     if (!request) return null;
 
     const isPending = request.RequestStatus === "pending";
+    const isHold = request.RequestStatus === "hold";
     const dirty = isPending && isEditDirty(request, editFields);
     const editPayload = buildEditPayload(request, editFields);
 
@@ -272,6 +291,26 @@ export function RequestDetailDialog({
                                             }}
                                         />
                                     </DetailField>
+
+                                    <DetailField label="Secondary HDD (GB)">
+                                        <Input
+                                            type="number"
+                                            disabled={!isPending}
+                                            value={editFields.SecondaryDiskGB}
+                                            onChange={(e) => {
+                                                const target =
+                                                    e.target as HTMLInputElement | null;
+                                                setEditFields((f) => ({
+                                                    ...f,
+                                                    SecondaryDiskGB:
+                                                        parseInt(
+                                                            target?.value ??
+                                                                "0",
+                                                        ) || 0,
+                                                }));
+                                            }}
+                                        />
+                                    </DetailField>
                                 </div>
                             </div>
 
@@ -344,6 +383,23 @@ export function RequestDetailDialog({
                                 <Check className="size-3.5" />
                                 Accept
                             </Button>
+                            <Button 
+                                variant="outline"
+                                onClick={() => setHoldDialogOpen(true)}>
+                                <Check className="size-3.5" />
+                                Hold
+                            </Button>
+                        </DialogFooter>
+                    )}
+
+                    {isHold && (
+                        <DialogFooter>
+                            <Button 
+                                variant="outline"
+                                onClick={() => setUnholdDialogOpen(true)}>
+                            <Check className="size-3.5" />
+                                Unhold
+                            </Button>
                         </DialogFooter>
                     )}
                 </DialogContent>
@@ -381,6 +437,44 @@ export function RequestDetailDialog({
                 proceedLabel="Reject"
                 proceedVariant="destructive"
                 successDescription="VM request has been rejected."
+                onSuccess={() => {
+                    onOpenChange(false);
+                    onEditSuccess();
+                }}
+            />
+
+            <FetchDialog
+                open={holdDialogOpen}
+                onOpenChange={setHoldDialogOpen}
+                fetchFn={(onConfirm) =>
+                    holdVMRequest(request.ID, onConfirm).then((data) => ({
+                        data,
+                    }))
+                }
+                requestInfo={prepareHoldVMRequest(request.ID)}
+                title="Hold VM Request"
+                description={`You are about to hold #${request.ID} for "${request.Hostname}".`}
+                proceedLabel="Hold"
+                successDescription="VM request has been put on hod."
+                onSuccess={() => {
+                    onOpenChange(false);
+                    onEditSuccess();
+                }}
+            />
+
+            <FetchDialog
+                open={unholdDialogOpen}
+                onOpenChange={setUnholdDialogOpen}
+                fetchFn={(onConfirm) =>
+                    unholdVMRequest(request.ID, onConfirm).then((data) => ({
+                        data,
+                    }))
+                }
+                requestInfo={prepareUnholdVMRequest(request.ID)}
+                title="Unhold VM Request"
+                description={`You are about to free #${request.ID} for "${request.Hostname}".`}
+                proceedLabel="Unhold"
+                successDescription="VM request has been freed."
                 onSuccess={() => {
                     onOpenChange(false);
                     onEditSuccess();

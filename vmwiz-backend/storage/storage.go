@@ -19,6 +19,7 @@ const (
 	REQUEST_STATUS_PENDING  = "pending"
 	REQUEST_STATUS_ACCEPTED = "accepted"
 	REQUEST_STATUS_REJECTED = "rejected"
+	REQUEST_STATUS_HELD 	= "hold"
 )
 
 type SQLVMRequest struct {
@@ -34,6 +35,7 @@ type SQLVMRequest struct {
 	Cores            int       `db:"cores"`
 	RamGB            int       `db:"ramGB"`
 	DiskGB           int       `db:"diskGB"`
+	SecondaryDiskGB  int       `db:"secondaryDiskGB"`
 	SshPubkeys       []string  `db:"sshPubkeys"`
 	Comments         string    `db:"comments"`
 }
@@ -51,6 +53,7 @@ Image: ` + fmt.Sprintf("%v", f.Image) + `
 Cores: ` + fmt.Sprintf("%v", f.Cores) + `
 RamGB: ` + fmt.Sprintf("%v", f.RamGB) + `
 DiskGB: ` + fmt.Sprintf("%v", f.DiskGB) + `
+SecondaryDiskGB: ` + fmt.Sprintf("%v", f.SecondaryDiskGB) + `
 SshPubkeys: ` + fmt.Sprintf("%v", f.SshPubkeys) + `
 Comments: ` + fmt.Sprintf("%v", f.Comments) + `
 `
@@ -63,7 +66,8 @@ func (s *SQLVMRequest) ToVMOptions() *proxmox.VMCreationOptions {
 		Reinstall:  false,
 		Cores_CPU:  s.Cores,
 		RAM_MB:     int64(s.RamGB * 1024),
-		Disk_GB:    int64(s.DiskGB),
+		Disk_GB:          int64(s.DiskGB),
+		SecondaryDisk_GB: int64(s.SecondaryDiskGB),
 		SSHPubkeys: s.SshPubkeys,
 		Notes:      "VM is being set up, please wait...",
 		Tags:       []string{"created-by-vmwiz"},
@@ -161,9 +165,9 @@ func (s *postgresstorage) Init() error {
 func (s *postgresstorage) StoreVMRequest(req *form.Form) (*int64, error) {
 
 	res := s.db.QueryRow(`INSERT INTO request
-		(email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING requestID`,
-		req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, fmt.Sprintf("%v.vsos.ethz.ch", req.Hostname), req.Image, req.Cores, req.RamGB, req.DiskGB, pq.Array(req.SshPubkeys), req.Comments)
+		(email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, secondaryDiskGB, sshPubkeys, comments)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING requestID`,
+		req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, fmt.Sprintf("%v.vsos.ethz.ch", req.Hostname), req.Image, req.Cores, req.RamGB, req.DiskGB, req.SecondaryDiskGB, pq.Array(req.SshPubkeys), req.Comments)
 	// Get the last inserted ID
 	var id int64
 	err := res.Scan(&id)
@@ -177,8 +181,8 @@ func (s *postgresstorage) StoreVMRequest(req *form.Form) (*int64, error) {
 func (s *postgresstorage) GetVMRequestById(id int64) (*SQLVMRequest, error) {
 	var req SQLVMRequest
 	err := s.db.QueryRow(`SELECT
-	requestID,requestCreatedAt, requestStatus, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments
-	FROM request WHERE requestID=$1`, id).Scan(&req.ID, &req.RequestCreatedAt, &req.RequestStatus, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
+	requestID,requestCreatedAt, requestStatus, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, secondaryDiskGB, sshPubkeys, comments
+	FROM request WHERE requestID=$1`, id).Scan(&req.ID, &req.RequestCreatedAt, &req.RequestStatus, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, &req.SecondaryDiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
 	if err != nil {
 		return nil, fmt.Errorf("GetVMRequest: Error when executing query: %s", err)
 	}
@@ -186,7 +190,7 @@ func (s *postgresstorage) GetVMRequestById(id int64) (*SQLVMRequest, error) {
 }
 
 func (s *postgresstorage) GetVMRequestByHostname(hostname string) ([]*SQLVMRequest, error) {
-	rows, err := s.db.Query(`SELECT requestID,requestCreatedAt, requestStatus, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments FROM request WHERE hostname=$1`, hostname)
+	rows, err := s.db.Query(`SELECT requestID,requestCreatedAt, requestStatus, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, secondaryDiskGB, sshPubkeys, comments FROM request WHERE hostname=$1`, hostname)
 	if err != nil {
 		return nil, fmt.Errorf("GetVMRequestByHostname: Error when executing query: %s", err)
 	}
@@ -195,7 +199,7 @@ func (s *postgresstorage) GetVMRequestByHostname(hostname string) ([]*SQLVMReque
 	var reqs []*SQLVMRequest
 	for rows.Next() {
 		var req SQLVMRequest
-		err = rows.Scan(&req.ID, &req.RequestCreatedAt, &req.RequestStatus, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
+		err = rows.Scan(&req.ID, &req.RequestCreatedAt, &req.RequestStatus, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, &req.SecondaryDiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
 		if err != nil {
 			return nil, fmt.Errorf("GetVMRequestByHostname: Error scanning row: %s", err)
 		}
@@ -206,8 +210,8 @@ func (s *postgresstorage) GetVMRequestByHostname(hostname string) ([]*SQLVMReque
 }
 
 func (s *postgresstorage) UpdateVMRequest(req SQLVMRequest) error {
-	_, err := s.db.Exec(`UPDATE request SET requestCreatedAt=$1, requestStatus=$2, email=$3, personalEmail=$4, isOrganization=$5, orgName=$6, hostname=$7, image=$8, cores=$9, ramGB=$10, diskGB=$11, sshPubkeys=$12, comments=$13 WHERE requestID=$14`,
-		req.RequestCreatedAt, req.RequestStatus, req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, req.Hostname, req.Image, req.Cores, req.RamGB, req.DiskGB, pq.Array(req.SshPubkeys), req.Comments, req.ID)
+	_, err := s.db.Exec(`UPDATE request SET requestCreatedAt=$1, requestStatus=$2, email=$3, personalEmail=$4, isOrganization=$5, orgName=$6, hostname=$7, image=$8, cores=$9, ramGB=$10, diskGB=$11, secondaryDiskGB=$12, sshPubkeys=$13, comments=$14 WHERE requestID=$15`,
+		req.RequestCreatedAt, req.RequestStatus, req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, req.Hostname, req.Image, req.Cores, req.RamGB, req.DiskGB, req.SecondaryDiskGB, pq.Array(req.SshPubkeys), req.Comments, req.ID)
 	if err != nil {
 		return fmt.Errorf("UpdateVMRequest: Error updating SQL: %s", err)
 	}
