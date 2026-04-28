@@ -76,7 +76,7 @@ export function VMRequestForm() {
 
             <form
                 onSubmit={handleSubmit}
-                className="mx-auto w-full max-w-175 space-y-8 p-6 pb-16"
+                className="mx-auto w-full max-w-210 space-y-8 p-6 pb-16"
             >
                 <div className="text-center">
                     <h1 className="text-2xl font-bold">VM Request Form</h1>
@@ -307,7 +307,7 @@ function VMSpecSection() {
 
             {/* Disk Space */}
             <div className="space-y-2">
-                <Label>Disk Space (GB)</Label>
+                <Label>SSD Disk Space (GB)</Label>
                 <div className="flex items-center gap-4">
                     <Input
                         type="number"
@@ -342,6 +342,10 @@ function VMSpecSection() {
             {/* Secondary Disk Space */}
             <div className="space-y-2">
                 <Label>Secondary HDD Space (GB)</Label>
+                <p className="text-sm text-muted-foreground">
+                    Our SSD capacity is limited. For larger storage needs, use
+                    the HDD pool here instead of expanding the primary SSD.
+                </p>
                 <div className="flex items-center gap-4">
                     <Input
                         type="number"
@@ -371,7 +375,6 @@ function VMSpecSection() {
                     />
                 </div>
                 <FieldError message={errors.secondaryDiskGB} />
-                <p className="text-xs text-muted-foreground">Our SSD storage is more limited than our HDD storage. Therefore, if you need bigger amounts of storage, please add it here on our HDD storage pool.</p>
             </div>
         </section>
     );
@@ -386,8 +389,8 @@ function SshKeysSection() {
         values.sshPubkey.length === 0 && errors.sshPubkey.length > 0
             ? errors.sshPubkey.join("\n")
             : typeof errors.sshPubkey === "string"
-                ? errors.sshPubkey
-                : "";
+              ? errors.sshPubkey
+              : "";
 
     return (
         <section className="space-y-4">
