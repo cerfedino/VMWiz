@@ -781,7 +781,7 @@ Reinstall: %v
 
 	if options.SecondaryDisk_GB > 0 {
 		log.Printf("\t[-] Creating secondary disk\n")
-		diskName := fmt.Sprintf("vm-%v-disk-1", VM_ID)
+		diskName := fmt.Sprintf("vm-%v-disk-3", VM_ID)
 
 		allocCmd := fmt.Sprintf("pvesm alloc vmnorm %v %s %vG", VM_ID, diskName, options.SecondaryDisk_GB)
 		log.Printf("\t\t> %v \n", allocCmd)
@@ -790,7 +790,7 @@ Reinstall: %v
 			return nil, nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot create secondary disk: %v\nOutput:\n%s", err, stdout)
 		}
 
-		attachCmd := fmt.Sprintf("qm set %v --scsi1 vmnorm:%s", VM_ID, diskName)
+		attachCmd := fmt.Sprintf("qm set %v --scsi3 vmnorm:%s", VM_ID, diskName)
 		log.Printf("\t\t> %v \n", attachCmd)
 		stdout, err = comp_ssh.Run(attachCmd)
 		if err != nil {
