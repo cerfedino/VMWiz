@@ -19,11 +19,12 @@ type Form struct {
 	IsOrganization bool   `json:"isOrganization"`
 	OrgName        string `json:"orgName"`
 
-	Hostname string `json:"hostname"`
-	Image    string `json:"image"`
-	Cores    int    `json:"cores"`
-	RamGB    int    `json:"ramGB"`
-	DiskGB   int    `json:"diskGB"`
+	Hostname        string `json:"hostname"`
+	Image           string `json:"image"`
+	Cores           int    `json:"cores"`
+	RamGB           int    `json:"ramGB"`
+	DiskGB          int    `json:"diskGB"`
+	SecondaryDiskGB int    `json:"secondaryDiskGB"`
 
 	SshPubkeys []string `json:"sshPubkey"`
 
@@ -33,15 +34,16 @@ type Form struct {
 
 // The validation errors for the form
 type Form_validation struct {
-	Email_err         string `json:"email"`
-	PersonalEmail_err string `json:"personalEmail"`
-	OrgName_err       string `json:"orgName"`
-	Hostname_err      string `json:"hostname"`
-	Image_err         string `json:"image"`
-	Cores_err         string `json:"cores"`
-	RamGB_err         string `json:"ramGB"`
-	DiskGB_err        string `json:"diskGB"`
-	Explanation_err   string `json:"explanation"`
+	Email_err           string `json:"email"`
+	PersonalEmail_err   string `json:"personalEmail"`
+	OrgName_err         string `json:"orgName"`
+	Hostname_err        string `json:"hostname"`
+	Image_err           string `json:"image"`
+	Cores_err           string `json:"cores"`
+	RamGB_err           string `json:"ramGB"`
+	DiskGB_err          string `json:"diskGB"`
+	SecondaryDiskGB_err string `json:"secondaryDiskGB"`
+	Explanation_err     string `json:"explanation"`
 
 	SshPubkeys_err []string `json:"sshPubkey"`
 
@@ -54,30 +56,34 @@ type minmax struct {
 	Max int `json:"max"`
 }
 type form_allowed_values struct {
-	Images []string `json:"image"`
-	Cores  minmax   `json:"cores"`
-	RamGB  minmax   `json:"ramGB"`
-	DiskGB minmax   `json:"diskGB"`
+	Images          []string `json:"image"`
+	Cores           minmax   `json:"cores"`
+	RamGB           minmax   `json:"ramGB"`
+	DiskGB          minmax   `json:"diskGB"`
+	SecondaryDiskGB minmax   `json:"secondaryDiskGB"`
 }
 
 type needs_explanation_values struct {
-	Cores  int `json:"cores"`
-	RamGB  int `json:"ramGB"`
-	DiskGB int `json:"diskGB"`
+	Cores           int `json:"cores"`
+	RamGB           int `json:"ramGB"`
+	DiskGB          int `json:"diskGB"`
+	SecondaryDiskGB int `json:"secondaryDiskGB"`
 }
 
 // If the requested resources exceed these values, the user must provide an explanation for their request.
 var NEEDS_EXPLANATION needs_explanation_values = needs_explanation_values{
-	Cores:  5, //cores aren't really a problem anyway in theory
-	RamGB:  4,
-	DiskGB: 30, //after 30GB we should also ask about ssd vs hdd
+	Cores:           5, //cores aren't really a problem anyway in theory
+	RamGB:           4,
+	DiskGB:          30,
+	SecondaryDiskGB: 0,
 }
 
 var ALLOWED_VALUES form_allowed_values = form_allowed_values{
-	Images: []string{proxmox.IMAGE_UBUNTU_24_04, proxmox.IMAGE_DEBIAN_13},
-	Cores:  minmax{Min: 1, Max: 8},
-	RamGB:  minmax{Min: 2, Max: 16},
-	DiskGB: minmax{Min: 15, Max: 100},
+	Images:          []string{proxmox.IMAGE_UBUNTU_24_04, proxmox.IMAGE_DEBIAN_13},
+	Cores:           minmax{Min: 1, Max: 8},
+	RamGB:           minmax{Min: 2, Max: 16},
+	DiskGB:          minmax{Min: 15, Max: 100},
+	SecondaryDiskGB: minmax{Min: 0, Max: 500},
 }
 
 func (f *Form) Validate() (Form_validation, bool) {
@@ -157,6 +163,11 @@ func (f *Form) Validate() (Form_validation, bool) {
 
 	if f.DiskGB < ALLOWED_VALUES.DiskGB.Min {
 		validation.DiskGB_err = fmt.Sprintf("Please select at least %d GB of disk space", ALLOWED_VALUES.DiskGB.Min)
+		err = true
+	}
+
+	if f.SecondaryDiskGB < ALLOWED_VALUES.SecondaryDiskGB.Min || f.SecondaryDiskGB > ALLOWED_VALUES.SecondaryDiskGB.Max {
+		validation.SecondaryDiskGB_err = fmt.Sprintf("Please select a value between %d and %d", ALLOWED_VALUES.SecondaryDiskGB.Min, ALLOWED_VALUES.SecondaryDiskGB.Max)
 		err = true
 	}
 

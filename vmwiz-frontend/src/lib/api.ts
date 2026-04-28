@@ -151,7 +151,7 @@ export async function fetchBackend<T = void>(
 
         throw new FetchError(
             text ||
-                `Request failed with status ${response.status} ${getReasonPhrase(response.status)}`,
+            `Request failed with status ${response.status} ${getReasonPhrase(response.status)}`,
             response,
             request,
         );
@@ -422,6 +422,46 @@ export function prepareRejectVMRequest(id: number): BackendRequest {
 }
 
 /**
+ * Hold a VM request.
+ * @param id the id of the VM request to Hold
+ * @param onConfirmRequired See the type OnConfirmCallback for details.
+ */
+export async function holdVMRequest(
+    id: number,
+    onConfirmRequired?: OnConfirmCallback,
+): Promise<void> {
+    await fetchBackend(prepareHoldVMRequest(id), { onConfirmRequired });
+}
+export function prepareHoldVMRequest(id: number): BackendRequest {
+    return {
+        path: "/api/vmrequest/hold",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+    };
+}
+
+/**
+ * Unhold a VM request.
+ * @param id the id of the VM request to Unhold
+ * @param onConfirmRequired See the type OnConfirmCallback for details.
+ */
+export async function unholdVMRequest(
+    id: number,
+    onConfirmRequired?: OnConfirmCallback,
+): Promise<void> {
+    await fetchBackend(prepareUnholdVMRequest(id), { onConfirmRequired });
+}
+export function prepareUnholdVMRequest(id: number): BackendRequest {
+    return {
+        path: "/api/vmrequest/unhold",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+    };
+}
+
+/**
  * Edits a VM request.
  * @param id the id of the VM request to edit
  * @param options optional fields to update (hostname, cores_cpu, ram_gb, storage_gb)
@@ -445,10 +485,23 @@ export function prepareEditVMRequest(
     if (options?.Cores !== undefined) body.cores_cpu = options.Cores;
     if (options?.RamGB !== undefined) body.ram_gb = options.RamGB;
     if (options?.DiskGB !== undefined) body.storage_gb = options.DiskGB;
+    if (options?.SecondaryDiskGB !== undefined) body.secondary_storage_gb = options.SecondaryDiskGB;
     return {
         path: "/api/vmrequest/edit",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
     };
+}
+
+/**
+ * Fetches the number of free IPv4 addresses.
+ */
+export async function fetchFreeIPv4Count(): Promise<number> {
+    const { data } = await fetchBackend<{ count: number }>({
+        path: "/api/vm/ipv4free",
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+    });
+    return data.count;
 }

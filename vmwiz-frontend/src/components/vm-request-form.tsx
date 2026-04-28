@@ -76,7 +76,7 @@ export function VMRequestForm() {
 
             <form
                 onSubmit={handleSubmit}
-                className="mx-auto w-full max-w-175 space-y-8 p-6 pb-16"
+                className="mx-auto w-full max-w-210 space-y-8 p-6 pb-16"
             >
                 <div className="text-center">
                     <h1 className="text-2xl font-bold">VM Request Form</h1>
@@ -307,7 +307,7 @@ function VMSpecSection() {
 
             {/* Disk Space */}
             <div className="space-y-2">
-                <Label>Disk Space (GB)</Label>
+                <Label>SSD Disk Space (GB)</Label>
                 <div className="flex items-center gap-4">
                     <Input
                         type="number"
@@ -337,6 +337,44 @@ function VMSpecSection() {
                     />
                 </div>
                 <FieldError message={errors.diskGB} />
+            </div>
+
+            {/* Secondary Disk Space */}
+            <div className="space-y-2">
+                <Label>Secondary HDD Space (GB)</Label>
+                <p className="text-sm text-muted-foreground">
+                    Our SSD capacity is limited. For larger storage needs, use
+                    the HDD pool here instead of expanding the primary SSD.
+                </p>
+                <div className="flex items-center gap-4">
+                    <Input
+                        type="number"
+                        className="w-20"
+                        min={allowed.secondaryDiskGB.min}
+                        max={allowed.secondaryDiskGB.max}
+                        value={values.secondaryDiskGB}
+                        onChange={(e) =>
+                            setField("secondaryDiskGB", Number(e.target.value))
+                        }
+                        onBlur={syncToUrl}
+                        aria-invalid={!!errors.secondaryDiskGB}
+                    />
+                    <Slider
+                        className="flex-1 [&_[data-slot=slider-range]]:bg-indigo-500 [&_[data-slot=slider-thumb]]:border-indigo-500 [&_[data-slot=slider-thumb]]:ring-indigo-500/50"
+                        min={allowed.secondaryDiskGB.min}
+                        max={allowed.secondaryDiskGB.max}
+                        step={1}
+                        value={[values.secondaryDiskGB]}
+                        onValueChange={(val) =>
+                            setField(
+                                "secondaryDiskGB",
+                                Array.isArray(val) ? val[0] : val,
+                            )
+                        }
+                        onValueCommitted={syncToUrl}
+                    />
+                </div>
+                <FieldError message={errors.secondaryDiskGB} />
             </div>
         </section>
     );

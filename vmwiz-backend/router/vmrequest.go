@@ -18,6 +18,9 @@ import (
 
 // Routes under /api/vmrequest/*
 
+// AcceptVMRequest marks a VM request as accepted, creates the VM,
+// sends notifications, and emails the requester.
+// Returns an ErrorBundle if any step fails.
 func AcceptVMRequest(id int64, adminComment string) *ErrorBundle {
 	request, err := storage.DB.GetVMRequestById(id)
 
@@ -74,8 +77,10 @@ func AcceptVMRequest(id int64, adminComment string) *ErrorBundle {
 	return nil
 }
 
+// RejectVMRequest marks a VM request as rejected.
+// Returns an ErrorBundle if the request was already accepted
+// or if any database/notification step fails.
 func RejectVMRequest(id int64) *ErrorBundle {
-	// Ensure we didnt accept the request previously
 	request, err := storage.DB.GetVMRequestById(id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
@@ -101,6 +106,70 @@ func RejectVMRequest(id int64) *ErrorBundle {
 	}
 
 	fmt.Printf("Rejected VM request %d (%s).\n", id, request.ToVMOptions().FQDN)
+
+	return nil
+}
+
+// HoldVMRequest changes a VM request from PENDING to HELD,
+// sends a status update notification, and returns any errors.
+func HoldVMRequest(id int64) *ErrorBundle {
+	request, err := storage.DB.GetVMRequestById(id)
+	if err != nil {
+		return SimpleError(err, "Failed to fetch VM request")
+	}
+
+	if request.RequestStatus != storage.REQUEST_STATUS_PENDING {
+		return SimpleError(nil, "You can only put pending requests on hold")
+	}
+
+	err = storage.DB.UpdateVMRequestStatus(id, storage.REQUEST_STATUS_HELD)
+	if err != nil {
+		return SimpleError(err, "Failed to update VM request status")
+	}
+
+	request, err = storage.DB.GetVMRequestById(id)
+	if err != nil {
+		return SimpleError(err, "Failed to fetch VM request")
+	}
+
+	err = notifier.NotifyVMRequestStatusChanged(*request, "")
+	if err != nil {
+		return SimpleError(err, "Failed to notify VM request status change")
+	}
+
+	fmt.Printf("Held VM request %d (%s).\n", id, request.ToVMOptions().FQDN)
+
+	return nil
+}
+
+// UnholdVMRequest changes a VM request from HELD to PENDING,
+// sends a status update notification, and returns any errors.
+func UnholdVMRequest(id int64) *ErrorBundle {
+	request, err := storage.DB.GetVMRequestById(id)
+	if err != nil {
+		return SimpleError(err, "Failed to fetch VM request")
+	}
+
+	if request.RequestStatus != storage.REQUEST_STATUS_HELD {
+		return SimpleError(nil, "Unhold invalid: request is not on hold")
+	}
+
+	err = storage.DB.UpdateVMRequestStatus(id, storage.REQUEST_STATUS_PENDING)
+	if err != nil {
+		return SimpleError(err, "Failed to update VM request status")
+	}
+
+	request, err = storage.DB.GetVMRequestById(id)
+	if err != nil {
+		return SimpleError(err, "Failed to fetch VM request")
+	}
+
+	err = notifier.NotifyVMRequestStatusChanged(*request, "")
+	if err != nil {
+		return SimpleError(err, "Failed to notify VM request status change")
+	}
+
+	fmt.Printf("Freed VM request %d (%s).\n", id, request.ToVMOptions().FQDN)
 
 	return nil
 }
@@ -216,13 +285,56 @@ func addVMRequestRoutes(r *mux.Router) {
 		}
 	}))))
 
+	r.Methods("POST").Path("/api/vmrequest/hold").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		type bodyS struct {
+			ID int `json:"id"`
+		}
+
+		var body bodyS
+		err := json.NewDecoder(r.Body).Decode(&body)
+		if err != nil {
+			log.Printf("Error decoding JSON: %v", err)
+			http.Error(w, "Invalid request payload", http.StatusBadRequest)
+			return
+		}
+
+		eb := HoldVMRequest(int64(body.ID))
+
+		if eb != nil {
+			http.Error(w, eb.UserMsg, eb.HttpCode)
+			return
+		}
+	})))
+
+	r.Methods("POST").Path("/api/vmrequest/unhold").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		type bodyS struct {
+			ID int `json:"id"`
+		}
+
+		var body bodyS
+		err := json.NewDecoder(r.Body).Decode(&body)
+		if err != nil {
+			log.Printf("Error decoding JSON: %v", err)
+			http.Error(w, "Invalid request payload", http.StatusBadRequest)
+			return
+		}
+
+		eb := UnholdVMRequest(int64(body.ID))
+
+		if eb != nil {
+			http.Error(w, eb.UserMsg, eb.HttpCode)
+			return
+		}
+	})))
+
 	r.Methods("POST").Path("/api/vmrequest/edit").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("edit", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
-			Hostname   string `json:"hostname"`
-			ID         int    `json:"id"`
-			Cores_cpu  int    `json:"cores_cpu"`
-			Ram_gb     int    `json:"ram_gb"`
-			Storage_gb int    `json:"storage_gb"`
+			Hostname             string `json:"hostname"`
+			ID                   int    `json:"id"`
+			Cores_cpu            int    `json:"cores_cpu"`
+			Ram_gb               int    `json:"ram_gb"`
+			Storage_gb           int    `json:"storage_gb"`
+			Secondary_storage_gb int    `json:"secondary_storage_gb"`
 		}
 
 		var body bodyS
@@ -253,6 +365,9 @@ func addVMRequestRoutes(r *mux.Router) {
 		}
 		if body.Storage_gb != 0 {
 			request.DiskGB = body.Storage_gb
+		}
+		if body.Secondary_storage_gb != 0 {
+			request.SecondaryDiskGB = body.Secondary_storage_gb
 		}
 		if body.Hostname != "" {
 			request.Hostname = body.Hostname
