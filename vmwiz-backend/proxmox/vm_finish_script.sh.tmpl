@@ -42,6 +42,19 @@ sleep 3
 mkswap /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1-part1
 echo -e "$(blkid /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1-part1 | awk '{print $2}')\tnone\tswap\tdefaults\t0\t0" >> /etc/fstab
 
+{{if .HasSecondaryDisk}}
+# Setup secondary HDD: format, mount under /mnt/hdd, symlink from user's home
+HDD_DEV="/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi3"
+mkfs.ext4 -F "$HDD_DEV"
+mkdir -p /mnt/hdd
+HDD_UUID="$(blkid -s UUID -o value "$HDD_DEV")"
+echo -e "UUID=${HDD_UUID}\t/mnt/hdd\text4\tdefaults,nofail\t0\t2" >> /etc/fstab
+mount /mnt/hdd
+chown {{.SSH_USER}}:{{.SSH_USER}} /mnt/hdd
+ln -s /mnt/hdd /home/{{.SSH_USER}}/hdd
+chown -h {{.SSH_USER}}:{{.SSH_USER}} /home/{{.SSH_USER}}/hdd
+{{end}}
+
 # Wipe MBR
 dd if=/dev/zero of=/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi0 bs=446 count=1
 
