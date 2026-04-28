@@ -1013,13 +1013,17 @@ Reinstall: %v
 		return nil, nil, fmt.Errorf("Failed to create VM: Failed to parse template: %v", err)
 	}
 	err = post_install_template.Execute(vm_finish_script_content, struct {
-		SOURCES_LIST string
-		VM_GATEWAY_6 string
-		UseQemuAgent bool
+		SOURCES_LIST     string
+		VM_GATEWAY_6     string
+		UseQemuAgent     bool
+		HasSecondaryDisk bool
+		SSH_USER         string
 	}{
-		SOURCES_LIST: SOURCES_LIST,
-		VM_GATEWAY_6: VM_GATEWAY_6,
-		UseQemuAgent: options.UseQemuAgent,
+		SOURCES_LIST:     SOURCES_LIST,
+		VM_GATEWAY_6:     VM_GATEWAY_6,
+		UseQemuAgent:     options.UseQemuAgent,
+		HasSecondaryDisk: options.SecondaryDisk_GB > 0,
+		SSH_USER:         ssh_user,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Failed to execute template: %v", err)
