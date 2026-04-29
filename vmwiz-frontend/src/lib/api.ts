@@ -512,3 +512,15 @@ export async function fetchVMLogs(operationID: string): Promise<VMLog[]> {
 export function getVMLogsStreamUrl(operationID: string): string {
     return `/api/operation/${operationID}/logs/stream`;
 }
+
+/**
+ * Fetches the number of free IPv4 addresses.
+ */
+export async function fetchFreeIPv4Count(): Promise<number> {
+    const { data } = await fetchBackend<{ count: number }>({
+        path: "/api/vm/ipv4free",
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+    });
+    return data.count;
+}
