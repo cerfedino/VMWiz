@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/confirmation"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/notifier"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/proxmox"
@@ -27,6 +29,13 @@ func main() {
 		return
 	}
 
+	if err := logger.Init(config.AppConfig.PATH_PREFIX + "logs"); err != nil {
+		log.Printf("Failed to init logger: %v", err.Error())
+		return
+	}
+	log.SetFlags(0)
+	log.SetOutput(io.MultiWriter(os.Stderr, logger.StdWriter()))
+
 	notifier.InitSMTP()
 
 	err = storage.DB.Init()
@@ -34,6 +43,7 @@ func main() {
 		log.Printf("Error on startup: %v", err.Error())
 		return
 	}
+	logger.SetStore(&storage.DB)
 
 	auth.Init()
 	confirmation.Init()
