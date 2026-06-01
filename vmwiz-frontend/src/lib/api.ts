@@ -7,7 +7,6 @@ import {
     SurveyInfo,
     SurveyResponseCategory,
     SurveyHostnameListResponse,
-    VMLog,
 } from "@/lib/types/api";
 import { HTTP_METHOD } from "next/dist/server/web/http";
 import { getReasonPhrase } from "http-status-codes";
@@ -492,25 +491,6 @@ export function prepareEditVMRequest(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
     };
-}
-
-/**
- * Fetches the logs of a VM request creation process.
- */
-export async function fetchVMLogs(operationID: string): Promise<VMLog[]> {
-    const { data } = await fetchBackend<VMLog[]>({
-        path: `/api/operation/${operationID}/logs`,
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-    });
-    return data;
-}
-
-/**
- * Returns the SSE stream URL for the VM request logs.
- */
-export function getVMLogsStreamUrl(operationID: string): string {
-    return `/api/operation/${operationID}/logs/stream`;
 }
 
 /**

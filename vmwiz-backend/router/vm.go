@@ -45,51 +45,43 @@ func addAllVMRoutes(r *mux.Router) {
 			return
 		}
 
-		opLogger := &OperationLogger{OperationID: fmt.Sprintf("vmdelete-%s", body.Name)}
-		opLogger.Printf("Found %v VM(s) across the cluster with name '%v'", len(*vms), body.Name)
+		log.Printf("Found %v VM(s) across the cluster with name '%v'", len(*vms), body.Name)
 
-		go func() {
-			var errors []string
-			for idx, vm := range *vms {
-				errprefix := fmt.Sprintf("[VM %v/%v]", idx+1, len(*vms))
-				opLogger.Printf("%v Stopping VM %v", errprefix, vm.Id)
-				err = proxmox.ForceStopNodeVM(vm.Node, vm.Vmid)
+		var errors []string
+		for idx, vm := range *vms {
+			errprefix := fmt.Sprintf("[VM %v/%v]", idx, len(*vms))
+			err = proxmox.ForceStopNodeVM(vm.Node, vm.Vmid)
+			if err != nil {
+				errmsg := fmt.Sprintf("%v Failed to stop VM %v", errprefix, vm.Id)
+				log.Println(errmsg)
+				errors = append(errors, errmsg)
+				continue
+			}
+
+			err = proxmox.DeleteNodeVM(vm.Node, vm.Vmid, true, true, false)
+			if err != nil {
+				errmsg := fmt.Sprintf("%v Failed to delete VM %v", errprefix, vm.Id)
+				log.Println(errmsg)
+				errors = append(errors, errmsg)
+				continue
+			}
+
+			// delete netcenter entry
+			if body.DeleteDNS {
+				err = netcenter.DeleteDNSEntryByHostname(vm.Name)
 				if err != nil {
-					errmsg := fmt.Sprintf("%v Failed to stop VM %v: %v", errprefix, vm.Id, err)
-					opLogger.Println(errmsg)
+					errmsg := fmt.Sprintf("%v Failed to delete DNS entry for VM %v", errprefix, vm.Id)
+					log.Println(errmsg)
 					errors = append(errors, errmsg)
 					continue
 				}
-
-				opLogger.Printf("%v Deleting VM %v", errprefix, vm.Id)
-				err = proxmox.DeleteNodeVM(vm.Node, vm.Vmid, true, true, false)
-				if err != nil {
-					errmsg := fmt.Sprintf("%v Failed to delete VM %v: %v", errprefix, vm.Id, err)
-					opLogger.Println(errmsg)
-					errors = append(errors, errmsg)
-					continue
-				}
-
-				// delete netcenter entry
-				if body.DeleteDNS {
-					opLogger.Printf("%v Deleting DNS entry for VM %v", errprefix, vm.Id)
-					err = netcenter.DeleteDNSEntryByHostname(vm.Name)
-					if err != nil {
-						errmsg := fmt.Sprintf("%v Failed to delete DNS entry for VM %v: %v", errprefix, vm.Id, err)
-						opLogger.Println(errmsg)
-						errors = append(errors, errmsg)
-						continue
-					}
-				}
-				opLogger.Printf("%v Successfully processed VM %v", errprefix, vm.Id)
 			}
+		}
 
-			if len(errors) > 0 {
-				opLogger.Printf("Errors while deleting some VMs: \n%v", strings.Join(errors, "\n"))
-			} else {
-				opLogger.Println("VM deletion completed successfully.")
-			}
-		}()
+		if len(errors) > 0 {
+			http.Error(w, fmt.Sprintf("Errors while deleting some VMs: \n%v", strings.Join(errors, "\n")), http.StatusInternalServerError)
+			return
+		}
 
 		w.WriteHeader(http.StatusOK)
 	}))))

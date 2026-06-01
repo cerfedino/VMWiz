@@ -76,13 +76,6 @@ export interface VMRequest {
 
 export type VMRequestListResponse = VMRequest[];
 
-export interface VMLog {
-    logID: number;
-    requestID: number;
-    timestamp: string;
-    message: string;
-}
-
 /** POST /api/vmrequest/accept (confirmable) */
 export interface VMRequestAcceptBody {
     id: number;

@@ -8,13 +8,11 @@ import { Button } from "@/components/ui/button";
 import { FetchDialog } from "@/components/fetch-dialog";
 import { deleteVM, prepareDeleteVM } from "@/lib/api";
 import { Trash2 } from "lucide-react";
-import { VMLogsViewer } from "@/components/admin/vm-logs-viewer";
 
 export function VMDelete() {
     const [hostname, setHostname] = useState("");
     const [deleteDNS, setDeleteDNS] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [lastDeletedVM, setLastDeletedVM] = useState<string | null>(null);
 
     return (
         <div className="space-y-4">
@@ -62,21 +60,8 @@ export function VMDelete() {
                 requestInfo={prepareDeleteVM(hostname, deleteDNS)}
                 title="Delete VM"
                 description={`You are about to delete "${hostname}"${deleteDNS ? " and its DNS entries" : ""}. This cannot be undone.`}
-                onSuccess={() => {
-                    setLastDeletedVM(hostname);
-                    setHostname("");
-                }}
+                onSuccess={() => setHostname("")}
             />
-
-            {lastDeletedVM && (
-                <div className="mt-6 space-y-3 pb-8 animate-in fade-in slide-in-from-top-4 duration-500">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                        <Trash2 className="size-4 text-muted-foreground" />
-                        VM Deletion Logs for &quot;{lastDeletedVM}&quot;
-                    </div>
-                    <VMLogsViewer operationID={`vmdelete-${lastDeletedVM}`} />
-                </div>
-            )}
         </div>
     );
 }
