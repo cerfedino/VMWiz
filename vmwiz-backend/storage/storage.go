@@ -19,7 +19,10 @@ const (
 	REQUEST_STATUS_PENDING  = "pending"
 	REQUEST_STATUS_ACCEPTED = "accepted"
 	REQUEST_STATUS_REJECTED = "rejected"
-	REQUEST_STATUS_HELD 	= "hold"
+	REQUEST_STATUS_HELD     = "hold"
+
+	// Reserved catch-all log scope id, owns "0.log".
+	SCOPE_ROOT = "0"
 )
 
 type SQLVMRequest struct {
@@ -61,16 +64,16 @@ Comments: ` + fmt.Sprintf("%v", f.Comments) + `
 
 func (s *SQLVMRequest) ToVMOptions() *proxmox.VMCreationOptions {
 	return &proxmox.VMCreationOptions{
-		Template:   s.Image,
-		FQDN:       s.Hostname,
-		Reinstall:  false,
-		Cores_CPU:  s.Cores,
-		RAM_MB:     int64(s.RamGB * 1024),
+		Template:         s.Image,
+		FQDN:             s.Hostname,
+		Reinstall:        false,
+		Cores_CPU:        s.Cores,
+		RAM_MB:           int64(s.RamGB * 1024),
 		Disk_GB:          int64(s.DiskGB),
 		SecondaryDisk_GB: int64(s.SecondaryDiskGB),
-		SSHPubkeys: s.SshPubkeys,
-		Notes:      "VM is being set up, please wait...",
-		Tags:       []string{"created-by-vmwiz"},
+		SSHPubkeys:       s.SshPubkeys,
+		Notes:            "VM is being set up, please wait...",
+		Tags:             []string{"created-by-vmwiz"},
 		DescriptionKVPairs: map[string]string{
 			"nethz":       "TODO",
 			"uni_contact": s.Email,
@@ -93,6 +96,10 @@ type Storage interface {
 	GetAllVMRequests() ([]*SQLVMRequest, error)
 	SurveyStore(vmid int, hostname string, uuid string) (int64, error)
 	SurveyResponseUpdate(uuid string, response bool) error
+
+	CreateLogScope(id string, parentID string, rootID string, label string) error
+	GetLogScope(id string) (*SQLLogScope, error)
+	FinishLogScope(id string, failed bool) error
 }
 
 type postgresstorage struct {
@@ -257,6 +264,50 @@ func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
 	}
 
 	return reqs, nil
+}
+
+type SQLLogScope struct {
+	ID        string         `db:"id" json:"id"`
+	ParentID  sql.NullString `db:"parent_id" json:"parentId"`
+	RootID    string         `db:"root_id" json:"rootId"`
+	Label     string         `db:"label" json:"label"`
+	StartedAt time.Time      `db:"started_at" json:"startedAt"`
+	EndedAt   sql.NullTime   `db:"ended_at" json:"endedAt"`
+	Failed    bool           `db:"failed" json:"failed"`
+}
+
+func (s *postgresstorage) CreateLogScope(id string, parentID string, rootID string, label string) error {
+	var parent any
+	if parentID != "" {
+		parent = parentID
+	}
+	_, err := s.db.Exec(
+		`INSERT INTO log_scope (id, parent_id, root_id, label) VALUES ($1, $2, $3, $4)`,
+		id, parent, rootID, label)
+	if err != nil {
+		return fmt.Errorf("CreateScope: %s", err)
+	}
+	return nil
+}
+
+func (s *postgresstorage) GetLogScope(id string) (*SQLLogScope, error) {
+	row := s.db.QueryRow(
+		`SELECT id, parent_id, root_id, label, started_at, ended_at, failed FROM log_scope WHERE id = $1`, id)
+	var sc SQLLogScope
+	if err := row.Scan(&sc.ID, &sc.ParentID, &sc.RootID, &sc.Label, &sc.StartedAt, &sc.EndedAt, &sc.Failed); err != nil {
+		return nil, fmt.Errorf("GetScope: %s", err)
+	}
+	return &sc, nil
+}
+
+func (s *postgresstorage) FinishLogScope(id string, failed bool) error {
+	_, err := s.db.Exec(
+		`UPDATE log_scope SET ended_at = CURRENT_TIMESTAMP, failed = $1 WHERE id = $2`,
+		failed, id)
+	if err != nil {
+		return fmt.Errorf("FinishScope: %s", err)
+	}
+	return nil
 }
 
 type SQLUsageSurveyEmail struct {
