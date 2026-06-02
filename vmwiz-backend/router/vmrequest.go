@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/confirmation"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/form"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/notifier"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/storage"
@@ -21,7 +23,7 @@ import (
 // AcceptVMRequest marks a VM request as accepted, creates the VM,
 // sends notifications, and emails the requester.
 // Returns an ErrorBundle if any step fails.
-func AcceptVMRequest(id int64) *ErrorBundle {
+func AcceptVMRequest(ctx context.Context, id int64) *ErrorBundle {
 	request, err := storage.DB.GetVMRequestById(id)
 
 	if err != nil {
@@ -46,7 +48,7 @@ func AcceptVMRequest(id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to update VM request status")
 	}
 
-	_, summary, err := proxmox.CreateVM(*opts)
+	_, summary, err := proxmox.CreateVM(ctx, *opts)
 	if err != nil {
 		err2 := notifier.NotifyVMCreationUpdate(fmt.Sprintf("Request %d: Error creating VM:\n%v", id, "```\n"+err.Error()+"\n```"))
 		if err2 != nil {
@@ -62,7 +64,7 @@ func AcceptVMRequest(id int64) *ErrorBundle {
 	}
 
 	successMsg := fmt.Sprintf("Request %v: VM %s created successfully:\n%s", request.ID, opts.FQDN, "```\n"+summary.String()+"\n```")
-	fmt.Println(successMsg)
+	logger.From(ctx).Info(successMsg)
 
 	err = notifier.NotifyVMCreationUpdate(successMsg)
 	if err != nil {
@@ -249,12 +251,19 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		eb := AcceptVMRequest(int64(body.ID))
+		ctx, lg, finish := logger.Nest(context.Background(), fmt.Sprintf("Accept VM request %d", body.ID))
+		// Set the Log Scope header such that the frontend can stream the live logs immediately.
+		w.Header().Set("X-Log-Scope-Id", lg.ScopeID())
+		w.WriteHeader(http.StatusAccepted)
 
-		if eb != nil {
-			http.Error(w, eb.UserMsg, eb.HttpCode)
-			return
-		}
+		go func() {
+			eb := AcceptVMRequest(ctx, int64(body.ID))
+			if eb != nil {
+				finish(eb.Err)
+			} else {
+				finish(nil)
+			}
+		}()
 
 	}))))
 

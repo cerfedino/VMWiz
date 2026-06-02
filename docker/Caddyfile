@@ -12,7 +12,10 @@ www.app.vsos.ethz.ch app.vsos.ethz.ch {
     level DEBUG
   }
 
-  reverse_proxy /api/* http://vmwiz-backend:8081
+  reverse_proxy /api/* http://vmwiz-backend:8081 {
+    # Flush immediately so logs streamed to the frontend are not buffered
+    flush_interval -1
+  }
 
   reverse_proxy http://vmwiz-frontend:3000
 }

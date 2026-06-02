@@ -31,6 +31,7 @@ type ScopeStore interface {
 	FinishLogScope(id string, failed bool) error
 	LogScopeRootID(id string) (string, error)
 	LogScopeSubtreeIDs(id string) ([]string, error)
+	LogScopeFinished(id string) (finished bool, failed bool, err error)
 }
 
 var store ScopeStore
@@ -77,6 +78,8 @@ func (l *Logger) write(level string, msg string) {
 	})
 	l.w.f.Write(append(b, '\n'))
 }
+
+func (l *Logger) ScopeID() string { return l.scopeID }
 
 func (l *Logger) Info(msg string)                { l.write("INFO", msg) }
 func (l *Logger) Error(msg string)               { l.write("ERROR", msg) }
@@ -149,8 +152,7 @@ func From(ctx context.Context) *Logger {
 	return newLogger(RootScopeID, RootScopeID)
 }
 
-// Opens a child scope under the ctx logger and returns the updated ctx,
-// the child logger, and a finish func that closes the scope.
+// Opens a child scope under the ctx logger and returns the updated ctx, the child logger, and a finish func that closes the scope.
 func Nest(ctx context.Context, label string) (context.Context, *Logger, func(err error)) {
 	parent := From(ctx)
 	id, err := uuid.NewV7()
@@ -180,6 +182,18 @@ func Nest(ctx context.Context, label string) (context.Context, *Logger, func(err
 	return context.WithValue(ctx, ctxKey{}, child), child, finish
 }
 
+// ScopeFinished reports whether a scope has ended and whether it failed.
+func ScopeFinished(id string) (finished bool, failed bool) {
+	if store == nil {
+		return false, false
+	}
+	finished, failed, err := store.LogScopeFinished(id)
+	if err != nil {
+		return false, false
+	}
+	return finished, failed
+}
+
 type Line struct {
 	Ts    time.Time `json:"ts"`
 	Level string    `json:"level"`
@@ -187,13 +201,18 @@ type Line struct {
 	Msg   string    `json:"msg"`
 }
 
-// ReadLogs returns a scope's log lines, optionally including its sub-scopes, filtered to [from, to] (nil bounds are unbounded).
-func ReadLogs(scopeID string, includeSubscopes bool, from *time.Time, to *time.Time) ([]Line, error) {
+// LogReader streams a scope's lines from a moving byte offset, so the same reader serves both history (first call) and live tailing (later calls).
+type LogReader struct {
+	path   string
+	scopes []string
+	offset int64
+}
+
+func NewLogReader(scopeID string, includeSubscopes bool) (*LogReader, error) {
 	rootID, err := store.LogScopeRootID(scopeID)
 	if err != nil {
 		return nil, err
 	}
-
 	scopes := []string{scopeID}
 	if includeSubscopes {
 		scopes, err = store.LogScopeSubtreeIDs(scopeID)
@@ -201,35 +220,54 @@ func ReadLogs(scopeID string, includeSubscopes bool, from *time.Time, to *time.T
 			return nil, err
 		}
 	}
+	return &LogReader{path: filepath.Join(Dir, rootID+".log"), scopes: scopes}, nil
+}
 
-	f, err := os.Open(filepath.Join(Dir, rootID+".log"))
+// Next returns the complete lines appended since the last call, advancing past them. A trailing partial line (mid-write) is left for the next call.
+func (lr *LogReader) Next() ([]Line, error) {
+	out := []Line{}
+	f, err := os.Open(lr.path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return []Line{}, nil
+			return out, nil
 		}
 		return nil, err
 	}
 	defer f.Close()
-
-	out := []Line{}
+	if _, err := f.Seek(lr.offset, io.SeekStart); err != nil {
+		return nil, err
+	}
 	r := bufio.NewReader(f)
 	for {
 		raw, err := r.ReadBytes('\n')
-		if len(raw) > 0 {
+		if len(raw) > 0 && raw[len(raw)-1] == '\n' {
+			lr.offset += int64(len(raw))
 			var l Line
-			if json.Unmarshal(raw, &l) == nil &&
-				slices.Contains(scopes, l.Scope) &&
-				(from == nil || !l.Ts.Before(*from)) &&
-				(to == nil || !l.Ts.After(*to)) {
+			if json.Unmarshal(raw, &l) == nil && slices.Contains(lr.scopes, l.Scope) {
 				out = append(out, l)
 			}
 		}
 		if err != nil {
-			if err == io.EOF {
-				return out, nil
-			}
-			return nil, err
+			return out, nil
 		}
 	}
 }
 
+// ReadLogs returns a scope's log lines, optionally including its sub-scopes, filtered to [from, to] (nil bounds are unbounded).
+func ReadLogs(scopeID string, includeSubscopes bool, from *time.Time, to *time.Time) ([]Line, error) {
+	lr, err := NewLogReader(scopeID, includeSubscopes)
+	if err != nil {
+		return nil, err
+	}
+	lines, err := lr.Next()
+	if err != nil || (from == nil && to == nil) {
+		return lines, err
+	}
+	out := []Line{}
+	for _, l := range lines {
+		if (from == nil || !l.Ts.Before(*from)) && (to == nil || !l.Ts.After(*to)) {
+			out = append(out, l)
+		}
+	}
+	return out, nil
+}

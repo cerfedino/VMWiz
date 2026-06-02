@@ -312,7 +312,7 @@ func handle_request_accept(ctx context.Context, cmd *cli.Command) error {
 		return nil
 	}
 
-	errB := router.AcceptVMRequest(vmrequest.ID)
+	errB := router.AcceptVMRequest(ctx, vmrequest.ID)
 	if errB != nil {
 		return fmt.Errorf("%s: %v\n", errB.Err, errB.UserMsg)
 	}

@@ -102,6 +102,7 @@ type Storage interface {
 	FinishLogScope(id string, failed bool) error
 	LogScopeRootID(id string) (string, error)
 	LogScopeSubtreeIDs(id string) ([]string, error)
+	LogScopeFinished(id string) (finished bool, failed bool, err error)
 }
 
 type postgresstorage struct {
@@ -310,6 +311,16 @@ func (s *postgresstorage) FinishLogScope(id string, failed bool) error {
 		return fmt.Errorf("FinishScope: %s", err)
 	}
 	return nil
+}
+
+func (s *postgresstorage) LogScopeFinished(id string) (bool, bool, error) {
+	var endedAt sql.NullTime
+	var failed bool
+	err := s.db.QueryRow(`SELECT ended_at, failed FROM log_scope WHERE id = $1`, id).Scan(&endedAt, &failed)
+	if err != nil {
+		return false, false, fmt.Errorf("LogScopeFinished: %s", err)
+	}
+	return endedAt.Valid, failed, nil
 }
 
 func (s *postgresstorage) LogScopeRootID(id string) (string, error) {
