@@ -25,6 +25,7 @@ import {
     type ResponseInfo,
 } from "@/components/request-debug-panel";
 import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import { LogStream } from "@/components/log-stream";
 
 class CancelledError extends Error {
     constructor() {
@@ -37,6 +38,7 @@ type Phase =
     | "idle"
     | "loading"
     | "confirming"
+    | "streaming"
     | "success"
     | "error";
 
@@ -53,6 +55,7 @@ function PhaseIcon({ phase }: { phase: Phase }) {
                 </div>
             );
         case "loading":
+        case "streaming":
             return (
                 <div className={cn(base, "bg-muted")}>
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -80,7 +83,7 @@ interface FetchDialogProps {
 
     /**
      * The request to perform, built by a prepare* helper from api.ts.
-     * The dialog handles confirmation on its own transparently.
+     * The dialog handles confirmation and async log streaming on its own transparently.
      * Callers shape success/error via successContent/onSuccess/onError.
      */
     request: BackendRequest;
@@ -145,6 +148,7 @@ export function FetchDialog({
     const [confirmInput, setConfirmInput] = useState("");
     const [expectedToken, setExpectedToken] = useState("");
     const [successData, setSuccessData] = useState<unknown>(undefined);
+    const [logScopeId, setLogScopeId] = useState<string | null>(null);
     const [responseInfo, setResponseInfo] = useState<ResponseInfo | undefined>(
         undefined,
     );
@@ -163,6 +167,7 @@ export function FetchDialog({
                 setConfirmInput("");
                 setExpectedToken("");
                 setSuccessData(undefined);
+                setLogScopeId(null);
                 setResponseInfo(undefined);
                 pendingConfirmation.current = null;
             }, 150);
@@ -193,6 +198,7 @@ export function FetchDialog({
             const { data, original } = await fetchBackend(request, {
                 onConfirmRequired,
             });
+            const logScopeId = original.headers.get("X-Log-Scope-Id");
             setResponseInfo({
                 status: original.status,
                 body:
@@ -201,6 +207,13 @@ export function FetchDialog({
                         : undefined,
             });
             setSuccessData(data);
+            // If the backend kicked off an async task, stream its logs and
+            // defer success until it finishes.
+            if (logScopeId) {
+                setLogScopeId(logScopeId);
+                setPhase("streaming");
+                return;
+            }
             setPhase("success");
             onSuccess?.(data);
         } catch (err) {
@@ -267,6 +280,7 @@ export function FetchDialog({
         idle: description,
         loading: "Please wait...",
         confirming: (description ?? "") + " This action requires confirmation",
+        streaming: "Running, streaming live logs...",
         success: successDescription,
         error: errorMessage ?? "Something went wrong.",
     };
@@ -295,7 +309,9 @@ export function FetchDialog({
         >
             <DialogContent
                 showCloseButton={false}
-                className="max-h-[50vh] flex flex-col"
+                className={cn(
+                    logScopeId ? "sm:max-w-3xl" : "flex max-h-[50vh] flex-col",
+                )}
             >
                 <DialogHeader>
                     {showIcon && <PhaseIcon phase={phase} />}
@@ -312,6 +328,26 @@ export function FetchDialog({
                         {successContent(successData)}
                     </div>
                 )}
+
+                {logScopeId &&
+                    (phase === "streaming" ||
+                        phase === "success" ||
+                        phase === "error") && (
+                        <LogStream
+                            logScopeId={logScopeId}
+                            onDone={(failed) => {
+                                if (failed) {
+                                    setErrorMessage(
+                                        "Operation failed. See logs above.",
+                                    );
+                                    setPhase("error");
+                                } else {
+                                    setPhase("success");
+                                    onSuccess?.(successData);
+                                }
+                            }}
+                        />
+                    )}
 
                 {phase === "confirming" && (
                     <div className="space-y-2 py-2">
@@ -385,7 +421,9 @@ export function FetchDialog({
                         </>
                     )}
 
-                    {(phase === "success" || phase === "error") && (
+                    {(phase === "success" ||
+                        phase === "error" ||
+                        phase === "streaming") && (
                         <Button
                             variant="outline"
                             onClick={() => onOpenChange(false)}
