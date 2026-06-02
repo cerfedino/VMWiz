@@ -7,7 +7,7 @@ networks:
 services:
   vmwiz-caddy:
     container_name: vmwiz-caddy
-    image: caddy:2.11.2@sha256:25cdc846626b62d05f6b633b9b40c2c9f6ef89b515dc76133cefd920f7dbe562
+    image: caddy:2.11.3@sha256:ec18ee54aab3315c22e25f3b2babda73ff8007d39b13b3bd1bfffa2f0444c7d9
     restart: unless-stopped
     ports:
       - "80:80"
@@ -36,6 +36,7 @@ services:
       - vmwiz-internal
     volumes:
       - ./ssh:/root/.ssh
+      - ./data/logs:/app/logs
       - /etc/timezone:/etc/timezone
       - /etc/localtime:/etc/localtime
     env_file:
@@ -48,7 +49,7 @@ services:
 
   vmwiz-notifier:
     container_name: vmwiz-notifier
-    image: caronc/apprise:v1.3.3@sha256:4bfeac268ba87b8e08e308c9aa0182fe99e9501ec464027afc333d1634e65977
+    image: caronc/apprise:v1.5.0@sha256:43673bf62faa88148298d52664b37b4860189555db0b251b54d79a3ef3a173cf
     restart: unless-stopped
     networks:
       - vmwiz-internal
@@ -65,7 +66,7 @@ services:
 
   vmwiz-db:
     container_name: vmwiz-db
-    image: postgres:18.3@sha256:78481659c47e862334611ccdaf7c369c986b3046da9857112f3b309114a65fb4
+    image: postgres:18.4@sha256:8ff36f3c66371cba71d20ceedccfc3de9669a68737607888c4ef0af93abe8e39
     restart: unless-stopped
     networks:
       - vmwiz-internal

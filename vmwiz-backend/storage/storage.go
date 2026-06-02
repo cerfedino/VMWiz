@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"embed"
 	"fmt"
 	"time"
 
@@ -10,16 +11,22 @@ import (
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
+
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
 const (
 	REQUEST_STATUS_PENDING  = "pending"
 	REQUEST_STATUS_ACCEPTED = "accepted"
 	REQUEST_STATUS_REJECTED = "rejected"
-	REQUEST_STATUS_HELD 	= "hold"
+	REQUEST_STATUS_HELD     = "hold"
+
+	// Reserved catch-all log scope id, owns "0.log".
+	SCOPE_ROOT = "0"
 )
 
 type SQLVMRequest struct {
@@ -35,6 +42,7 @@ type SQLVMRequest struct {
 	Cores            int       `db:"cores"`
 	RamGB            int       `db:"ramGB"`
 	DiskGB           int       `db:"diskGB"`
+	SecondaryDiskGB  int       `db:"secondaryDiskGB"`
 	SshPubkeys       []string  `db:"sshPubkeys"`
 	Comments         string    `db:"comments"`
 }
@@ -52,6 +60,7 @@ Image: ` + fmt.Sprintf("%v", f.Image) + `
 Cores: ` + fmt.Sprintf("%v", f.Cores) + `
 RamGB: ` + fmt.Sprintf("%v", f.RamGB) + `
 DiskGB: ` + fmt.Sprintf("%v", f.DiskGB) + `
+SecondaryDiskGB: ` + fmt.Sprintf("%v", f.SecondaryDiskGB) + `
 SshPubkeys: ` + fmt.Sprintf("%v", f.SshPubkeys) + `
 Comments: ` + fmt.Sprintf("%v", f.Comments) + `
 `
@@ -59,15 +68,16 @@ Comments: ` + fmt.Sprintf("%v", f.Comments) + `
 
 func (s *SQLVMRequest) ToVMOptions() *proxmox.VMCreationOptions {
 	return &proxmox.VMCreationOptions{
-		Template:   s.Image,
-		FQDN:       s.Hostname,
-		Reinstall:  false,
-		Cores_CPU:  s.Cores,
-		RAM_MB:     int64(s.RamGB * 1024),
-		Disk_GB:    int64(s.DiskGB),
-		SSHPubkeys: s.SshPubkeys,
-		Notes:      "VM is being set up, please wait...",
-		Tags:       []string{"created-by-vmwiz"},
+		Template:         s.Image,
+		FQDN:             s.Hostname,
+		Reinstall:        false,
+		Cores_CPU:        s.Cores,
+		RAM_MB:           int64(s.RamGB * 1024),
+		Disk_GB:          int64(s.DiskGB),
+		SecondaryDisk_GB: int64(s.SecondaryDiskGB),
+		SSHPubkeys:       s.SshPubkeys,
+		Notes:            "VM is being set up, please wait...",
+		Tags:             []string{"created-by-vmwiz"},
 		DescriptionKVPairs: map[string]string{
 			"nethz":       "TODO",
 			"uni_contact": s.Email,
@@ -90,6 +100,15 @@ type Storage interface {
 	GetAllVMRequests() ([]*SQLVMRequest, error)
 	SurveyStore(vmid int, hostname string, uuid string) (int64, error)
 	SurveyResponseUpdate(uuid string, response bool) error
+
+	CreateLogScope(id string, parentID string, rootID string, label string) error
+	GetLogScope(id string) (*SQLLogScope, error)
+	FinishLogScope(id string, failed bool) error
+	LogScopeRootID(id string) (string, error)
+	LogScopeSubtreeIDs(id string) ([]string, error)
+	LogScopeFinished(id string) (finished bool, failed bool, err error)
+	ListRootScopes(beforeID string, limit int) ([]*SQLLogScope, error)
+	ScopeIDsBefore(cutoff time.Time) ([]string, error)
 }
 
 type postgresstorage struct {
@@ -130,7 +149,11 @@ func (s *postgresstorage) InitMigrations() error {
 		s.migration.Close()
 		s.migration = nil
 	}
-	m, err := migrate.New(fmt.Sprintf("file://%smigrations/", config.AppConfig.PATH_PREFIX), buildConnectionString(config.AppConfig.POSTGRES_USER, config.AppConfig.POSTGRES_PASSWORD, config.AppConfig.POSTGRES_DB))
+	src, err := iofs.New(migrationsFS, "migrations")
+	if err != nil {
+		return fmt.Errorf("Couldn't load embedded migrations: %v", err.Error())
+	}
+	m, err := migrate.NewWithSourceInstance("iofs", src, buildConnectionString(config.AppConfig.POSTGRES_USER, config.AppConfig.POSTGRES_PASSWORD, config.AppConfig.POSTGRES_DB))
 	if err != nil {
 		return fmt.Errorf("Couldn't initialize migrations: %v", err.Error())
 	}
@@ -160,9 +183,9 @@ func (s *postgresstorage) Init() error {
 func (s *postgresstorage) StoreVMRequest(req *form.Form) (*int64, error) {
 
 	res := s.db.QueryRow(`INSERT INTO request
-		(email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING requestID`,
-		req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, fmt.Sprintf("%v.vsos.ethz.ch", req.Hostname), req.Image, req.Cores, req.RamGB, req.DiskGB, pq.Array(req.SshPubkeys), req.Comments)
+		(email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, secondaryDiskGB, sshPubkeys, comments)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING requestID`,
+		req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, fmt.Sprintf("%v.vsos.ethz.ch", req.Hostname), req.Image, req.Cores, req.RamGB, req.DiskGB, req.SecondaryDiskGB, pq.Array(req.SshPubkeys), req.Comments)
 	// Get the last inserted ID
 	var id int64
 	err := res.Scan(&id)
@@ -176,8 +199,8 @@ func (s *postgresstorage) StoreVMRequest(req *form.Form) (*int64, error) {
 func (s *postgresstorage) GetVMRequestById(id int64) (*SQLVMRequest, error) {
 	var req SQLVMRequest
 	err := s.db.QueryRow(`SELECT
-	requestID,requestCreatedAt, requestStatus, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments
-	FROM request WHERE requestID=$1`, id).Scan(&req.ID, &req.RequestCreatedAt, &req.RequestStatus, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
+	requestID,requestCreatedAt, requestStatus, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, secondaryDiskGB, sshPubkeys, comments
+	FROM request WHERE requestID=$1`, id).Scan(&req.ID, &req.RequestCreatedAt, &req.RequestStatus, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, &req.SecondaryDiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
 	if err != nil {
 		return nil, fmt.Errorf("GetVMRequest: Error when executing query: %s", err)
 	}
@@ -185,7 +208,7 @@ func (s *postgresstorage) GetVMRequestById(id int64) (*SQLVMRequest, error) {
 }
 
 func (s *postgresstorage) GetVMRequestByHostname(hostname string) ([]*SQLVMRequest, error) {
-	rows, err := s.db.Query(`SELECT requestID,requestCreatedAt, requestStatus, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, sshPubkeys, comments FROM request WHERE hostname=$1`, hostname)
+	rows, err := s.db.Query(`SELECT requestID,requestCreatedAt, requestStatus, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, secondaryDiskGB, sshPubkeys, comments FROM request WHERE hostname=$1`, hostname)
 	if err != nil {
 		return nil, fmt.Errorf("GetVMRequestByHostname: Error when executing query: %s", err)
 	}
@@ -194,7 +217,7 @@ func (s *postgresstorage) GetVMRequestByHostname(hostname string) ([]*SQLVMReque
 	var reqs []*SQLVMRequest
 	for rows.Next() {
 		var req SQLVMRequest
-		err = rows.Scan(&req.ID, &req.RequestCreatedAt, &req.RequestStatus, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
+		err = rows.Scan(&req.ID, &req.RequestCreatedAt, &req.RequestStatus, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, &req.SecondaryDiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
 		if err != nil {
 			return nil, fmt.Errorf("GetVMRequestByHostname: Error scanning row: %s", err)
 		}
@@ -205,8 +228,8 @@ func (s *postgresstorage) GetVMRequestByHostname(hostname string) ([]*SQLVMReque
 }
 
 func (s *postgresstorage) UpdateVMRequest(req SQLVMRequest) error {
-	_, err := s.db.Exec(`UPDATE request SET requestCreatedAt=$1, requestStatus=$2, email=$3, personalEmail=$4, isOrganization=$5, orgName=$6, hostname=$7, image=$8, cores=$9, ramGB=$10, diskGB=$11, sshPubkeys=$12, comments=$13 WHERE requestID=$14`,
-		req.RequestCreatedAt, req.RequestStatus, req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, req.Hostname, req.Image, req.Cores, req.RamGB, req.DiskGB, pq.Array(req.SshPubkeys), req.Comments, req.ID)
+	_, err := s.db.Exec(`UPDATE request SET requestCreatedAt=$1, requestStatus=$2, email=$3, personalEmail=$4, isOrganization=$5, orgName=$6, hostname=$7, image=$8, cores=$9, ramGB=$10, diskGB=$11, secondaryDiskGB=$12, sshPubkeys=$13, comments=$14 WHERE requestID=$15`,
+		req.RequestCreatedAt, req.RequestStatus, req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, req.Hostname, req.Image, req.Cores, req.RamGB, req.DiskGB, req.SecondaryDiskGB, pq.Array(req.SshPubkeys), req.Comments, req.ID)
 	if err != nil {
 		return fmt.Errorf("UpdateVMRequest: Error updating SQL: %s", err)
 	}
@@ -254,6 +277,135 @@ func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
 	}
 
 	return reqs, nil
+}
+
+type SQLLogScope struct {
+	ID        string         `db:"id" json:"id"`
+	ParentID  sql.NullString `db:"parent_id" json:"parentId"`
+	RootID    string         `db:"root_id" json:"rootId"`
+	Label     string         `db:"label" json:"label"`
+	StartedAt time.Time      `db:"started_at" json:"startedAt"`
+	EndedAt   sql.NullTime   `db:"ended_at" json:"endedAt"`
+	Failed    bool           `db:"failed" json:"failed"`
+}
+
+func (s *postgresstorage) CreateLogScope(id string, parentID string, rootID string, label string) error {
+	var parent any
+	if parentID != "" {
+		parent = parentID
+	}
+	_, err := s.db.Exec(
+		`INSERT INTO log_scope (id, parent_id, root_id, label) VALUES ($1, $2, $3, $4)`,
+		id, parent, rootID, label)
+	if err != nil {
+		return fmt.Errorf("CreateScope: %s", err)
+	}
+	return nil
+}
+
+func (s *postgresstorage) GetLogScope(id string) (*SQLLogScope, error) {
+	row := s.db.QueryRow(
+		`SELECT id, parent_id, root_id, label, started_at, ended_at, failed FROM log_scope WHERE id = $1`, id)
+	var sc SQLLogScope
+	if err := row.Scan(&sc.ID, &sc.ParentID, &sc.RootID, &sc.Label, &sc.StartedAt, &sc.EndedAt, &sc.Failed); err != nil {
+		return nil, fmt.Errorf("GetScope: %s", err)
+	}
+	return &sc, nil
+}
+
+func (s *postgresstorage) FinishLogScope(id string, failed bool) error {
+	_, err := s.db.Exec(
+		`UPDATE log_scope SET ended_at = CURRENT_TIMESTAMP, failed = $1 WHERE id = $2`,
+		failed, id)
+	if err != nil {
+		return fmt.Errorf("FinishScope: %s", err)
+	}
+	return nil
+}
+
+func (s *postgresstorage) LogScopeFinished(id string) (bool, bool, error) {
+	var endedAt sql.NullTime
+	var failed bool
+	err := s.db.QueryRow(`SELECT ended_at, failed FROM log_scope WHERE id = $1`, id).Scan(&endedAt, &failed)
+	if err != nil {
+		return false, false, fmt.Errorf("LogScopeFinished: %s", err)
+	}
+	return endedAt.Valid, failed, nil
+}
+
+// Returns up to limit top-level scopes newest-first. IDs are time ordered so beforeID retrieved all logs created before the specified one
+func (s *postgresstorage) ListRootScopes(beforeID string, limit int) ([]*SQLLogScope, error) {
+	rows, err := s.db.Query(
+		`SELECT id, parent_id, root_id, label, started_at, ended_at, failed
+		 FROM log_scope WHERE id = root_id AND id <> $1 AND ($2 = '' OR id < $2)
+		 ORDER BY id DESC LIMIT $3`, SCOPE_ROOT, beforeID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("ListRootScopes: %s", err)
+	}
+	defer rows.Close()
+
+	scopes := []*SQLLogScope{}
+	for rows.Next() {
+		var sc SQLLogScope
+		if err := rows.Scan(&sc.ID, &sc.ParentID, &sc.RootID, &sc.Label, &sc.StartedAt, &sc.EndedAt, &sc.Failed); err != nil {
+			return nil, fmt.Errorf("ListRootScopes: %s", err)
+		}
+		scopes = append(scopes, &sc)
+	}
+	return scopes, nil
+}
+
+func (s *postgresstorage) LogScopeRootID(id string) (string, error) {
+	var rootID string
+	err := s.db.QueryRow(`SELECT root_id FROM log_scope WHERE id = $1`, id).Scan(&rootID)
+	if err != nil {
+		return "", fmt.Errorf("LogScopeRootID: %s", err)
+	}
+	return rootID, nil
+}
+
+func (s *postgresstorage) LogScopeSubtreeIDs(id string) ([]string, error) {
+	rows, err := s.db.Query(`
+		WITH RECURSIVE subtree AS (
+			SELECT id FROM log_scope WHERE id = $1
+			UNION ALL
+			SELECT c.id FROM log_scope c JOIN subtree st ON c.parent_id = st.id
+		)
+		SELECT id FROM subtree`, id)
+	if err != nil {
+		return nil, fmt.Errorf("LogScopeSubtreeIDs: %s", err)
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var sid string
+		if err := rows.Scan(&sid); err != nil {
+			return nil, fmt.Errorf("LogScopeSubtreeIDs: %s", err)
+		}
+		ids = append(ids, sid)
+	}
+	return ids, nil
+}
+
+func (s *postgresstorage) ScopeIDsBefore(cutoff time.Time) ([]string, error) {
+	rows, err := s.db.Query(
+		`SELECT id FROM log_scope WHERE id = root_id AND id <> $1 AND ended_at IS NOT NULL AND ended_at < $2`,
+		SCOPE_ROOT, cutoff)
+	if err != nil {
+		return nil, fmt.Errorf("ScopeIDsBefore: %s", err)
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("ScopeIDsBefore: %s", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 type SQLUsageSurveyEmail struct {

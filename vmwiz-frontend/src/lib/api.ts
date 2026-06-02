@@ -1,6 +1,6 @@
 import {
+    LogScope,
     VMRequestAllowedValues,
-    VMRequestValidationErrors,
     VMRequestListResponse,
     VMRequestEditFields,
     SurveyListResponse,
@@ -29,23 +29,6 @@ export class FetchError extends Error {
         this.name = "FetchError";
         this.response = response;
         this.request = request;
-    }
-}
-
-/**
- * Error for VM Requestvalidation errors
- */
-export class ValidationError extends FetchError {
-    public errors: Partial<VMRequestValidationErrors>;
-
-    constructor(
-        errors: Partial<VMRequestValidationErrors>,
-        response: Response,
-        request: BackendRequest,
-    ) {
-        super("Validation failed", response, request);
-        this.name = "ValidationError";
-        this.errors = errors;
     }
 }
 
@@ -166,6 +149,20 @@ export async function fetchBackend<T = void>(
  * Fetches the allowed values for VM requests (e.g. min/max CPU/RAM/Disk, OS Images, etc.) from the backend.
  * @returns The allowed values for VM requests, as provided by the backend
  */
+export async function fetchLogScopes(
+    before?: string,
+    limit = 30,
+): Promise<LogScope[]> {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (before) params.set("before", before);
+    const { data } = await fetchBackend<LogScope[]>({
+        path: `/api/logs?${params.toString()}`,
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+    });
+    return data;
+}
+
 export async function fetchVMOptions(): Promise<VMRequestAllowedValues> {
     const { data } = await fetchBackend<VMRequestAllowedValues>(
         prepareGetVMOptions(),
@@ -180,30 +177,6 @@ export function prepareGetVMOptions(): BackendRequest {
     };
 }
 
-/**
- * Submits a VM request to the backend.
- * @param formData the VM specs to submit
- * @param onConfirmRequired See the type OnConfirmCallback for details.
- */
-export async function submitVMRequest(
-    formData: Record<string, unknown>,
-    onConfirmRequired?: OnConfirmCallback,
-): Promise<void> {
-    try {
-        await fetchBackend(prepareSubmitVMRequest(formData), {
-            onConfirmRequired,
-        });
-    } catch (error) {
-        // In case its just validation errors, wrap them in a nicer ValidationError
-        if (error instanceof FetchError && error.response.status === 403) {
-            const errors = JSON.parse(
-                error.message,
-            ) as Partial<VMRequestValidationErrors>;
-            throw new ValidationError(errors, error.response, error.request);
-        }
-        throw error;
-    }
-}
 export function prepareSubmitVMRequest(
     formData: Record<string, unknown>,
 ): BackendRequest {
@@ -215,21 +188,6 @@ export function prepareSubmitVMRequest(
     };
 }
 
-/**
- * Submits the response of a usage survey.
- * @param id the id of the survey
- * @param keep whether the user wants to keep the VM or not
- * @param onConfirmRequired See the type OnConfirmCallback for details.
- */
-export async function submitSurveyResponse(
-    id: string,
-    keep: boolean,
-    onConfirmRequired?: OnConfirmCallback,
-): Promise<void> {
-    await fetchBackend(prepareSubmitSurveyResponse(id, keep), {
-        onConfirmRequired,
-    });
-}
 export function prepareSubmitSurveyResponse(
     id: string,
     keep: boolean,
@@ -242,20 +200,6 @@ export function prepareSubmitSurveyResponse(
     };
 }
 
-/**
- * @param vmName the name of the VM to delete
- * @param deleteDNS whether to also delete the DNS entries for the same name
- * @param onConfirmRequired See the type OnConfirmCallback for details.
- */
-export async function deleteVM(
-    vmName: string,
-    deleteDNS: boolean,
-    onConfirmRequired?: OnConfirmCallback,
-): Promise<void> {
-    await fetchBackend(prepareDeleteVM(vmName, deleteDNS), {
-        onConfirmRequired,
-    });
-}
 export function prepareDeleteVM(
     vmName: string,
     deleteDNS: boolean,
@@ -265,6 +209,15 @@ export function prepareDeleteVM(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ vmName, deleteDNS }),
+    };
+}
+
+export function prepareDeleteDNS(hostname: string): BackendRequest {
+    return {
+        path: "/api/dns/deleteByHostname",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hostname }),
     };
 }
 
@@ -296,11 +249,6 @@ export function prepareFetchSurveyInfo(surveyId: number): BackendRequest {
     };
 }
 
-export async function createSurvey(
-    onConfirmRequired?: OnConfirmCallback,
-): Promise<void> {
-    await fetchBackend(prepareCreateSurvey(), { onConfirmRequired });
-}
 export function prepareCreateSurvey(): BackendRequest {
     return {
         path: "/api/usagesurvey/create",
@@ -330,12 +278,6 @@ export function prepareFetchSurveyResponses(
     };
 }
 
-export async function resendUnsent(
-    surveyId: number,
-    onConfirmRequired?: OnConfirmCallback,
-): Promise<void> {
-    await fetchBackend(prepareResendUnsent(surveyId), { onConfirmRequired });
-}
 export function prepareResendUnsent(surveyId: number): BackendRequest {
     return {
         path: "/api/usagesurvey/resend/unsent",
@@ -345,14 +287,6 @@ export function prepareResendUnsent(surveyId: number): BackendRequest {
     };
 }
 
-export async function resendUnanswered(
-    surveyId: number,
-    onConfirmRequired?: OnConfirmCallback,
-): Promise<void> {
-    await fetchBackend(prepareResendUnanswered(surveyId), {
-        onConfirmRequired,
-    });
-}
 export function prepareResendUnanswered(surveyId: number): BackendRequest {
     return {
         path: "/api/usagesurvey/resend/unanswered",
@@ -380,17 +314,6 @@ export function prepareFetchVMRequests(): BackendRequest {
     };
 }
 
-/**
- * Accepts a VM request.
- * @param id the id of the VM request to accept
- * @param onConfirmRequired See the type OnConfirmCallback for details.
- */
-export async function acceptVMRequest(
-    id: number,
-    onConfirmRequired?: OnConfirmCallback,
-): Promise<void> {
-    await fetchBackend(prepareAcceptVMRequest(id), { onConfirmRequired });
-}
 export function prepareAcceptVMRequest(id: number): BackendRequest {
     return {
         path: "/api/vmrequest/accept",
@@ -400,17 +323,6 @@ export function prepareAcceptVMRequest(id: number): BackendRequest {
     };
 }
 
-/**
- * Rejects a VM request.
- * @param id the id of the VM request to reject
- * @param onConfirmRequired See the type OnConfirmCallback for details.
- */
-export async function rejectVMRequest(
-    id: number,
-    onConfirmRequired?: OnConfirmCallback,
-): Promise<void> {
-    await fetchBackend(prepareRejectVMRequest(id), { onConfirmRequired });
-}
 export function prepareRejectVMRequest(id: number): BackendRequest {
     return {
         path: "/api/vmrequest/reject",
@@ -420,17 +332,6 @@ export function prepareRejectVMRequest(id: number): BackendRequest {
     };
 }
 
-/**
- * Hold a VM request.
- * @param id the id of the VM request to Hold
- * @param onConfirmRequired See the type OnConfirmCallback for details.
- */
-export async function holdVMRequest(
-    id: number,
-    onConfirmRequired?: OnConfirmCallback,
-): Promise<void> {
-    await fetchBackend(prepareHoldVMRequest(id), { onConfirmRequired });
-}
 export function prepareHoldVMRequest(id: number): BackendRequest {
     return {
         path: "/api/vmrequest/hold",
@@ -440,17 +341,6 @@ export function prepareHoldVMRequest(id: number): BackendRequest {
     };
 }
 
-/**
- * Unhold a VM request.
- * @param id the id of the VM request to Unhold
- * @param onConfirmRequired See the type OnConfirmCallback for details.
- */
-export async function unholdVMRequest(
-    id: number,
-    onConfirmRequired?: OnConfirmCallback,
-): Promise<void> {
-    await fetchBackend(prepareUnholdVMRequest(id), { onConfirmRequired });
-}
 export function prepareUnholdVMRequest(id: number): BackendRequest {
     return {
         path: "/api/vmrequest/unhold",
@@ -460,21 +350,6 @@ export function prepareUnholdVMRequest(id: number): BackendRequest {
     };
 }
 
-/**
- * Edits a VM request.
- * @param id the id of the VM request to edit
- * @param options optional fields to update (hostname, cores_cpu, ram_gb, storage_gb)
- * @param onConfirmRequired See the type OnConfirmCallback for details.
- */
-export async function editVMRequest(
-    id: number,
-    options?: VMRequestEditFields,
-    onConfirmRequired?: OnConfirmCallback,
-): Promise<void> {
-    await fetchBackend(prepareEditVMRequest(id, options), {
-        onConfirmRequired,
-    });
-}
 export function prepareEditVMRequest(
     id: number,
     options?: VMRequestEditFields,
@@ -484,10 +359,24 @@ export function prepareEditVMRequest(
     if (options?.Cores !== undefined) body.cores_cpu = options.Cores;
     if (options?.RamGB !== undefined) body.ram_gb = options.RamGB;
     if (options?.DiskGB !== undefined) body.storage_gb = options.DiskGB;
+    if (options?.SecondaryDiskGB !== undefined)
+        body.secondary_storage_gb = options.SecondaryDiskGB;
     return {
         path: "/api/vmrequest/edit",
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
     };
+}
+
+/**
+ * Fetches the number of free IPv4 addresses.
+ */
+export async function fetchFreeIPv4Count(): Promise<number> {
+    const { data } = await fetchBackend<{ count: number }>({
+        path: "/api/vm/ipv4free",
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+    });
+    return data.count;
 }

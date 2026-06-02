@@ -56,6 +56,9 @@ type Config struct {
 	VM_ORGANIZATION_POOL string
 
 	PATH_PREFIX string
+
+	LOG_RETENTION_DAYS  int
+	LOG_CATCHALL_MAX_MB int
 }
 
 func (c *Config) Init() error {
@@ -110,6 +113,22 @@ func (c *Config) Init() error {
 	c.VM_ORGANIZATION_POOL = os.Getenv("VM_ORGANIZATION_POOL")
 
 	c.PATH_PREFIX = os.Getenv("PATH_PREFIX")
+
+	v, err := strconv.Atoi(os.Getenv("LOG_RETENTION_DAYS"))
+	if err != nil {
+		return fmt.Errorf("Failed to parse config: LOG_RETENTION_DAYS: %v", err.Error())
+	} else if v <= 0 {
+		return fmt.Errorf("Failed to parse config: LOG_RETENTION_DAYS: Value must be greater than 0, value is %v", v)
+	}
+	c.LOG_RETENTION_DAYS = v
+
+	v, err = strconv.Atoi(os.Getenv("LOG_CATCHALL_MAX_MB"))
+	if err != nil {
+		return fmt.Errorf("Failed to parse config: LOG_CATCHALL_MAX_MB: %v", err.Error())
+	} else if v <= 0 {
+		return fmt.Errorf("Failed to parse config: LOG_CATCHALL_MAX_MB: Value must be greater than 0, value is %v", v)
+	}
+	c.LOG_CATCHALL_MAX_MB = v
 
 	return nil
 }

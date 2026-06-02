@@ -1,11 +1,15 @@
 package router
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/auth"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/confirmation"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"github.com/gorilla/mux"
 )
@@ -14,7 +18,7 @@ import (
 
 func addAllDNSRoutes(r *mux.Router) {
 
-	r.Methods("POST").Path("/api/dns/deleteByHostname").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/dns/deleteByHostname").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("delete dns", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
 			Hostname string `json:"hostname"`
 		}
@@ -27,14 +31,14 @@ func addAllDNSRoutes(r *mux.Router) {
 			return
 		}
 
-		err = netcenter.DeleteDNSEntryByHostname(body.Hostname)
-		if err != nil {
-			log.Printf("Error deleting DNS entry: %v", err)
-			http.Error(w, "Failed to delete DNS entry", http.StatusInternalServerError)
-			return
-		}
+		ctx, lg, finish := logger.Nest(context.Background(), fmt.Sprintf("Delete DNS for %s", body.Hostname))
+		w.Header().Set("X-Log-Scope-Id", lg.ScopeID())
+		w.WriteHeader(http.StatusAccepted)
 
-		w.WriteHeader(http.StatusOK)
-	})))
+		go func() {
+			lg.Infof("Deleting DNS entries for %s", body.Hostname)
+			finish(netcenter.DeleteDNSEntryByHostname(ctx, body.Hostname))
+		}()
+	}))))
 
 }
