@@ -2,7 +2,11 @@
 //
 // We have the concept of a "scope": it groups together log lines, e.g. for a big task or function. Each scope can have arbitrarily many sub-scopes, and has a unique ID through which we can browse its past logs.
 //
-// Scope "0" is the default catch-all scope. Each top-level scope stores its own logs plus all of its sub-scope logs into a single <rootid>.log file.
+// Scope "0" is the default catch-all scope. Each top-level scope stores its own logs plus all of its sub-scope logs into a single <rootid>.log file. The generic catch-all logs can in fact be found at '0.log'
+//
+// A scope travels through the context: open one with Nest at the start of a task, and anything logged with that context (here or in functions it calls) ends up in that scope. Logs can be read back later or streamed live as they happen.
+//
+// To save space, there is a rough implementation of log rotation.
 package logger
 
 import (
