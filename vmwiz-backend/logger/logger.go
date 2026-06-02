@@ -32,6 +32,7 @@ type ScopeStore interface {
 	LogScopeRootID(id string) (string, error)
 	LogScopeSubtreeIDs(id string) ([]string, error)
 	LogScopeFinished(id string) (finished bool, failed bool, err error)
+	ScopeIDsBefore(cutoff time.Time) ([]string, error)
 }
 
 var store ScopeStore
@@ -286,4 +287,63 @@ func ReadLogs(scopeID string, includeSubscopes bool, from *time.Time, to *time.T
 		}
 	}
 	return out, nil
+}
+
+// Deletes log files of finished scopes older than maxAge, and trims entries in the catch all log (i.e 0.log) to not exceed rootMaxBytes in size
+func Retain(maxAge time.Duration, rootMaxBytes int64) error {
+	if store == nil {
+		return nil
+	}
+	ids, err := store.ScopeIDsBefore(time.Now().Add(-maxAge))
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		if !LogFileExists(id) {
+			continue // already deleted
+		}
+		closeWriter(id)
+		os.Remove(filepath.Join(Dir, id+".log"))
+	}
+	return trimToNewest(RootScopeID, rootMaxBytes)
+}
+
+// Rewrites a scope's log file to keep only its bottom maxBytes.
+func trimToNewest(rootID string, maxBytes int64) error {
+	w, err := getWriter(rootID)
+	if err != nil {
+		return err
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	path := filepath.Join(Dir, rootID+".log")
+	fi, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if fi.Size() <= maxBytes {
+		return nil
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if _, err := f.Seek(fi.Size()-maxBytes, io.SeekStart); err != nil {
+		return err
+	}
+	r := bufio.NewReader(f)
+	r.ReadBytes('\n') // drop the partial first line
+	kept, err := io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+
+	if err := w.f.Truncate(0); err != nil { // O_APPEND writes resume at offset 0
+		return err
+	}
+	_, err = w.f.Write(kept)
+	return err
 }

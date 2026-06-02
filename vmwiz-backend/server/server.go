@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/router"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/startupcheck"
 	"github.com/rs/cors"
@@ -41,6 +43,18 @@ func StartServer() error {
 	go func() {
 		log.Printf("Listening on %s ...\n", srv.Addr)
 		srv.ListenAndServe()
+	}()
+
+	// Periodically reclaim old log files and trim the catch-all log.
+	go func() {
+		maxAge := time.Duration(config.AppConfig.LOG_RETENTION_DAYS) * 24 * time.Hour
+		maxBytes := int64(config.AppConfig.LOG_CATCHALL_MAX_MB) << 20
+		for {
+			if err := logger.Retain(maxAge, maxBytes); err != nil {
+				log.Printf("Log retention: %v", err)
+			}
+			time.Sleep(time.Hour)
+		}
 	}()
 
 	// nodes, err := proxmox.GetAllNodeVMsByName("comp-epyc-lee-3", "vmwiz-test.vsos.ethz.ch")

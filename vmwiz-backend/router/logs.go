@@ -105,6 +105,8 @@ func addLogRoutes(r *mux.Router) {
 			http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
 			return
 		}
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
+
 		reader, err := logger.NewLogReader(scope, includeSubscopes)
 		if err != nil {
 			http.Error(w, "Failed to open logs", http.StatusInternalServerError)

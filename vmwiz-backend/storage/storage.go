@@ -104,6 +104,7 @@ type Storage interface {
 	LogScopeSubtreeIDs(id string) ([]string, error)
 	LogScopeFinished(id string) (finished bool, failed bool, err error)
 	ListRootScopes(beforeID string, limit int) ([]*SQLLogScope, error)
+	ScopeIDsBefore(cutoff time.Time) ([]string, error)
 }
 
 type postgresstorage struct {
@@ -379,6 +380,25 @@ func (s *postgresstorage) LogScopeSubtreeIDs(id string) ([]string, error) {
 	return ids, nil
 }
 
+func (s *postgresstorage) ScopeIDsBefore(cutoff time.Time) ([]string, error) {
+	rows, err := s.db.Query(
+		`SELECT id FROM log_scope WHERE id = root_id AND id <> $1 AND ended_at IS NOT NULL AND ended_at < $2`,
+		SCOPE_ROOT, cutoff)
+	if err != nil {
+		return nil, fmt.Errorf("ScopeIDsBefore: %s", err)
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("ScopeIDsBefore: %s", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
 
 type SQLUsageSurveyEmail struct {
 	Id         int64  `db:"id"`
