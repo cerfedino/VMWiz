@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -27,7 +28,7 @@ func addAllDNSRoutes(r *mux.Router) {
 			return
 		}
 
-		err = netcenter.DeleteDNSEntryByHostname(body.Hostname)
+		err = netcenter.DeleteDNSEntryByHostname(context.Background(), body.Hostname)
 		if err != nil {
 			log.Printf("Error deleting DNS entry: %v", err)
 			http.Error(w, "Failed to delete DNS entry", http.StatusInternalServerError)

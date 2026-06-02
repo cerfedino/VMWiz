@@ -204,7 +204,8 @@ type Line struct {
 // LogReader streams a scope's lines from a moving byte offset, so the same reader serves both history (first call) and live tailing (later calls).
 type LogReader struct {
 	path   string
-	scopes []string
+	scopes []string // ignored when all is true
+	all    bool
 	offset int64
 }
 
@@ -213,12 +214,20 @@ func NewLogReader(scopeID string, includeSubscopes bool) (*LogReader, error) {
 	if err != nil {
 		return nil, err
 	}
-	scopes := []string{scopeID}
-	if includeSubscopes {
-		scopes, err = store.LogScopeSubtreeIDs(scopeID)
+	lr := &LogReader{path: filepath.Join(Dir, rootID+".log")}
+	switch {
+	case includeSubscopes && scopeID == rootID:
+		// The file holds exactly this root's whole subtree, so stream every
+		// line. Avoids snapshotting the subtree (sub-scopes created after the
+		// stream opens would otherwise be filtered out).
+		lr.all = true
+	case includeSubscopes:
+		lr.scopes, err = store.LogScopeSubtreeIDs(scopeID)
 		if err != nil {
 			return nil, err
 		}
+	default:
+		lr.scopes = []string{scopeID}
 	}
 	return &LogReader{path: filepath.Join(Dir, rootID+".log"), scopes: scopes}, nil
 }
@@ -243,7 +252,8 @@ func (lr *LogReader) Next() ([]Line, error) {
 		if len(raw) > 0 && raw[len(raw)-1] == '\n' {
 			lr.offset += int64(len(raw))
 			var l Line
-			if json.Unmarshal(raw, &l) == nil && slices.Contains(lr.scopes, l.Scope) {
+			if json.Unmarshal(raw, &l) == nil &&
+				(lr.all || slices.Contains(lr.scopes, l.Scope)) {
 				out = append(out, l)
 			}
 		}

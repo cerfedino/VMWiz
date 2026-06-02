@@ -270,7 +270,7 @@ type pveClusterVMList struct {
 }
 
 // POST /api2/json/nodes/{node}/qemu/{vmid}/status/start
-func ForceStopNodeVM(node string, vm_id int) error {
+func ForceStopNodeVM(ctx context.Context, node string, vm_id int) error {
 	req, client, err := proxmoxMakeRequest(http.MethodPost, fmt.Sprintf("/api2/json/nodes/%v/qemu/%v/status/stop", node, vm_id), nil)
 	if err != nil {
 		return fmt.Errorf("Failed to force stop VM '%v' on node '%v': %v", vm_id, node, err.Error())
@@ -292,12 +292,12 @@ func ForceStopNodeVM(node string, vm_id int) error {
 		}
 		time.Sleep(1 * time.Second)
 	}
-	log.Printf("[+] Stopped VM %v on node %v\n", vm_id, node)
+	logger.From(ctx).Infof("[+] Stopped VM %v on node %v\n", vm_id, node)
 	return nil
 }
 
 // DELETE /api2/json/nodes/{node}/qemu/{vmid}
-func DeleteNodeVM(node string, vm_id int, destroy_unreferenced_disks bool, purge_vm_from_configs bool, skip_lock bool) error {
+func DeleteNodeVM(ctx context.Context, node string, vm_id int, destroy_unreferenced_disks bool, purge_vm_from_configs bool, skip_lock bool) error {
 	req, client, err := proxmoxMakeRequest(http.MethodDelete, fmt.Sprintf("/api2/json/nodes/%v/qemu/%v", node, vm_id), nil)
 	if err != nil {
 		return fmt.Errorf("Failed to delete VM '%v' on node '%v': %v", vm_id, node, err.Error())
@@ -314,7 +314,7 @@ func DeleteNodeVM(node string, vm_id int, destroy_unreferenced_disks bool, purge
 		return fmt.Errorf("Failed to delete VM '%v' on node '%v': %v", vm_id, node, err.Error())
 	}
 
-	log.Printf("[+] Deleted VM %v on node %v [destroy-unreferenced-disks: %v, purge: %v, skiplock: %v]\n", vm_id, node, destroy_unreferenced_disks, purge_vm_from_configs, skip_lock)
+	logger.From(ctx).Infof("[+] Deleted VM %v on node %v [destroy-unreferenced-disks: %v, purge: %v, skiplock: %v]\n", vm_id, node, destroy_unreferenced_disks, purge_vm_from_configs, skip_lock)
 	return nil
 }
 
@@ -373,8 +373,8 @@ Done. Have Fun!`
 }
 
 func CreateVM(ctx context.Context, options VMCreationOptions) (_ *PVENodeVM, _ *VMCreationSummary, retErr error) {
-	_, lg, finish := logger.Nest(ctx, "Create VM "+options.FQDN)
-	defer finish(retErr)
+	ctx, lg, finish := logger.Nest(ctx, "Create VM "+options.FQDN)
+	defer func() { finish(retErr) }()
 
 	//! Verify that configured CM SSH host is actually a cluster management node
 	// lg.Info("[-] Checking if running on a cluster management node")
@@ -544,7 +544,7 @@ Reinstall: %v
 	//! Register DNS entries for FQDN and an available IPv4 and IPv6 address.
 	if !options.Reinstall {
 		lg.Infof("[-] Registering FQDN \"%v\" in net \"%v\"\n", options.FQDN, net)
-		ipv4, ipv6, err := netcenter.Registerhost(net, options.FQDN)
+		ipv4, ipv6, err := netcenter.Registerhost(ctx, net, options.FQDN)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Failed to create VM: %v", err)
 		}

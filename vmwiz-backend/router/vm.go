@@ -48,7 +48,7 @@ func addAllVMRoutes(r *mux.Router) {
 		}
 
 		// Create a new logging sub-scope
-		_, lg, finish := logger.Nest(context.Background(), fmt.Sprintf("Delete VM %s", body.Name))
+		ctx, lg, finish := logger.Nest(context.Background(), fmt.Sprintf("Delete VM %s", body.Name))
 		w.Header().Set("X-Log-Scope-Id", lg.ScopeID())
 		w.WriteHeader(http.StatusAccepted)
 
@@ -63,14 +63,14 @@ func addAllVMRoutes(r *mux.Router) {
 				errprefix := fmt.Sprintf("[VM %v/%v]", idx+1, len(*vms))
 
 				lg.Infof("%v Stopping VM %v", errprefix, vm.Id)
-				if err := proxmox.ForceStopNodeVM(vm.Node, vm.Vmid); err != nil {
+				if err := proxmox.ForceStopNodeVM(ctx, vm.Node, vm.Vmid); err != nil {
 					lg.Errorf("%v Failed to stop VM %v: %v", errprefix, vm.Id, err)
 					errors = append(errors, fmt.Sprintf("%v Failed to stop VM %v", errprefix, vm.Id))
 					continue
 				}
 
 				lg.Infof("%v Deleting VM %v", errprefix, vm.Id)
-				if err := proxmox.DeleteNodeVM(vm.Node, vm.Vmid, true, true, false); err != nil {
+				if err := proxmox.DeleteNodeVM(ctx, vm.Node, vm.Vmid, true, true, false); err != nil {
 					lg.Errorf("%v Failed to delete VM %v: %v", errprefix, vm.Id, err)
 					errors = append(errors, fmt.Sprintf("%v Failed to delete VM %v", errprefix, vm.Id))
 					continue
@@ -78,7 +78,7 @@ func addAllVMRoutes(r *mux.Router) {
 
 				if body.DeleteDNS {
 					lg.Infof("%v Deleting DNS entry for VM %v", errprefix, vm.Id)
-					if err := netcenter.DeleteDNSEntryByHostname(vm.Name); err != nil {
+					if err := netcenter.DeleteDNSEntryByHostname(ctx, vm.Name); err != nil {
 						lg.Errorf("%v Failed to delete DNS entry for VM %v: %v", errprefix, vm.Id, err)
 						errors = append(errors, fmt.Sprintf("%v Failed to delete DNS entry for VM %v", errprefix, vm.Id))
 						continue

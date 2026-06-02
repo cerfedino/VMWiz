@@ -2,11 +2,11 @@ package netcenter
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
 	"io"
-	"log"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
 	"github.com/seancfoley/ipaddress-go/ipaddr"
 )
 
@@ -278,7 +279,7 @@ func GetFreeIPv6sInSubnet(ip *ipaddr.IPv6Address) (*[]NetcenterFreeIPv6, error) 
 	return &(freeIps.FreeIps), nil
 }
 
-func DeleteDNSEntryByIP(ip *ipaddr.IPAddress) error {
+func DeleteDNSEntryByIP(ctx context.Context, ip *ipaddr.IPAddress) error {
 	req, client, err := netcenterMakeRequest("DELETE", fmt.Sprintf("/netcenter/rest/nameToIP/%s", ip.WithoutPrefixLen().String()), nil)
 	if err != nil {
 		return fmt.Errorf("Deleting DNS entry: %v", err.Error())
@@ -289,11 +290,11 @@ func DeleteDNSEntryByIP(ip *ipaddr.IPAddress) error {
 		return fmt.Errorf("Deleting DNS entry: %v", err.Error())
 	}
 
-	log.Printf("[+] Deleted DNS entry for IP '%v'", ip)
+	logger.From(ctx).Infof("[+] Deleted DNS entry for IP '%v'", ip)
 	return nil
 }
 
-func DeleteDNSEntryByHostname(fqdn string) error {
+func DeleteDNSEntryByHostname(ctx context.Context, fqdn string) error {
 	hostIPv4s, hostIPv6s, err := GetHostIPs(fqdn)
 	if err != nil {
 		return fmt.Errorf("Deleting DNS entries by hostname: %v", err.Error())
@@ -302,13 +303,13 @@ func DeleteDNSEntryByHostname(fqdn string) error {
 	// ? Deleting DNS entries for all IPs of the host
 	var errors []string
 	for _, ip := range hostIPv4s {
-		err = DeleteDNSEntryByIP(ip.IP.ToIP())
+		err = DeleteDNSEntryByIP(ctx, ip.IP.ToIP())
 		if err != nil {
 			errors = append(errors, err.Error())
 		}
 	}
 	for _, ip := range hostIPv6s {
-		err = DeleteDNSEntryByIP(ip.IP.ToIP())
+		err = DeleteDNSEntryByIP(ctx, ip.IP.ToIP())
 		if err != nil {
 			errors = append(errors, err.Error())
 		}
@@ -317,7 +318,7 @@ func DeleteDNSEntryByHostname(fqdn string) error {
 	if len(errors) > 0 {
 		return fmt.Errorf("Deleting DNS entries by hostname: Couldn't delete all DNS entries: Errors: \n- %v", strings.Join(errors, "\n- "))
 	}
-	log.Printf("[+] Deleted %d DNS entries for host '%v'", len(hostIPv4s)+len(hostIPv6s), fqdn)
+	logger.From(ctx).Infof("[+] Deleted %d DNS entries for host '%v'", len(hostIPv4s)+len(hostIPv6s), fqdn)
 	return nil
 }
 
@@ -590,7 +591,7 @@ type netcenterCreateIPv6DNSEntryRequest struct {
 	FqName   string   `xml:"nameToIP>fqName,omitempty"`
 }
 
-func CreateDNSEntry(ip *ipaddr.IPAddress, fqdn string) error {
+func CreateDNSEntry(ctx context.Context, ip *ipaddr.IPAddress, fqdn string) error {
 	var reqBody any
 	if ip.IsIPv4() {
 		reqBody = netcenterCreateIPv4DNSEntryRequest{
@@ -624,11 +625,11 @@ func CreateDNSEntry(ip *ipaddr.IPAddress, fqdn string) error {
 		return fmt.Errorf("Creating DNS entry: %v", err.Error())
 	}
 
-	log.Printf("[+] Created DNS entry for IP '%v' with FQDN '%v'", ip, fqdn)
+	logger.From(ctx).Infof("[+] Created DNS entry for IP '%v' with FQDN '%v'", ip, fqdn)
 	return nil
 }
 
-func Registerhost(net string, fqdn string) (*ipaddr.IPv4Address, *ipaddr.IPv6Address, error) {
+func Registerhost(ctx context.Context, net string, fqdn string) (*ipaddr.IPv4Address, *ipaddr.IPv6Address, error) {
 	var v4_subnet *ipaddr.IPv4Address = VM_SUBNET.V4net
 	var v6_subnet *ipaddr.IPv6Address = VM_SUBNET.V6net
 
@@ -660,16 +661,16 @@ func Registerhost(net string, fqdn string) (*ipaddr.IPv4Address, *ipaddr.IPv6Add
 	}
 
 	// ? Adding DNS entry for chosen IP and FQDN through Netcenter
-	err = CreateDNSEntry(chosenIPv4.ToIP(), fqdn)
+	err = CreateDNSEntry(ctx, chosenIPv4.ToIP(), fqdn)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Registering host %v with FQDN '%v': %v", chosenIPv4, fqdn, err.Error())
 	}
 
-	err = CreateDNSEntry(chosenIPv6.ToIP(), fqdn)
+	err = CreateDNSEntry(ctx, chosenIPv6.ToIP(), fqdn)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Registering host %v with FQDN '%v': %v", chosenIPv6, fqdn, err.Error())
 	}
 
-	log.Printf("[+] Registered host '%v' with FQDN '%v'\n\tIPv4: %v\n\tIPv6: %v", net, fqdn, chosenIPv4, chosenIPv6)
+	logger.From(ctx).Infof("[+] Registered host '%v' with FQDN '%v'\n\tIPv4: %v\n\tIPv6: %v", net, fqdn, chosenIPv4, chosenIPv6)
 	return chosenIPv4, chosenIPv6, nil
 }
