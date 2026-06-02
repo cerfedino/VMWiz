@@ -229,7 +229,7 @@ func NewLogReader(scopeID string, includeSubscopes bool) (*LogReader, error) {
 	default:
 		lr.scopes = []string{scopeID}
 	}
-	return &LogReader{path: filepath.Join(Dir, rootID+".log"), scopes: scopes}, nil
+	return lr, nil
 }
 
 // Next returns the complete lines appended since the last call, advancing past them. A trailing partial line (mid-write) is left for the next call.
