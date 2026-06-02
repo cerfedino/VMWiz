@@ -6,7 +6,9 @@ package proxmox
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/md5"
+	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -24,11 +26,15 @@ import (
 	"time"
 
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"github.com/google/uuid"
 	"github.com/melbahja/goph"
 	"github.com/pkg/sftp"
 )
+
+//go:embed *.tmpl
+var templatesFS embed.FS
 
 func proxmoxMakeRequest(method string, path string, body []byte) (*http.Request, *http.Client, error) {
 	url, err := url.Parse(fmt.Sprintf("%v%v", config.AppConfig.PVE_HOST, path))
@@ -268,7 +274,7 @@ type pveClusterVMList struct {
 }
 
 // POST /api2/json/nodes/{node}/qemu/{vmid}/status/start
-func ForceStopNodeVM(node string, vm_id int) error {
+func ForceStopNodeVM(ctx context.Context, node string, vm_id int) error {
 	req, client, err := proxmoxMakeRequest(http.MethodPost, fmt.Sprintf("/api2/json/nodes/%v/qemu/%v/status/stop", node, vm_id), nil)
 	if err != nil {
 		return fmt.Errorf("Failed to force stop VM '%v' on node '%v': %v", vm_id, node, err.Error())
@@ -290,12 +296,12 @@ func ForceStopNodeVM(node string, vm_id int) error {
 		}
 		time.Sleep(1 * time.Second)
 	}
-	log.Printf("[+] Stopped VM %v on node %v\n", vm_id, node)
+	logger.From(ctx).Infof("[+] Stopped VM %v on node %v\n", vm_id, node)
 	return nil
 }
 
 // DELETE /api2/json/nodes/{node}/qemu/{vmid}
-func DeleteNodeVM(node string, vm_id int, destroy_unreferenced_disks bool, purge_vm_from_configs bool, skip_lock bool) error {
+func DeleteNodeVM(ctx context.Context, node string, vm_id int, destroy_unreferenced_disks bool, purge_vm_from_configs bool, skip_lock bool) error {
 	req, client, err := proxmoxMakeRequest(http.MethodDelete, fmt.Sprintf("/api2/json/nodes/%v/qemu/%v", node, vm_id), nil)
 	if err != nil {
 		return fmt.Errorf("Failed to delete VM '%v' on node '%v': %v", vm_id, node, err.Error())
@@ -312,7 +318,7 @@ func DeleteNodeVM(node string, vm_id int, destroy_unreferenced_disks bool, purge
 		return fmt.Errorf("Failed to delete VM '%v' on node '%v': %v", vm_id, node, err.Error())
 	}
 
-	log.Printf("[+] Deleted VM %v on node %v [destroy-unreferenced-disks: %v, purge: %v, skiplock: %v]\n", vm_id, node, destroy_unreferenced_disks, purge_vm_from_configs, skip_lock)
+	logger.From(ctx).Infof("[+] Deleted VM %v on node %v [destroy-unreferenced-disks: %v, purge: %v, skiplock: %v]\n", vm_id, node, destroy_unreferenced_disks, purge_vm_from_configs, skip_lock)
 	return nil
 }
 
@@ -370,17 +376,19 @@ If you have any questions or need more resources, please contact us at: ` + conf
 Done. Have Fun!`
 }
 
-func CreateVM(options VMCreationOptions) (*PVENodeVM, *VMCreationSummary, error) {
+func CreateVM(ctx context.Context, options VMCreationOptions) (_ *PVENodeVM, _ *VMCreationSummary, retErr error) {
+	ctx, lg, finish := logger.Nest(ctx, "Create VM "+options.FQDN)
+	defer func() { finish(retErr) }()
 
 	//! Verify that configured CM SSH host is actually a cluster management node
-	// log.Println("[-] Checking if running on a cluster management node")
+	// lg.Info("[-] Checking if running on a cluster management node")
 	client, err := createCMSSHClient()
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: %v", err)
 	}
 	defer client.Close()
 
-	log.Println("[-] Checking if CM SSH session is actually on a cluster management node")
+	lg.Info("[-] Checking if CM SSH session is actually on a cluster management node")
 	stdout, err := client.Run("hostname --fqdn")
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Cannot verify hostname of configured CM host: %v\nOutput:\n%s", err, stdout)
@@ -415,7 +423,7 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, *VMCreationSummary, error)
 	VMPUBKEY_PATH := "/root/.ssh/vm_univ_pubkey.key"
 
 	//! Choosing appropriate user and first boot line
-	log.Println("[-] Choosing appropriate user and first boot line based on template")
+	lg.Info("[-] Choosing appropriate user and first boot line based on template")
 	switch options.Template {
 	case IMAGE_DEBIAN_13:
 		options.Template = "trixie"
@@ -430,7 +438,7 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, *VMCreationSummary, error)
 	}
 
 	//! Checking existence of DNS entries for chosen FQDN
-	log.Printf("[-] Checking existence of DNS entries for chosen FQDN %v", options.FQDN)
+	lg.Infof("[-] Checking existence of DNS entries for chosen FQDN %v", options.FQDN)
 	ipv4s, ipv6s, err := netcenter.GetHostIPs(options.FQDN)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Failed to check if there are existing ipv4 DNS entries for FQDN: %v", err.Error())
@@ -441,14 +449,14 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, *VMCreationSummary, error)
 	for _, ip := range ipv4s {
 		ipv4s_str = append(ipv4s_str, ip.IP.String())
 	}
-	log.Println("\tIPv4: ", strings.Join(ipv4s_str, ", "))
+	lg.Infof("\tIPv4: %s", strings.Join(ipv4s_str, ", "))
 
 	// Map ipv6s object to just their ips
 	var ipv6s_str []string
 	for _, ip := range ipv6s {
 		ipv6s_str = append(ipv6s_str, ip.IP.String())
 	}
-	log.Println("\tIPv6: ", strings.Join(ipv6s_str, ", "))
+	lg.Infof("\tIPv6: %s", strings.Join(ipv6s_str, ", "))
 
 	// TODO: What is actually allowed ?
 	if len(ipv4s_str) > 1 || len(ipv6s_str) > 1 {
@@ -460,7 +468,7 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, *VMCreationSummary, error)
 	}
 
 	if !options.Reinstall && (len(ipv4s_str) > 0 || len(ipv6s_str) > 0) {
-		log.Println("\t[!] FQDN still has DNS entries with IP addresses:")
+		lg.Info("\t[!] FQDN still has DNS entries with IP addresses:")
 		// TODO: You sure you want to continue?
 		return nil, nil, fmt.Errorf("Failed to create VM: There exists already DNS entries for FQDN %v (IPv4: %v, IPv6: %v)", options.FQDN, strings.Join(ipv4s_str, ", "), strings.Join(ipv6s_str, ", "))
 	}
@@ -469,7 +477,7 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, *VMCreationSummary, error)
 	IMAGE := fmt.Sprintf("%v/cloudinit/current-%v-amd64.qcow2", TEMPLATE_STORAGE, options.Template)
 	IMAGE_REMOTE := fmt.Sprintf("%v/cloudinit/current-%v-amd64.qcow2", TEMPLATE_STORAGE_ON_COMP, options.Template)
 
-	log.Printf("[-] Checking if image '%v' exists on management node", IMAGE)
+	lg.Infof("[-] Checking if image '%v' exists on management node", IMAGE)
 
 	cm_sftp, err := createCMSFTPClient()
 	if err != nil {
@@ -483,7 +491,7 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, *VMCreationSummary, error)
 	}
 
 	//! Preparing sources.list for VM
-	log.Println("[-] Preparing apt sources for VM")
+	lg.Info("[-] Preparing apt sources for VM")
 	var SOURCES_LIST string
 	switch options.Template {
 	case "trixie", "bookworm":
@@ -512,11 +520,11 @@ func CreateVM(options VMCreationOptions) (*PVENodeVM, *VMCreationSummary, error)
 
 	//! Generate random VM ID
 	// TODO: Do not generate randomly, rather take the smallest available one
-	log.Println("[-] Generating random VM ID")
+	lg.Info("[-] Generating random VM ID")
 	VM_ID := 100000 + rand.Intn(899999)
 
 	//! Summary
-	log.Printf(`
+	lg.Infof(`
 SUMMARY
 -------
 VM_ID: %v
@@ -539,8 +547,8 @@ Reinstall: %v
 
 	//! Register DNS entries for FQDN and an available IPv4 and IPv6 address.
 	if !options.Reinstall {
-		log.Printf("[-] Registering FQDN \"%v\" in net \"%v\"\n", options.FQDN, net)
-		ipv4, ipv6, err := netcenter.Registerhost(net, options.FQDN)
+		lg.Infof("[-] Registering FQDN \"%v\" in net \"%v\"\n", options.FQDN, net)
+		ipv4, ipv6, err := netcenter.Registerhost(ctx, net, options.FQDN)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Failed to create VM: %v", err)
 		}
@@ -550,7 +558,7 @@ Reinstall: %v
 
 	//! Read universal VM public key
 	// TODO: Startup check
-	log.Println("[-] Reading universal VM public key from file")
+	lg.Info("[-] Reading universal VM public key from file")
 
 	vmpubkey_content, err := os.ReadFile(VMPUBKEY_PATH)
 	if err != nil {
@@ -558,13 +566,13 @@ Reinstall: %v
 	}
 
 	//! Prepare authorized_keys file
-	log.Println("[-] Preparing authorized_keys file")
-	log.Println("\tConcatenating VM universal public key with provided pubkeys")
+	lg.Info("[-] Preparing authorized_keys file")
+	lg.Info("\tConcatenating VM universal public key with provided pubkeys")
 	authorized_keys_content := strings.Join(slices.Concat(options.SSHPubkeys, strings.Split(string(vmpubkey_content), "\n")), "\n\n")
 
 	//! Upload authorized_keys file to comp node
 	VM_AUTHORIZED_KEYS_PATH := fmt.Sprintf("/tmp/vmwiz-%v.ssh.pub", VM_ID)
-	log.Printf("[-] Uploading authorized_keys file to %v:%v\n", comp_node, VM_AUTHORIZED_KEYS_PATH)
+	lg.Infof("[-] Uploading authorized_keys file to %v:%v\n", comp_node, VM_AUTHORIZED_KEYS_PATH)
 	comp_sftp, err := createCompSFTPClient()
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Comp node SFTP: %v", err.Error())
@@ -583,13 +591,13 @@ Reinstall: %v
 	}
 
 	//! Prepare Cloudinit configuration
-	log.Println("[-] Preparing Cloudinit configuration")
+	lg.Info("[-] Preparing Cloudinit configuration")
 	cloudinit_fragments := fmt.Sprintf("ipconfig0: gw=%s,ip=%s/%d,ip6=%s/%d", VM_GATEWAY_4, ipv4s_str[0], VM_NETMASK_4, ipv6s_str[0], VM_NETMASK_6)
-	// log.Println(cloudinit_fragments)
+	// lg.Info(cloudinit_fragments)
 
 	//! Upload Cloudinit configuration to comp node
 	VM_CLOUDINIT_PATH := fmt.Sprintf("/tmp/vmwiz-%v.cloudinit.tail", VM_ID)
-	log.Printf("[-] Uploading Cloudinit fragments to %v:%v\n", comp_node, VM_CLOUDINIT_PATH)
+	lg.Infof("[-] Uploading Cloudinit fragments to %v:%v\n", comp_node, VM_CLOUDINIT_PATH)
 	comp_sftp_cloudinitfrags, err := comp_sftp.Create(VM_CLOUDINIT_PATH)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to create file '%v': %v", VM_CLOUDINIT_PATH, err)
@@ -603,7 +611,7 @@ Reinstall: %v
 	}
 
 	//! Create VM on compute node
-	log.Printf("[-] Creating VM on %v\n", comp_node)
+	lg.Infof("[-] Creating VM on %v\n", comp_node)
 
 	VM_NETMODEL := "virtio"
 
@@ -624,7 +632,7 @@ Reinstall: %v
 	MAIN_DISK_NAME := fmt.Sprintf("vm-%v-disk-1", VM_ID)
 
 	//! Verify that configured Comp node SSH host is actually a compute node
-	log.Println("\t[-] Checking if compute SSH session is actually on a compute node")
+	lg.Info("\t[-] Checking if compute SSH session is actually on a compute node")
 	comp_ssh, err := createCompSSHClient()
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: %v", err)
@@ -658,15 +666,15 @@ Reinstall: %v
 		return nil, nil, fmt.Errorf("Failed to create VM: Failed to generate MAC address: Generated MAC address is not 12 bytes long")
 	}
 
-	log.Printf("\t[-] Generated MAC address: %v\n", VM_MACADDR)
+	lg.Infof("\t[-] Generated MAC address: %v\n", VM_MACADDR)
 
 	//! Create disks
-	log.Printf("\t[-] Creating disks\n")
+	lg.Infof("\t[-] Creating disks\n")
 
 	// Create swap disk
 	command := fmt.Sprintf("rbd -p \"%v\" create --size \"%v\" \"%v\"", CEPH_POOL, SWAP_SIZE, SWAP_DISK_NAME)
-	log.Printf("\t\t[-] Creating SWAP disk\n")
-	log.Printf("\t\t> %v", command)
+	lg.Infof("\t\t[-] Creating SWAP disk\n")
+	lg.Infof("\t\t> %v", command)
 	stdout, err = comp_ssh.Run(command)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot create SWAP disk: %v\nOutput:\n%s", err, stdout)
@@ -674,23 +682,22 @@ Reinstall: %v
 
 	// Create EFI disk
 	command = fmt.Sprintf("rbd -p \"%v\" create --size \"4M\" \"%v\"", CEPH_POOL, EFI_DISK_NAME)
-	log.Printf("\t\t[-] Creating EFI disk\n")
-	log.Printf("\t\t> %v\n", command)
+	lg.Infof("\t\t[-] Creating EFI disk\n")
+	lg.Infof("\t\t> %v\n", command)
 	stdout, err = comp_ssh.Run(command)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot create EFI disk: %v\nOutput:\n%s", err, stdout)
 	}
 
 	//! Creating VM configuration in Proxmox
-	log.Printf("\t[-] Generating VM configuration\n")
-	VM_CONF_TEMPLATE_PATH := fmt.Sprintf("%sproxmox/VM.conf.tmpl", config.AppConfig.PATH_PREFIX)
+	lg.Infof("\t[-] Generating VM configuration\n")
 	uuidv7, err := uuid.NewV7()
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Failed to generate UUID: %v", err)
 	}
 
 	vm_config := new(bytes.Buffer)
-	vm_config_template, err := template.ParseFiles(VM_CONF_TEMPLATE_PATH)
+	vm_config_template, err := template.ParseFS(templatesFS, "VM.conf.tmpl")
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Failed to parse template: %v", err)
 	}
@@ -737,7 +744,7 @@ Reinstall: %v
 
 	VM_CONFIG_PATH := fmt.Sprintf("/etc/pve/local/qemu-server/%v.conf", VM_ID)
 
-	log.Printf("\t[-] Uploading VM configuration to %v:%v\n", comp_node, VM_CONFIG_PATH)
+	lg.Infof("\t[-] Uploading VM configuration to %v:%v\n", comp_node, VM_CONFIG_PATH)
 	vm_config_file, err := comp_sftp.Create(VM_CONFIG_PATH)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Comp node SFTP: Failed to create file '%v': %v", VM_CONFIG_PATH, err)
@@ -750,9 +757,9 @@ Reinstall: %v
 	}
 
 	//! Importing disk image
-	log.Printf("\t[-] Importing disk image\n")
+	lg.Infof("\t[-] Importing disk image\n")
 	command = fmt.Sprintf("qm importdisk \"%v\" \"%v\" \"%v\"", VM_ID, IMAGE_PATH, CEPH_POOL)
-	log.Printf("\t\t> %v\n", command)
+	lg.Infof("\t\t> %v\n", command)
 
 	stdout, err = comp_ssh.Run(command)
 	if err != nil {
@@ -760,9 +767,9 @@ Reinstall: %v
 	}
 
 	//! Attaching disk to VM
-	log.Printf("\t[-] Attaching disk to VM\n")
+	lg.Infof("\t[-] Attaching disk to VM\n")
 	command = fmt.Sprintf("qm set \"%v\" --scsi0 \"%v:%v,discard=on\"", VM_ID, CEPH_POOL, MAIN_DISK_NAME)
-	log.Printf("\t\t> %v \n", command)
+	lg.Infof("\t\t> %v \n", command)
 
 	stdout, err = comp_ssh.Run(command)
 	if err != nil {
@@ -770,9 +777,9 @@ Reinstall: %v
 	}
 
 	//! Resizing VM root disk to target size
-	log.Printf("\t[-] Resizing VM root disk to target size\n")
+	lg.Infof("\t[-] Resizing VM root disk to target size\n")
 	command = fmt.Sprintf("qm resize \"%v\" scsi0 \"%v\"", VM_ID, fmt.Sprintf("%vG", options.Disk_GB))
-	log.Printf("\t\t> %v \n", command)
+	lg.Infof("\t\t> %v \n", command)
 
 	stdout, err = comp_ssh.Run(command)
 	if err != nil {
@@ -780,18 +787,18 @@ Reinstall: %v
 	}
 
 	if options.SecondaryDisk_GB > 0 {
-		log.Printf("\t[-] Creating secondary disk\n")
+		lg.Infof("\t[-] Creating secondary disk\n")
 		diskName := fmt.Sprintf("vm-%v-disk-3", VM_ID)
 
 		allocCmd := fmt.Sprintf("pvesm alloc vmnorm %v %s %vG", VM_ID, diskName, options.SecondaryDisk_GB)
-		log.Printf("\t\t> %v \n", allocCmd)
+		lg.Infof("\t\t> %v \n", allocCmd)
 		stdout, err = comp_ssh.Run(allocCmd)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot create secondary disk: %v\nOutput:\n%s", err, stdout)
 		}
 
 		attachCmd := fmt.Sprintf("qm set %v --scsi3 vmnorm:%s", VM_ID, diskName)
-		log.Printf("\t\t> %v \n", attachCmd)
+		lg.Infof("\t\t> %v \n", attachCmd)
 		stdout, err = comp_ssh.Run(attachCmd)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot attach secondary disk: %v\nOutput:\n%s", err, stdout)
@@ -799,9 +806,9 @@ Reinstall: %v
 	}
 
 	//! Appending cloudinit fragments to VM configuration
-	log.Printf("\t[-] Appending cloudinit fragments to VM configuration\n")
+	lg.Infof("\t[-] Appending cloudinit fragments to VM configuration\n")
 	command = fmt.Sprintf("cat \"%v\" >> \"%v\"", VM_CLOUDINIT_PATH, VM_CONFIG_PATH)
-	log.Printf("\t\t> %v \n", command)
+	lg.Infof("\t\t> %v \n", command)
 
 	stdout, err = comp_ssh.Run(command)
 	if err != nil {
@@ -809,9 +816,9 @@ Reinstall: %v
 	}
 
 	//! Creating Cloudinit disk
-	log.Printf("\t[-] Creating Cloudinit disk\n")
+	lg.Infof("\t[-] Creating Cloudinit disk\n")
 	command = fmt.Sprintf("qm set \"%v\" -scsi2 \"%v:cloudinit\"", VM_ID, CEPH_POOL)
-	log.Printf("\t\t> %v \n", command)
+	lg.Infof("\t\t> %v \n", command)
 
 	stdout, err = comp_ssh.Run(command)
 	if err != nil {
@@ -819,9 +826,9 @@ Reinstall: %v
 	}
 
 	//! Adding SSH keys to machine
-	log.Printf("\t[-] Adding SSH keys to machine\n")
+	lg.Infof("\t[-] Adding SSH keys to machine\n")
 	command = fmt.Sprintf("qm set \"%v\" --sshkey \"%v\"", VM_ID, VM_AUTHORIZED_KEYS_PATH)
-	log.Printf("\t\t> %v \n", command)
+	lg.Infof("\t\t> %v \n", command)
 
 	stdout, err = comp_ssh.Run(command)
 	if err != nil {
@@ -830,7 +837,7 @@ Reinstall: %v
 
 	//! Append network configuration to VM configuration
 	// ? For some reason, running the previous commands erases the network config entry, so we append it here, after running the aforementioned commands
-	log.Printf("\t[-] Appending network configuration to VM configuration\n")
+	lg.Infof("\t[-] Appending network configuration to VM configuration\n")
 	net0config := fmt.Sprintf("net0: %v=%v,bridge=vmbr1,rate=125", VM_NETMODEL, VM_MACADDR)
 	command = fmt.Sprintf("echo \"%v\" >> \"%v\"", net0config, VM_CONFIG_PATH)
 	stdout, err = comp_ssh.Run(command)
@@ -839,9 +846,9 @@ Reinstall: %v
 	}
 
 	//! Booting VM
-	log.Printf("\t[-] Booting VM\n")
+	lg.Infof("\t[-] Booting VM\n")
 	command = fmt.Sprintf("qm start \"%v\"", VM_ID)
-	log.Printf("\t\t> %v \n", command)
+	lg.Infof("\t\t> %v \n", command)
 
 	vm_boot_start_timestamp := time.Now()
 
@@ -851,7 +858,7 @@ Reinstall: %v
 	}
 
 	//! Wait for VM to be reachable
-	log.Println("\t[-] Waiting for VM to complete first setup")
+	lg.Info("\t[-] Waiting for VM to complete first setup")
 	COMP_VM_BOOT_LOG_PATH := fmt.Sprintf("/tmp/%v.vmwiz.boot.log", VM_ID)
 	COMP_QEMU_VM_BOOT_LOG_PATH := fmt.Sprintf("/var/run/qemu-server/%v.serial0", VM_ID)
 	comp_boot_log_file, err := comp_sftp.Create(COMP_VM_BOOT_LOG_PATH)
@@ -862,7 +869,7 @@ Reinstall: %v
 	defer comp_boot_log_file.Close()
 
 	// Tailing VM's QEMU log file on Comp node
-	log.Printf("\t\t[-] Waiting for boot to complete by tailing QEMU's boot log on Comp node at '%v'\n", COMP_QEMU_VM_BOOT_LOG_PATH)
+	lg.Infof("\t\t[-] Waiting for boot to complete by tailing QEMU's boot log on Comp node at '%v'\n", COMP_QEMU_VM_BOOT_LOG_PATH)
 	session, err := comp_ssh.NewSession()
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Comp node SSH: Failed to create session: %v", err)
@@ -875,7 +882,7 @@ Reinstall: %v
 	}
 
 	command = fmt.Sprintf("socat -u \"%v\" -", COMP_QEMU_VM_BOOT_LOG_PATH)
-	log.Printf("\t\t> %v\n", command)
+	lg.Infof("\t\t> %v\n", command)
 	if err := session.Start(command); err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Comp node SSH: Failed to start tailing qemu log: %v", err)
 	}
@@ -888,7 +895,7 @@ Reinstall: %v
 		lines_read++
 		line := scanner.Text()
 		if time.Since(last_line_timestamp) >= 30*time.Second {
-			log.Printf("\t\t VM still booting. Elapsed: %v seconds", int(time.Since(vm_boot_start_timestamp).Seconds()))
+			lg.Infof("\t\t VM still booting. Elapsed: %v seconds", int(time.Since(vm_boot_start_timestamp).Seconds()))
 			last_line_timestamp = time.Now()
 		}
 		// Append to file
@@ -901,16 +908,16 @@ Reinstall: %v
 			break
 		}
 	}
-	log.Println("\t\t [X] VM has completed first boot in ", int(time.Since(vm_boot_start_timestamp).Seconds()), " seconds")
+	lg.Infof("\t\t [X] VM has completed first boot in %d seconds", int(time.Since(vm_boot_start_timestamp).Seconds()))
 
 	// Check for any scanning error
 	if err := scanner.Err(); err != nil {
-		log.Fatalf("Error reading output: %v", err)
+		lg.Errorf("Error reading output: %v", err)
 	}
 
 	//! Copying VM's boot log file from Comp to CM
-	log.Printf("[-] Copying VM's boot log file from Comp node to CM at '%v'\n", COMP_VM_BOOT_LOG_PATH)
-	log.Println("\t[-] Reading VM's boot log file from Comp node")
+	lg.Infof("[-] Copying VM's boot log file from Comp node to CM at '%v'\n", COMP_VM_BOOT_LOG_PATH)
+	lg.Info("\t[-] Reading VM's boot log file from Comp node")
 	comp_boot_log_file.Close()
 	comp_boot_log_file, err = comp_sftp.Open(COMP_VM_BOOT_LOG_PATH)
 	if err != nil {
@@ -924,7 +931,7 @@ Reinstall: %v
 	}
 
 	CM_VM_BOOT_LOG_PATH_CM := fmt.Sprintf("/tmp/%v.vmwiz.boot.log", VM_ID)
-	log.Printf("\t[-] Writing VM's boot log file to CM at '%v'\n", CM_VM_BOOT_LOG_PATH_CM)
+	lg.Infof("\t[-] Writing VM's boot log file to CM at '%v'\n", CM_VM_BOOT_LOG_PATH_CM)
 	cm_sftp_bootlog_cm, err := cm_sftp.Create(CM_VM_BOOT_LOG_PATH_CM)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: CM node SFTP: Failed to create file '%v': %v", CM_VM_BOOT_LOG_PATH_CM, err)
@@ -935,10 +942,10 @@ Reinstall: %v
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: CM node SFTP: Failed to write to file '%v': %v", CM_VM_BOOT_LOG_PATH_CM, err)
 	}
-	// log.Println(string(comp_sftp_bootlog_content))
+	// lg.Info(string(comp_sftp_bootlog_content))
 
 	//! Adding VM ssh public key to CM known hosts file
-	log.Printf("\t[-] Generating VM SSH fingerprints\n")
+	lg.Infof("\t[-] Generating VM SSH fingerprints\n")
 	cm_ssh, err := createCMSSHClient()
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Generating VM SSH fingerprints: Failed to create CM SSH client: %v", err)
@@ -949,7 +956,7 @@ Reinstall: %v
 	command = fmt.Sprintf("ssh-keygen -f \"/root/.ssh/known_hosts\" -R \"%v\"", ipv6s_str[0])
 	_, _ = cm_ssh.Run(command)
 
-	log.Printf("\t\t[-] Extracting VM pubkeys from boot log\n")
+	lg.Infof("\t\t[-] Extracting VM pubkeys from boot log\n")
 	vm_pubkeys_regex, err := regexp.Compile("-----BEGIN SSH HOST KEY KEYS-----([\\s\\S]*)-----END SSH HOST KEY KEYS-----")
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Generating VM SSH fingerprints: Failed to compile regex: %v", err)
@@ -978,9 +985,9 @@ Reinstall: %v
 	ssh_ed_25519_pubkey = strings.Join(ssh_ed_25519_pubkey_parts[:2], " ")
 
 	// Append to CM known hosts file
-	log.Printf("\t\t[-] Appending VM SSH ed25519 pubkey to CM's known hosts\n")
+	lg.Infof("\t\t[-] Appending VM SSH ed25519 pubkey to CM's known hosts\n")
 	command = "echo \"" + options.FQDN + "," + ipv4s_str[0] + "," + ipv6s_str[0] + " " + ssh_ed_25519_pubkey + "\" >> /root/.ssh/known_hosts"
-	log.Printf("\t\t> %v\n", command)
+	lg.Infof("\t\t> %v\n", command)
 	_, err = cm_ssh.Run(command)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Generating VM SSH fingerprints: Failed to append fingerprints to known hosts: %v", err)
@@ -993,7 +1000,7 @@ Reinstall: %v
 		}
 		for _, hash_algo := range []string{"sha256", "md5"} {
 			command = fmt.Sprintf("echo '%v' | ssh-keygen -f - -l -E %v | awk '{print $2}'", pubkey, hash_algo)
-			log.Printf("\t\t> %v\n", command)
+			lg.Infof("\t\t> %v\n", command)
 			stdout, err = cm_ssh.Run(command)
 			if err != nil {
 				return nil, nil, fmt.Errorf("Failed to create VM: Generating VM SSH fingerprints: Failed to get fingerprint: %v", err)
@@ -1005,10 +1012,9 @@ Reinstall: %v
 	}
 
 	//! Prepare VM post-install script
-	POST_INSTALL_SCRIPT_TEMPLATE_PATH := fmt.Sprintf("%sproxmox/vm_finish_script.sh.tmpl", config.AppConfig.PATH_PREFIX)
-	log.Printf("\t[-] Preparing VM post-install script from template '%v'\n", POST_INSTALL_SCRIPT_TEMPLATE_PATH)
+	lg.Infof("\t[-] Preparing VM post-install script from template\n")
 	vm_finish_script_content := new(bytes.Buffer)
-	post_install_template, err := template.ParseFiles(POST_INSTALL_SCRIPT_TEMPLATE_PATH)
+	post_install_template, err := template.ParseFS(templatesFS, "vm_finish_script.sh.tmpl")
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Failed to parse template: %v", err)
 	}
@@ -1030,11 +1036,11 @@ Reinstall: %v
 	}
 
 	//! Upload post-install script to VM
-	log.Printf("\t[-] Uploading post-install script to VM\n")
+	lg.Infof("\t[-] Uploading post-install script to VM\n")
 	POST_INSTALL_SCRIPT_PATH_CM := fmt.Sprintf("/tmp/%v-vmwiz-post-install.sh", VM_ID)
 	POST_INSTALL_SCRIPT_PATH_VM := fmt.Sprintf("/home/%v/vmwiz-post-install.sh", ssh_user)
 	POST_INSTALL_LOG_PATH_CM := fmt.Sprintf("/tmp/%v-vmwiz-post-install.log", VM_ID)
-	log.Printf("\t\t[-] Creating post-install script to CM first at %v\n", POST_INSTALL_SCRIPT_PATH_CM)
+	lg.Infof("\t\t[-] Creating post-install script to CM first at %v\n", POST_INSTALL_SCRIPT_PATH_CM)
 	cm_sftp_postinstall, err := cm_sftp.Create(POST_INSTALL_SCRIPT_PATH_CM)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: CM SFTP: Failed to create file '%v': %v", POST_INSTALL_SCRIPT_PATH_CM, err)
@@ -1047,21 +1053,21 @@ Reinstall: %v
 		return nil, nil, fmt.Errorf("Failed to create VM: CM SFTP: Failed to write to file '%v': %v", POST_INSTALL_SCRIPT_PATH_CM, err)
 	}
 
-	log.Printf("\t\t[-] Copying post-install script from CM to VM\n")
+	lg.Infof("\t\t[-] Copying post-install script from CM to VM\n")
 	command = fmt.Sprintf("scp %v %v@%v:%v", POST_INSTALL_SCRIPT_PATH_CM, ssh_user, ipv4s_str[0], POST_INSTALL_SCRIPT_PATH_VM)
-	log.Printf("\t\t> %v\n", command)
+	lg.Infof("\t\t> %v\n", command)
 	_, err = cm_ssh.Run(command)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: CM SSH: Failed to copy post-install script to VM: %v\nOutput:\n%s", err, stdout)
 	}
 
 	//! Execute post-install script on VM
-	log.Printf("\t[-] Executing post-install script on VM\n")
+	lg.Infof("\t[-] Executing post-install script on VM\n")
 
-	log.Printf("\t\t[-] Running post-install script on VM\n")
+	lg.Infof("\t\t[-] Running post-install script on VM\n")
 	defer cm_sftp.Remove(POST_INSTALL_LOG_PATH_CM)
 	command = fmt.Sprintf("ssh \"%v@%v\" \"chmod +x %v && sudo %v | sudo tee %v\"", ssh_user, ipv4s_str[0], POST_INSTALL_SCRIPT_PATH_VM, POST_INSTALL_SCRIPT_PATH_VM, POST_INSTALL_LOG_PATH_CM)
-	log.Printf("\t\t> %v\n", command)
+	lg.Infof("\t\t> %v\n", command)
 	stdout, err = cm_ssh.Run(command)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Failed to run post-install script on VM: %v\nStdout: %v", err, string(stdout))
@@ -1105,7 +1111,7 @@ Reinstall: %v
 	//! Add VM to resource pool
 	err = AddVMToResourcePool(vm.Vmid, options.ResourcePool)
 	if err != nil {
-		log.Printf("Failed to create VM: Add VM to resource pool: %v", err)
+		lg.Infof("Failed to create VM: Add VM to resource pool: %v", err)
 	}
 
 	description := "VM created by vm-wizard\n\n"
@@ -1114,7 +1120,7 @@ Reinstall: %v
 	}
 	err = OverWriteVMDescription(comp_node_name, VM_ID, description)
 	if err != nil {
-		log.Printf("Failed to set VM description: %v\n", err)
+		lg.Infof("Failed to set VM description: %v\n", err)
 	}
 
 	summary := VMCreationSummary{
@@ -1131,7 +1137,7 @@ Reinstall: %v
 		secondary_disk_gb: options.SecondaryDisk_GB,
 		fingerprint:       vm_fingerprints,
 	}
-	log.Println(summary.String())
+	lg.Info(summary.String())
 
 	return vm, &summary, nil
 }

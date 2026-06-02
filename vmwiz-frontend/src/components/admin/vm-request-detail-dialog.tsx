@@ -3,15 +3,10 @@
 import { useState } from "react";
 import { formatDate } from "@/lib/utils";
 import {
-    acceptVMRequest,
     prepareAcceptVMRequest,
-    rejectVMRequest,
     prepareRejectVMRequest,
-    holdVMRequest,
     prepareHoldVMRequest,
-    unholdVMRequest,
     prepareUnholdVMRequest,
-    editVMRequest,
     prepareEditVMRequest,
 } from "@/lib/api";
 import type {
@@ -369,9 +364,10 @@ export function RequestDetailDialog({
                                 <Check className="size-3.5" />
                                 Accept
                             </Button>
-                            <Button 
+                            <Button
                                 variant="outline"
-                                onClick={() => setHoldDialogOpen(true)}>
+                                onClick={() => setHoldDialogOpen(true)}
+                            >
                                 <Check className="size-3.5" />
                                 Hold
                             </Button>
@@ -380,10 +376,11 @@ export function RequestDetailDialog({
 
                     {isHold && (
                         <DialogFooter>
-                            <Button 
+                            <Button
                                 variant="outline"
-                                onClick={() => setUnholdDialogOpen(true)}>
-                            <Check className="size-3.5" />
+                                onClick={() => setUnholdDialogOpen(true)}
+                            >
+                                <Check className="size-3.5" />
                                 Unhold
                             </Button>
                         </DialogFooter>
@@ -394,12 +391,7 @@ export function RequestDetailDialog({
             <FetchDialog
                 open={acceptDialogOpen}
                 onOpenChange={setAcceptDialogOpen}
-                fetchFn={(onConfirm) =>
-                    acceptVMRequest(request.ID, onConfirm).then((data) => ({
-                        data,
-                    }))
-                }
-                requestInfo={prepareAcceptVMRequest(request.ID)}
+                request={prepareAcceptVMRequest(request.ID)}
                 title="Accept VM Request"
                 description={`You are about to accept request #${request.ID} for "${request.Hostname}". This will provision the VM.`}
                 proceedLabel="Accept"
@@ -413,12 +405,7 @@ export function RequestDetailDialog({
             <FetchDialog
                 open={rejectDialogOpen}
                 onOpenChange={setRejectDialogOpen}
-                fetchFn={(onConfirm) =>
-                    rejectVMRequest(request.ID, onConfirm).then((data) => ({
-                        data,
-                    }))
-                }
-                requestInfo={prepareRejectVMRequest(request.ID)}
+                request={prepareRejectVMRequest(request.ID)}
                 title="Reject VM Request"
                 description={`You are about to reject request #${request.ID} for "${request.Hostname}". This action cannot be undone.`}
                 proceedLabel="Reject"
@@ -433,12 +420,7 @@ export function RequestDetailDialog({
             <FetchDialog
                 open={holdDialogOpen}
                 onOpenChange={setHoldDialogOpen}
-                fetchFn={(onConfirm) =>
-                    holdVMRequest(request.ID, onConfirm).then((data) => ({
-                        data,
-                    }))
-                }
-                requestInfo={prepareHoldVMRequest(request.ID)}
+                request={prepareHoldVMRequest(request.ID)}
                 title="Hold VM Request"
                 description={`You are about to hold #${request.ID} for "${request.Hostname}".`}
                 proceedLabel="Hold"
@@ -452,12 +434,7 @@ export function RequestDetailDialog({
             <FetchDialog
                 open={unholdDialogOpen}
                 onOpenChange={setUnholdDialogOpen}
-                fetchFn={(onConfirm) =>
-                    unholdVMRequest(request.ID, onConfirm).then((data) => ({
-                        data,
-                    }))
-                }
-                requestInfo={prepareUnholdVMRequest(request.ID)}
+                request={prepareUnholdVMRequest(request.ID)}
                 title="Unhold VM Request"
                 description={`You are about to free #${request.ID} for "${request.Hostname}".`}
                 proceedLabel="Unhold"
@@ -471,14 +448,7 @@ export function RequestDetailDialog({
             <FetchDialog
                 open={editDialogOpen}
                 onOpenChange={setEditDialogOpen}
-                fetchFn={(onConfirm) =>
-                    editVMRequest(request.ID, editPayload, onConfirm).then(
-                        (data) => ({
-                            data,
-                        }),
-                    )
-                }
-                requestInfo={prepareEditVMRequest(request.ID, editPayload)}
+                request={prepareEditVMRequest(request.ID, editPayload)}
                 title="Save Changes"
                 description={`Save the modified fields for request #${request.ID}?`}
                 proceedLabel="Save"

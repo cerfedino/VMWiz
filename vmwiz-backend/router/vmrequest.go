@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/confirmation"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/form"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/notifier"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/storage"
@@ -21,7 +23,7 @@ import (
 // AcceptVMRequest marks a VM request as accepted, creates the VM,
 // sends notifications, and emails the requester.
 // Returns an ErrorBundle if any step fails.
-func AcceptVMRequest(id int64) *ErrorBundle {
+func AcceptVMRequest(ctx context.Context, id int64) *ErrorBundle {
 	request, err := storage.DB.GetVMRequestById(id)
 
 	if err != nil {
@@ -29,7 +31,7 @@ func AcceptVMRequest(id int64) *ErrorBundle {
 	}
 
 	request.RequestStatus = storage.REQUEST_STATUS_ACCEPTED
-	err = notifier.NotifyVMRequestStatusChanged(*request, "Creating VM now, it'll take a while ...")
+	err = notifier.NotifyVMRequestStatusChanged(ctx, *request, "Creating VM now, it'll take a while ...")
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM request status change")
 	}
@@ -46,9 +48,9 @@ func AcceptVMRequest(id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to update VM request status")
 	}
 
-	_, summary, err := proxmox.CreateVM(*opts)
+	_, summary, err := proxmox.CreateVM(ctx, *opts)
 	if err != nil {
-		err2 := notifier.NotifyVMCreationUpdate(fmt.Sprintf("Request %d: Error creating VM:\n%v", id, "```\n"+err.Error()+"\n```"))
+		err2 := notifier.NotifyVMCreationUpdate(ctx, fmt.Sprintf("Request %d: Error creating VM:\n%v", id, "```\n"+err.Error()+"\n```"))
 		if err2 != nil {
 			return SimpleError(err2, "Failed to notify VM creation update")
 		}
@@ -62,9 +64,9 @@ func AcceptVMRequest(id int64) *ErrorBundle {
 	}
 
 	successMsg := fmt.Sprintf("Request %v: VM %s created successfully:\n%s", request.ID, opts.FQDN, "```\n"+summary.String()+"\n```")
-	fmt.Println(successMsg)
+	logger.From(ctx).Info(successMsg)
 
-	err = notifier.NotifyVMCreationUpdate(successMsg)
+	err = notifier.NotifyVMCreationUpdate(ctx, successMsg)
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM creation update")
 	}
@@ -95,7 +97,7 @@ func RejectVMRequest(id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
 
-	err = notifier.NotifyVMRequestStatusChanged(*request, "")
+	err = notifier.NotifyVMRequestStatusChanged(context.Background(), *request, "")
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM request status change")
 	}
@@ -127,7 +129,7 @@ func HoldVMRequest(id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
 
-	err = notifier.NotifyVMRequestStatusChanged(*request, "")
+	err = notifier.NotifyVMRequestStatusChanged(context.Background(), *request, "")
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM request status change")
 	}
@@ -159,7 +161,7 @@ func UnholdVMRequest(id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
 
-	err = notifier.NotifyVMRequestStatusChanged(*request, "")
+	err = notifier.NotifyVMRequestStatusChanged(context.Background(), *request, "")
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM request status change")
 	}
@@ -207,7 +209,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		err = notifier.NotifyVMRequest(*req)
+		err = notifier.NotifyVMRequest(context.Background(), *req)
 		if err != nil {
 			log.Printf("Failed to send notification: %v", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -249,12 +251,19 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		eb := AcceptVMRequest(int64(body.ID))
+		ctx, lg, finish := logger.Nest(context.Background(), fmt.Sprintf("Accept VM request %d", body.ID))
+		// Set the Log Scope header such that the frontend can stream the live logs immediately.
+		w.Header().Set("X-Log-Scope-Id", lg.ScopeID())
+		w.WriteHeader(http.StatusAccepted)
 
-		if eb != nil {
-			http.Error(w, eb.UserMsg, eb.HttpCode)
-			return
-		}
+		go func() {
+			eb := AcceptVMRequest(ctx, int64(body.ID))
+			if eb != nil {
+				finish(eb.Err)
+			} else {
+				finish(nil)
+			}
+		}()
 
 	}))))
 

@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 
 import {
     FetchError,
+    fetchBackend,
     type OnConfirmCallback,
     type BackendRequest,
 } from "@/lib/api";
@@ -24,6 +25,7 @@ import {
     type ResponseInfo,
 } from "@/components/request-debug-panel";
 import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import { LogStream } from "@/components/log-stream";
 
 class CancelledError extends Error {
     constructor() {
@@ -32,7 +34,13 @@ class CancelledError extends Error {
     }
 }
 
-type Phase = "idle" | "loading" | "confirming" | "success" | "error";
+type Phase =
+    | "idle"
+    | "loading"
+    | "confirming"
+    | "streaming"
+    | "success"
+    | "error";
 
 function PhaseIcon({ phase }: { phase: Phase }) {
     const base =
@@ -47,6 +55,7 @@ function PhaseIcon({ phase }: { phase: Phase }) {
                 </div>
             );
         case "loading":
+        case "streaming":
             return (
                 <div className={cn(base, "bg-muted")}>
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -73,15 +82,11 @@ interface FetchDialogProps {
     onOpenChange: (open: boolean) => void;
 
     /**
-     * The fetch function that performs the actual request.
-     * The dialog injects its `onConfirmRequired` callback so it can show the confirmation prompt if needed.
+     * The request to perform, built by a prepare* helper from api.ts.
+     * The dialog handles confirmation and async log streaming on its own transparently.
+     * Callers shape success/error via successContent/onSuccess/onError.
      */
-    fetchFn: (
-        onConfirmRequired: OnConfirmCallback,
-    ) => Promise<{ data: unknown }>;
-
-    /** Optional request metadata shown in the debug info panel. Built by prepare* helpers from api.ts. */
-    requestInfo?: BackendRequest;
+    request: BackendRequest;
 
     title: string;
     description?: string;
@@ -124,8 +129,7 @@ interface FetchDialogProps {
 export function FetchDialog({
     open,
     onOpenChange,
-    fetchFn,
-    requestInfo,
+    request,
     title,
     description,
     successDescription = "Completed successfully",
@@ -144,6 +148,7 @@ export function FetchDialog({
     const [confirmInput, setConfirmInput] = useState("");
     const [expectedToken, setExpectedToken] = useState("");
     const [successData, setSuccessData] = useState<unknown>(undefined);
+    const [logScopeId, setLogScopeId] = useState<string | null>(null);
     const [responseInfo, setResponseInfo] = useState<ResponseInfo | undefined>(
         undefined,
     );
@@ -162,6 +167,7 @@ export function FetchDialog({
                 setConfirmInput("");
                 setExpectedToken("");
                 setSuccessData(undefined);
+                setLogScopeId(null);
                 setResponseInfo(undefined);
                 pendingConfirmation.current = null;
             }, 150);
@@ -189,15 +195,25 @@ export function FetchDialog({
         setResponseInfo(undefined);
 
         try {
-            const { data } = await fetchFn(onConfirmRequired);
+            const { data, original } = await fetchBackend(request, {
+                onConfirmRequired,
+            });
+            const logScopeId = original.headers.get("X-Log-Scope-Id");
             setResponseInfo({
-                status: 200,
+                status: original.status,
                 body:
                     data !== undefined
                         ? JSON.stringify(data, null, 2)
                         : undefined,
             });
             setSuccessData(data);
+            // If the backend kicked off an async task, stream its logs and
+            // defer success until it finishes.
+            if (logScopeId) {
+                setLogScopeId(logScopeId);
+                setPhase("streaming");
+                return;
+            }
             setPhase("success");
             onSuccess?.(data);
         } catch (err) {
@@ -225,7 +241,7 @@ export function FetchDialog({
             setErrorMessage(error.message);
             setPhase("error");
         }
-    }, [fetchFn, onConfirmRequired, onSuccess, onError, onOpenChange]);
+    }, [request, onConfirmRequired, onSuccess, onError, onOpenChange]);
 
     const hasFired = useRef(false);
     // Handle auto-fire the request when the dialog is opened and `immediate` is true
@@ -264,6 +280,7 @@ export function FetchDialog({
         idle: description,
         loading: "Please wait...",
         confirming: (description ?? "") + " This action requires confirmation",
+        streaming: "Running, streaming live logs...",
         success: successDescription,
         error: errorMessage ?? "Something went wrong.",
     };
@@ -292,7 +309,9 @@ export function FetchDialog({
         >
             <DialogContent
                 showCloseButton={false}
-                className="max-h-[50vh] flex flex-col"
+                className={cn(
+                    logScopeId ? "sm:max-w-3xl" : "flex max-h-[50vh] flex-col",
+                )}
             >
                 <DialogHeader>
                     {showIcon && <PhaseIcon phase={phase} />}
@@ -309,6 +328,26 @@ export function FetchDialog({
                         {successContent(successData)}
                     </div>
                 )}
+
+                {logScopeId &&
+                    (phase === "streaming" ||
+                        phase === "success" ||
+                        phase === "error") && (
+                        <LogStream
+                            logScopeId={logScopeId}
+                            onDone={(failed) => {
+                                if (failed) {
+                                    setErrorMessage(
+                                        "Operation failed. See logs above.",
+                                    );
+                                    setPhase("error");
+                                } else {
+                                    setPhase("success");
+                                    onSuccess?.(successData);
+                                }
+                            }}
+                        />
+                    )}
 
                 {phase === "confirming" && (
                     <div className="space-y-2 py-2">
@@ -344,7 +383,7 @@ export function FetchDialog({
 
                 {/*Collapsible panel showing request info*/}
                 <RequestDebugPanel
-                    requestInfo={requestInfo}
+                    requestInfo={request}
                     responseInfo={responseInfo}
                 />
 
@@ -382,7 +421,9 @@ export function FetchDialog({
                         </>
                     )}
 
-                    {(phase === "success" || phase === "error") && (
+                    {(phase === "success" ||
+                        phase === "error" ||
+                        phase === "streaming") && (
                         <Button
                             variant="outline"
                             onClick={() => onOpenChange(false)}

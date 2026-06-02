@@ -17,11 +17,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { FetchDialog } from "@/components/fetch-dialog";
-import {
-    submitVMRequest,
-    prepareSubmitVMRequest,
-    ValidationError,
-} from "@/lib/api";
+import { prepareSubmitVMRequest, FetchError } from "@/lib/api";
+import type { VMRequestValidationErrors } from "@/lib/types/api";
 import { Plus, Minus, RotateCcw } from "lucide-react";
 
 function FieldError({ message }: { message?: string }) {
@@ -45,9 +42,11 @@ export function VMRequestForm() {
     }
 
     function handleError(err: Error): boolean {
-        // if we get a ValidationError, we handle it
-        if (err instanceof ValidationError) {
-            setValidationErrors(err.errors);
+        // Handle validation errors
+        if (err instanceof FetchError && err.response.status === 403) {
+            setValidationErrors(
+                JSON.parse(err.message) as Partial<VMRequestValidationErrors>,
+            );
             return true;
         }
         // Otherwise we let the FetchDialog show the error
@@ -59,13 +58,7 @@ export function VMRequestForm() {
             <FetchDialog
                 open={dialogOpen}
                 onOpenChange={setDialogOpen}
-                fetchFn={(onConfirm) =>
-                    submitVMRequest(
-                        values as unknown as Record<string, unknown>,
-                        onConfirm,
-                    ).then((data) => ({ data }))
-                }
-                requestInfo={prepareSubmitVMRequest(
+                request={prepareSubmitVMRequest(
                     values as unknown as Record<string, unknown>,
                 )}
                 immediate

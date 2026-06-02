@@ -47,5 +47,7 @@ func Router() *mux.Router {
 
 	addAllAuthRoutes(r)
 
+	addLogRoutes(r)
+
 	return r
 }

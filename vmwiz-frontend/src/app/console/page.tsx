@@ -3,6 +3,8 @@
 import { useAuth } from "@/context/auth";
 import { Separator } from "@/components/ui/separator";
 import { VMDelete } from "@/components/admin/vm-delete";
+import { DnsDelete } from "@/components/admin/dns-delete";
+import { LogScopesMenu } from "@/components/admin/log-scopes-menu";
 import { SurveyAdmin } from "@/components/admin/survey-admin";
 import { VMRequestAdmin } from "@/components/admin/vm-request-admin";
 import { ClipboardList, BarChart3, Trash2, User, Server } from "lucide-react";
@@ -22,6 +24,7 @@ export default function ConsolePage() {
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold">Admin Console</h1>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <LogScopesMenu />
                     {typeof freeIPs === "number" && (
                         <div className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/50 px-2.5 py-1">
                             <Server className="h-3.5 w-3.5" />
@@ -50,6 +53,14 @@ export default function ConsolePage() {
                     Delete VM
                 </h2>
                 <VMDelete />
+            </section>
+
+            <section className="space-y-4">
+                <h2 className="flex items-center gap-2 text-lg font-semibold">
+                    <Trash2 className="h-5 w-5" />
+                    Delete DNS
+                </h2>
+                <DnsDelete />
             </section>
 
             <Separator className="opacity-30" />

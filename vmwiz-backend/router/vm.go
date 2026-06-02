@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -9,6 +10,7 @@ import (
 
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/confirmation"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"github.com/gorilla/mux"
@@ -45,45 +47,51 @@ func addAllVMRoutes(r *mux.Router) {
 			return
 		}
 
-		log.Printf("Found %v VM(s) across the cluster with name '%v'", len(*vms), body.Name)
+		// Create a new logging sub-scope
+		ctx, lg, finish := logger.Nest(context.Background(), fmt.Sprintf("Delete VM %s", body.Name))
+		w.Header().Set("X-Log-Scope-Id", lg.ScopeID())
+		w.WriteHeader(http.StatusAccepted)
 
-		var errors []string
-		for idx, vm := range *vms {
-			errprefix := fmt.Sprintf("[VM %v/%v]", idx, len(*vms))
-			err = proxmox.ForceStopNodeVM(vm.Node, vm.Vmid)
-			if err != nil {
-				errmsg := fmt.Sprintf("%v Failed to stop VM %v", errprefix, vm.Id)
-				log.Println(errmsg)
-				errors = append(errors, errmsg)
-				continue
-			}
+		go func() {
+			var failed error
+			// Make sure the logs for this scope are set to be finished once the function is over
+			defer func() { finish(failed) }()
 
-			err = proxmox.DeleteNodeVM(vm.Node, vm.Vmid, true, true, false)
-			if err != nil {
-				errmsg := fmt.Sprintf("%v Failed to delete VM %v", errprefix, vm.Id)
-				log.Println(errmsg)
-				errors = append(errors, errmsg)
-				continue
-			}
+			lg.Infof("Found %v VM(s) across the cluster with name '%v'", len(*vms), body.Name)
+			var errors []string
+			for idx, vm := range *vms {
+				errprefix := fmt.Sprintf("[VM %v/%v]", idx+1, len(*vms))
 
-			// delete netcenter entry
-			if body.DeleteDNS {
-				err = netcenter.DeleteDNSEntryByHostname(vm.Name)
-				if err != nil {
-					errmsg := fmt.Sprintf("%v Failed to delete DNS entry for VM %v", errprefix, vm.Id)
-					log.Println(errmsg)
-					errors = append(errors, errmsg)
+				lg.Infof("%v Stopping VM %v", errprefix, vm.Id)
+				if err := proxmox.ForceStopNodeVM(ctx, vm.Node, vm.Vmid); err != nil {
+					lg.Errorf("%v Failed to stop VM %v: %v", errprefix, vm.Id, err)
+					errors = append(errors, fmt.Sprintf("%v Failed to stop VM %v", errprefix, vm.Id))
 					continue
 				}
+
+				lg.Infof("%v Deleting VM %v", errprefix, vm.Id)
+				if err := proxmox.DeleteNodeVM(ctx, vm.Node, vm.Vmid, true, true, false); err != nil {
+					lg.Errorf("%v Failed to delete VM %v: %v", errprefix, vm.Id, err)
+					errors = append(errors, fmt.Sprintf("%v Failed to delete VM %v", errprefix, vm.Id))
+					continue
+				}
+
+				if body.DeleteDNS {
+					lg.Infof("%v Deleting DNS entry for VM %v", errprefix, vm.Id)
+					if err := netcenter.DeleteDNSEntryByHostname(ctx, vm.Name); err != nil {
+						lg.Errorf("%v Failed to delete DNS entry for VM %v: %v", errprefix, vm.Id, err)
+						errors = append(errors, fmt.Sprintf("%v Failed to delete DNS entry for VM %v", errprefix, vm.Id))
+						continue
+					}
+				}
 			}
-		}
 
-		if len(errors) > 0 {
-			http.Error(w, fmt.Sprintf("Errors while deleting some VMs: \n%v", strings.Join(errors, "\n")), http.StatusInternalServerError)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
+			if len(errors) > 0 {
+				failed = fmt.Errorf("errors while deleting some VMs:\n%s", strings.Join(errors, "\n"))
+			} else {
+				lg.Info("VM deletion completed successfully")
+			}
+		}()
 	}))))
 
 	r.Methods("GET").Path("/api/vm/ipv4free").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -94,7 +102,9 @@ func addAllVMRoutes(r *mux.Router) {
 			return
 		}
 
-		type Resp struct { Count int `json:"count"` }
+		type Resp struct {
+			Count int `json:"count"`
+		}
 		resp, _ := json.Marshal(Resp{Count: len(*free)})
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(resp)

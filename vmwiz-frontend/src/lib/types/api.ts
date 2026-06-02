@@ -6,6 +6,17 @@ export interface UnauthorizedResponse {
     redirectUrl: string;
 }
 
+/** A top-level log scope (an ongoing or completed operation). */
+export interface LogScope {
+    id: string;
+    label: string;
+    startedAt: string;
+    ended: boolean;
+    failed: boolean;
+    /** Whether the log file can be accessed or not (e.g has been deleted) */
+    available: boolean;
+}
+
 /** VM Request /api/vmrequest/* */
 
 export interface VMRequestFormData {
@@ -54,7 +65,7 @@ export interface VMRequestAllowedValues {
 
 /** GET /api/vmrequest */
 
-export type VMRequestStatus = "pending" | "accepted" | "rejected" | "hold" ;
+export type VMRequestStatus = "pending" | "accepted" | "rejected" | "hold";
 
 export interface VMRequest {
     ID: number;
