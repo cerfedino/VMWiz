@@ -182,6 +182,12 @@ func Nest(ctx context.Context, label string) (context.Context, *Logger, func(err
 	return context.WithValue(ctx, ctxKey{}, child), child, finish
 }
 
+// Reports whether the on-disk log file for a root scope is present
+func LogFileExists(rootID string) bool {
+	_, err := os.Stat(filepath.Join(Dir, rootID+".log"))
+	return err == nil
+}
+
 // ScopeFinished reports whether a scope has ended and whether it failed.
 func ScopeFinished(id string) (finished bool, failed bool) {
 	if store == nil {

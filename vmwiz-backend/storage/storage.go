@@ -103,6 +103,7 @@ type Storage interface {
 	LogScopeRootID(id string) (string, error)
 	LogScopeSubtreeIDs(id string) ([]string, error)
 	LogScopeFinished(id string) (finished bool, failed bool, err error)
+	ListRootScopes(beforeID string, limit int) ([]*SQLLogScope, error)
 }
 
 type postgresstorage struct {
@@ -321,6 +322,28 @@ func (s *postgresstorage) LogScopeFinished(id string) (bool, bool, error) {
 		return false, false, fmt.Errorf("LogScopeFinished: %s", err)
 	}
 	return endedAt.Valid, failed, nil
+}
+
+// Returns up to limit top-level scopes newest-first. IDs are time ordered so beforeID retrieved all logs created before the specified one
+func (s *postgresstorage) ListRootScopes(beforeID string, limit int) ([]*SQLLogScope, error) {
+	rows, err := s.db.Query(
+		`SELECT id, parent_id, root_id, label, started_at, ended_at, failed
+		 FROM log_scope WHERE id = root_id AND id <> $1 AND ($2 = '' OR id < $2)
+		 ORDER BY id DESC LIMIT $3`, SCOPE_ROOT, beforeID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("ListRootScopes: %s", err)
+	}
+	defer rows.Close()
+
+	scopes := []*SQLLogScope{}
+	for rows.Next() {
+		var sc SQLLogScope
+		if err := rows.Scan(&sc.ID, &sc.ParentID, &sc.RootID, &sc.Label, &sc.StartedAt, &sc.EndedAt, &sc.Failed); err != nil {
+			return nil, fmt.Errorf("ListRootScopes: %s", err)
+		}
+		scopes = append(scopes, &sc)
+	}
+	return scopes, nil
 }
 
 func (s *postgresstorage) LogScopeRootID(id string) (string, error) {

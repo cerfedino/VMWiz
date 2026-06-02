@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/storage"
 	"github.com/gorilla/mux"
 )
 
@@ -25,6 +27,46 @@ func parseTimeParam(r *http.Request, key string) (*time.Time, error) {
 }
 
 func addLogRoutes(r *mux.Router) {
+	// Lists the most recent top-level log scopes (ongoing and completed).
+	r.Methods("GET").Path("/api/logs").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		before := req.URL.Query().Get("before")
+		limit := 30
+		if n, err := strconv.Atoi(req.URL.Query().Get("limit")); err == nil && n > 0 && n <= 100 {
+			limit = n
+		}
+
+		scopes, err := storage.DB.ListRootScopes(before, limit)
+		if err != nil {
+			log.Printf("Failed to list log scopes: %v", err)
+			http.Error(w, "Failed to list log scopes", http.StatusInternalServerError)
+			return
+		}
+
+		type scopeResp struct {
+			ID        string    `json:"id"`
+			Label     string    `json:"label"`
+			StartedAt time.Time `json:"startedAt"`
+			Ended     bool      `json:"ended"`
+			Failed    bool      `json:"failed"`
+			Available bool      `json:"available"`
+		}
+		out := []scopeResp{}
+		for _, sc := range scopes {
+			out = append(out, scopeResp{
+				ID:        sc.ID,
+				Label:     sc.Label,
+				StartedAt: sc.StartedAt,
+				Ended:     sc.EndedAt.Valid,
+				Failed:    sc.Failed,
+				Available: logger.LogFileExists(sc.ID),
+			})
+		}
+
+		resp, _ := json.Marshal(out)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(resp)
+	})))
+
 	// Reads ALL of the logs from a scope (and optionally its subscopes, and in a specific date range)
 	r.Methods("GET").Path("/api/logs/{scope:[A-Za-z0-9_-]+}").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		scope := mux.Vars(req)["scope"]

@@ -1,4 +1,5 @@
 import {
+    LogScope,
     VMRequestAllowedValues,
     VMRequestListResponse,
     VMRequestEditFields,
@@ -148,6 +149,20 @@ export async function fetchBackend<T = void>(
  * Fetches the allowed values for VM requests (e.g. min/max CPU/RAM/Disk, OS Images, etc.) from the backend.
  * @returns The allowed values for VM requests, as provided by the backend
  */
+export async function fetchLogScopes(
+    before?: string,
+    limit = 30,
+): Promise<LogScope[]> {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (before) params.set("before", before);
+    const { data } = await fetchBackend<LogScope[]>({
+        path: `/api/logs?${params.toString()}`,
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+    });
+    return data;
+}
+
 export async function fetchVMOptions(): Promise<VMRequestAllowedValues> {
     const { data } = await fetchBackend<VMRequestAllowedValues>(
         prepareGetVMOptions(),
