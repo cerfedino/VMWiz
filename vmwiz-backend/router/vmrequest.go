@@ -31,7 +31,7 @@ func AcceptVMRequest(ctx context.Context, id int64) *ErrorBundle {
 	}
 
 	request.RequestStatus = storage.REQUEST_STATUS_ACCEPTED
-	err = notifier.NotifyVMRequestStatusChanged(*request, "Creating VM now, it'll take a while ...")
+	err = notifier.NotifyVMRequestStatusChanged(ctx, *request, "Creating VM now, it'll take a while ...")
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM request status change")
 	}
@@ -50,7 +50,7 @@ func AcceptVMRequest(ctx context.Context, id int64) *ErrorBundle {
 
 	_, summary, err := proxmox.CreateVM(ctx, *opts)
 	if err != nil {
-		err2 := notifier.NotifyVMCreationUpdate(fmt.Sprintf("Request %d: Error creating VM:\n%v", id, "```\n"+err.Error()+"\n```"))
+		err2 := notifier.NotifyVMCreationUpdate(ctx, fmt.Sprintf("Request %d: Error creating VM:\n%v", id, "```\n"+err.Error()+"\n```"))
 		if err2 != nil {
 			return SimpleError(err2, "Failed to notify VM creation update")
 		}
@@ -66,7 +66,7 @@ func AcceptVMRequest(ctx context.Context, id int64) *ErrorBundle {
 	successMsg := fmt.Sprintf("Request %v: VM %s created successfully:\n%s", request.ID, opts.FQDN, "```\n"+summary.String()+"\n```")
 	logger.From(ctx).Info(successMsg)
 
-	err = notifier.NotifyVMCreationUpdate(successMsg)
+	err = notifier.NotifyVMCreationUpdate(ctx, successMsg)
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM creation update")
 	}
@@ -97,7 +97,7 @@ func RejectVMRequest(id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
 
-	err = notifier.NotifyVMRequestStatusChanged(*request, "")
+	err = notifier.NotifyVMRequestStatusChanged(context.Background(), *request, "")
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM request status change")
 	}
@@ -129,7 +129,7 @@ func HoldVMRequest(id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
 
-	err = notifier.NotifyVMRequestStatusChanged(*request, "")
+	err = notifier.NotifyVMRequestStatusChanged(context.Background(), *request, "")
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM request status change")
 	}
@@ -161,7 +161,7 @@ func UnholdVMRequest(id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
 
-	err = notifier.NotifyVMRequestStatusChanged(*request, "")
+	err = notifier.NotifyVMRequestStatusChanged(context.Background(), *request, "")
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM request status change")
 	}
@@ -209,7 +209,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		err = notifier.NotifyVMRequest(*req)
+		err = notifier.NotifyVMRequest(context.Background(), *req)
 		if err != nil {
 			log.Printf("Failed to send notification: %v", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)

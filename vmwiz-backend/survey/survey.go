@@ -2,13 +2,14 @@ package survey
 
 import (
 	"bytes"
+	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"text/template"
 
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/notifier"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/storage"
@@ -17,7 +18,7 @@ import (
 
 // Creates a new VM Usage Survey in the database and sends out the emails to the users.
 // This function may return error if any email fails to send: in that case, the surveyId is still returned such that the missed emails can be retried later.
-func CreateVMUsageSurvey(restrict_pool []string) (*int64, error) {
+func CreateVMUsageSurvey(ctx context.Context, restrict_pool []string) (*int64, error) {
 	vms, err := generateSurveys(restrict_pool)
 	if err != nil {
 		return nil, err
@@ -30,7 +31,7 @@ func CreateVMUsageSurvey(restrict_pool []string) (*int64, error) {
 	}
 
 	// Notify about the new survey getting created
-	err = notifier.NotifyVMUsageSurvey(surveyId, fmt.Sprintf("Created new VM usage survey with ID %d", surveyId))
+	err = notifier.NotifyVMUsageSurvey(ctx, surveyId, fmt.Sprintf("Created new VM usage survey with ID %d", surveyId))
 	if err != nil {
 		return &surveyId, fmt.Errorf("Failed create VM usage survey: %v", err)
 	}
@@ -53,7 +54,7 @@ func CreateVMUsageSurvey(restrict_pool []string) (*int64, error) {
 
 		if err != nil {
 			msg := fmt.Sprintf("Failed create VM usage survey %v: Failed to estabilish all emails that need to be sent (Stopped at VM %v out of %v): %v", surveyId, idx, len(vms), err)
-			notifier.NotifyVMUsageSurvey(surveyId, msg)
+			notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)
 			return &surveyId, fmt.Errorf(msg)
 		}
 	}
@@ -62,11 +63,11 @@ func CreateVMUsageSurvey(restrict_pool []string) (*int64, error) {
 	surveyEmails, err := storage.DB.SurveyEmailGetAllNotAnsweredOrUnsentBySurveyID(surveyId)
 	if err != nil {
 		msg := fmt.Sprintf("Failed send VM usage survey %v: Failed to get all emails that need to be sent from db: %v", surveyId, err)
-		notifier.NotifyVMUsageSurvey(surveyId, msg)
+		notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)
 		return &surveyId, fmt.Errorf(msg)
 	}
 
-	err = sendVMUsageSurvey(surveyId, *surveyEmails)
+	err = sendVMUsageSurvey(ctx, surveyId, *surveyEmails)
 	if err != nil {
 		return &surveyId, fmt.Errorf("Failed create VM usage survey %v: Failed to send emails: %v", surveyId, err)
 	}
@@ -74,9 +75,9 @@ func CreateVMUsageSurvey(restrict_pool []string) (*int64, error) {
 	return &surveyId, nil
 }
 
-func RetryUnsentEmails(surveyId int64) error {
+func RetryUnsentEmails(ctx context.Context, surveyId int64) error {
 
-	err := notifier.NotifyVMUsageSurvey(surveyId, fmt.Sprintf("Retrying unsent emails for VM usage survey %d", surveyId))
+	err := notifier.NotifyVMUsageSurvey(ctx, surveyId, fmt.Sprintf("Retrying unsent emails for VM usage survey %d", surveyId))
 	if err != nil {
 		return fmt.Errorf("Failed to retry unsent emails for VM usage survey %v: %v", surveyId, err)
 	}
@@ -85,11 +86,11 @@ func RetryUnsentEmails(surveyId int64) error {
 	surveyEmails, err := storage.DB.SurveyEmailGetAllUnsentBySurveyID(surveyId)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to retry unsent emails for VM usage survey %v: Failed to get all emails that need to be sent from db: %v", surveyId, err)
-		notifier.NotifyVMUsageSurvey(surveyId, msg)
+		notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)
 		return fmt.Errorf(msg)
 	}
 
-	err = sendVMUsageSurvey(surveyId, *surveyEmails)
+	err = sendVMUsageSurvey(ctx, surveyId, *surveyEmails)
 	if err != nil {
 		return fmt.Errorf("Failed to retry unsent emails for VM usage survey %v: Failed to send emails: %v", surveyId, err)
 	}
@@ -97,9 +98,9 @@ func RetryUnsentEmails(surveyId int64) error {
 	return nil
 }
 
-func SendSurveyReminder(surveyId int64) error {
+func SendSurveyReminder(ctx context.Context, surveyId int64) error {
 
-	err := notifier.NotifyVMUsageSurvey(surveyId, fmt.Sprintf("Retrying unsent emails for VM usage survey %d", surveyId))
+	err := notifier.NotifyVMUsageSurvey(ctx, surveyId, fmt.Sprintf("Retrying unsent emails for VM usage survey %d", surveyId))
 	if err != nil {
 		return fmt.Errorf("Failed to retry unsent emails for VM usage survey %v: %v", surveyId, err)
 	}
@@ -108,11 +109,11 @@ func SendSurveyReminder(surveyId int64) error {
 	surveyEmails, err := storage.DB.SurveyEmailGetAllNotAnsweredBySurveyID(surveyId)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to retry unsent emails for VM usage survey %v: Failed to get all emails that need to be sent from db: %v", surveyId, err)
-		notifier.NotifyVMUsageSurvey(surveyId, msg)
+		notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)
 		return fmt.Errorf(msg)
 	}
 
-	err = sendVMUsageSurveyReminder(surveyId, *surveyEmails)
+	err = sendVMUsageSurveyReminder(ctx, surveyId, *surveyEmails)
 	if err != nil {
 		return fmt.Errorf("Failed to retry unsent emails for VM usage survey %v: Failed to send emails: %v", surveyId, err)
 	}
@@ -120,7 +121,7 @@ func SendSurveyReminder(surveyId int64) error {
 	return nil
 }
 
-func sendVMUsageSurveyReminder(surveyId int64, surveyEmails []storage.SQLUsageSurveyEmail) error {
+func sendVMUsageSurveyReminder(ctx context.Context, surveyId int64, surveyEmails []storage.SQLUsageSurveyEmail) error {
 	// Process the email template for VM Usage Survey
 	VMUSAGE_SURVEY_REMINDER_TEMPLATE_PATH := "survey/vmusage_survey_reminder.tmpl"
 	vmusage_survey_reminder_template, err := template.ParseFiles(VMUSAGE_SURVEY_REMINDER_TEMPLATE_PATH)
@@ -134,9 +135,9 @@ func sendVMUsageSurveyReminder(surveyId int64, surveyEmails []storage.SQLUsageSu
 		if emails_sent%10 == 0 {
 			// TODO: Startup check for checking production ^ SMTP disabled
 			if config.AppConfig.SMTP_ENABLE {
-				log.Printf("Sending emails ... (%v / %v)", emails_sent, len(surveyEmails))
+				logger.From(ctx).Infof("Sending emails ... (%v / %v)", emails_sent, len(surveyEmails))
 			} else {
-				log.Printf("Dry-run Sending emails ... (%v / %v) (SMTP disabled)", emails_sent, len(surveyEmails))
+				logger.From(ctx).Infof("Dry-run Sending emails ... (%v / %v) (SMTP disabled)", emails_sent, len(surveyEmails))
 			}
 		}
 
@@ -157,7 +158,7 @@ func sendVMUsageSurveyReminder(surveyId int64, surveyEmails []storage.SQLUsageSu
 		// TODO: Add startup check for checking wether we can send emails
 		err = notifier.SendEmail("VSOS VM Usage Survey: Reminder", mail_content.Bytes(), []string{surveyEmail.Recipient})
 		if err != nil {
-			log.Printf("Failed send VM usage survey reminder: Failed to send email: %v", err)
+			logger.From(ctx).Errorf("Failed send VM usage survey reminder: Failed to send email: %v", err)
 			continue
 		}
 
@@ -170,17 +171,17 @@ func sendVMUsageSurveyReminder(surveyId int64, surveyEmails []storage.SQLUsageSu
 		msg = fmt.Sprintf("Dry-run Sent %d reminder emails for VM usage survey %v (SMTP disabled)", emails_sent, surveyId)
 	}
 
-	log.Printf("[+] " + msg)
+	logger.From(ctx).Infof("[+] " + msg)
 
 	// Notify about the survey getting sent
-	err = notifier.NotifyVMUsageSurvey(surveyId, msg)
+	err = notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)
 	if err != nil {
 		return fmt.Errorf("Failed to send VM usage survey notification: %v", err)
 	}
 	return nil
 }
 
-func sendVMUsageSurvey(surveyId int64, surveyEmails []storage.SQLUsageSurveyEmail) error {
+func sendVMUsageSurvey(ctx context.Context, surveyId int64, surveyEmails []storage.SQLUsageSurveyEmail) error {
 	// Process the email template for VM Usage Survey
 	VMUSAGE_SURVEY_TEMPLATE_PATH := "survey/vmusage_survey.tmpl"
 	vmusage_survey_template, err := template.ParseFiles(VMUSAGE_SURVEY_TEMPLATE_PATH)
@@ -194,9 +195,9 @@ func sendVMUsageSurvey(surveyId int64, surveyEmails []storage.SQLUsageSurveyEmai
 		if emails_sent%10 == 0 {
 			// TODO: Startup check for checking production ^ SMTP disabled
 			if config.AppConfig.SMTP_ENABLE {
-				log.Printf("Sending emails ... (%v / %v)", emails_sent, len(surveyEmails))
+				logger.From(ctx).Infof("Sending emails ... (%v / %v)", emails_sent, len(surveyEmails))
 			} else {
-				log.Printf("Dry-run Sending emails ... (%v / %v) (SMTP disabled)", emails_sent, len(surveyEmails))
+				logger.From(ctx).Infof("Dry-run Sending emails ... (%v / %v) (SMTP disabled)", emails_sent, len(surveyEmails))
 			}
 		}
 
@@ -219,14 +220,14 @@ func sendVMUsageSurvey(surveyId int64, surveyEmails []storage.SQLUsageSurveyEmai
 		// TODO: Add startup check for checking wether we can send emails
 		err = notifier.SendEmail("VSOS: Do you still need your VM?", mail_content.Bytes(), []string{surveyEmail.Recipient})
 		if err != nil {
-			log.Printf("Failed send VM usage survey: Failed to send email: %v", err)
+			logger.From(ctx).Errorf("Failed send VM usage survey: Failed to send email: %v", err)
 			continue
 		}
 
 		if config.AppConfig.SMTP_ENABLE {
 			err = storage.DB.SurveyEmailMarkAsSent(surveyEmail.Uuid)
 			if err != nil {
-				log.Printf("Failed send VM usage survey: Failed to set EmailMarkAsSent %v", err)
+				logger.From(ctx).Errorf("Failed send VM usage survey: Failed to set EmailMarkAsSent %v", err)
 				continue
 			}
 		}
@@ -240,10 +241,10 @@ func sendVMUsageSurvey(surveyId int64, surveyEmails []storage.SQLUsageSurveyEmai
 		msg = fmt.Sprintf("Dry-run Sent %d emails for VM usage survey %v (SMTP disabled)", emails_sent, surveyId)
 	}
 
-	log.Printf("[+] " + msg)
+	logger.From(ctx).Infof("[+] " + msg)
 
 	// Notify about the survey getting sent
-	err = notifier.NotifyVMUsageSurvey(surveyId, msg)
+	err = notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)
 	if err != nil {
 		return fmt.Errorf("Failed to send VM usage survey notification: %v", err)
 	}

@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,6 +11,7 @@ import (
 
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/confirmation"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/storage"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/survey"
 	"github.com/gorilla/mux"
@@ -120,28 +122,15 @@ func addAllPollRoutes(r *mux.Router) {
 	})))
 
 	r.Methods("POST").Path("/api/usagesurvey/create").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("create survey", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		surveyId, err := survey.CreateVMUsageSurvey([]string{"vsos"})
-		if err != nil {
-			log.Printf("Error sending survey: %v", err)
-			http.Error(w, "Failed to send survey", http.StatusInternalServerError)
-			return
-		}
+		ctx, lg, finish := logger.Nest(context.Background(), "Create VM usage survey")
+		w.Header().Set("X-Log-Scope-Id", lg.ScopeID())
+		w.WriteHeader(http.StatusAccepted)
 
-		// Marshal a struct containing surveyId field
-		type response struct {
-			SurveyID int64 `json:"surveyId"`
-		}
-		resp := response{
-			SurveyID: *surveyId,
-		}
-		respJSON, err := json.Marshal(resp)
-		if err != nil {
-			log.Printf("Error marshalling response: %v", err)
-			http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(respJSON)
+		go func() {
+			var err error
+			defer finish(err)
+			_, err = survey.CreateVMUsageSurvey(ctx, []string{"vsos"})
+		}()
 	}))))
 
 	r.Methods("POST").Path("/api/usagesurvey/set").Subrouter().NewRoute().Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -297,14 +286,11 @@ func addAllPollRoutes(r *mux.Router) {
 			return
 		}
 
-		err = survey.RetryUnsentEmails(body.ID)
-		if err != nil {
-			log.Printf("Error sending survey: %v", err)
-			http.Error(w, "Failed to send survey", http.StatusInternalServerError)
-			return
-		}
+		ctx, lg, finish := logger.Nest(context.Background(), fmt.Sprintf("Retry unsent emails for survey %d", body.ID))
+		w.Header().Set("X-Log-Scope-Id", lg.ScopeID())
+		w.WriteHeader(http.StatusAccepted)
 
-		w.WriteHeader(200)
+		go func() { finish(survey.RetryUnsentEmails(ctx, body.ID)) }()
 	}))))
 
 	r.Methods("POST").Path("/api/usagesurvey/resend/unanswered").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("send reminders", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -319,13 +305,10 @@ func addAllPollRoutes(r *mux.Router) {
 			return
 		}
 
-		err = survey.SendSurveyReminder(body.ID)
-		if err != nil {
-			log.Printf("Error sending survey reminder: %v", err)
-			http.Error(w, "Failed to send survey reminder", http.StatusInternalServerError)
-			return
-		}
+		ctx, lg, finish := logger.Nest(context.Background(), fmt.Sprintf("Send reminders for survey %d", body.ID))
+		w.Header().Set("X-Log-Scope-Id", lg.ScopeID())
+		w.WriteHeader(http.StatusAccepted)
 
-		w.WriteHeader(200)
+		go func() { finish(survey.SendSurveyReminder(ctx, body.ID)) }()
 	}))))
 }

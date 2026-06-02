@@ -3,7 +3,6 @@ package notifier
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"net/smtp"
 	"net/url"
@@ -14,6 +13,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/storage"
 )
 
@@ -27,9 +27,9 @@ type SMTP struct {
 
 var SMTP_CLIENT SMTP
 
-func useNotifier(tags string, body string) error {
+func useNotifier(ctx context.Context, tags string, body string) error {
 
-	log.Println("[-] Sending notification to vmwiz-notifier")
+	logger.From(ctx).Info("[-] Sending notification to vmwiz-notifier")
 	v := url.Values{}
 	v.Add("title", APPRISE_THREAD_TITLE)
 	v.Add("tags", tags)
@@ -42,31 +42,31 @@ func useNotifier(tags string, body string) error {
 	return nil
 }
 
-func NotifyTest(body string) error {
-	return useNotifier("test", body)
+func NotifyTest(ctx context.Context, body string) error {
+	return useNotifier(ctx, "test", body)
 }
 
-func NotifyVMRequest(req storage.SQLVMRequest) error {
-	return useNotifier("new_vmrequest", fmt.Sprintf("New VM Request %v:\n```\n%v\n```", req.ID, req.ToString()))
+func NotifyVMRequest(ctx context.Context, req storage.SQLVMRequest) error {
+	return useNotifier(ctx, "new_vmrequest", fmt.Sprintf("New VM Request %v:\n```\n%v\n```", req.ID, req.ToString()))
 }
 
-func NotifyVMRequestStatusChanged(req storage.SQLVMRequest, additional_text string) error {
+func NotifyVMRequestStatusChanged(ctx context.Context, req storage.SQLVMRequest, additional_text string) error {
 	switch req.RequestStatus {
 	case storage.REQUEST_STATUS_ACCEPTED:
-		return useNotifier("vmrequest_accepted", fmt.Sprintf("Request %v approved ! %v", req.ID, additional_text))
+		return useNotifier(ctx, "vmrequest_accepted", fmt.Sprintf("Request %v approved ! %v", req.ID, additional_text))
 	case storage.REQUEST_STATUS_REJECTED:
-		return useNotifier("vmrequest_rejected", fmt.Sprintf("Request %v denied ! %v", req.ID, additional_text))
+		return useNotifier(ctx, "vmrequest_rejected", fmt.Sprintf("Request %v denied ! %v", req.ID, additional_text))
 	}
 
 	return nil
 }
 
-func NotifyVMCreationUpdate(msg string) error {
-	return useNotifier("vmcreation_update", msg)
+func NotifyVMCreationUpdate(ctx context.Context, msg string) error {
+	return useNotifier(ctx, "vmcreation_update", msg)
 }
 
-func NotifyVMUsageSurvey(surveyId int64, msg string) error {
-	return useNotifier("vmusagesurvey", fmt.Sprintf("VM Usage survey %v: %v", surveyId, msg))
+func NotifyVMUsageSurvey(ctx context.Context, surveyId int64, msg string) error {
+	return useNotifier(ctx, "vmusagesurvey", fmt.Sprintf("VM Usage survey %v: %v", surveyId, msg))
 }
 
 func InitSMTP() error {
