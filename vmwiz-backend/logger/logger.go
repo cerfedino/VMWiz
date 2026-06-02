@@ -6,6 +6,7 @@
 package logger
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +29,8 @@ var Dir = "logs"
 type ScopeStore interface {
 	CreateLogScope(id string, parentID string, rootID string, label string) error
 	FinishLogScope(id string, failed bool) error
+	LogScopeRootID(id string) (string, error)
+	LogScopeSubtreeIDs(id string) ([]string, error)
 }
 
 var store ScopeStore
@@ -175,3 +179,57 @@ func Nest(ctx context.Context, label string) (context.Context, *Logger, func(err
 	}
 	return context.WithValue(ctx, ctxKey{}, child), child, finish
 }
+
+type Line struct {
+	Ts    time.Time `json:"ts"`
+	Level string    `json:"level"`
+	Scope string    `json:"scope"`
+	Msg   string    `json:"msg"`
+}
+
+// ReadLogs returns a scope's log lines, optionally including its sub-scopes, filtered to [from, to] (nil bounds are unbounded).
+func ReadLogs(scopeID string, includeSubscopes bool, from *time.Time, to *time.Time) ([]Line, error) {
+	rootID, err := store.LogScopeRootID(scopeID)
+	if err != nil {
+		return nil, err
+	}
+
+	scopes := []string{scopeID}
+	if includeSubscopes {
+		scopes, err = store.LogScopeSubtreeIDs(scopeID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	f, err := os.Open(filepath.Join(Dir, rootID+".log"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []Line{}, nil
+		}
+		return nil, err
+	}
+	defer f.Close()
+
+	out := []Line{}
+	r := bufio.NewReader(f)
+	for {
+		raw, err := r.ReadBytes('\n')
+		if len(raw) > 0 {
+			var l Line
+			if json.Unmarshal(raw, &l) == nil &&
+				slices.Contains(scopes, l.Scope) &&
+				(from == nil || !l.Ts.Before(*from)) &&
+				(to == nil || !l.Ts.After(*to)) {
+				out = append(out, l)
+			}
+		}
+		if err != nil {
+			if err == io.EOF {
+				return out, nil
+			}
+			return nil, err
+		}
+	}
+}
+

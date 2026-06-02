@@ -100,6 +100,8 @@ type Storage interface {
 	CreateLogScope(id string, parentID string, rootID string, label string) error
 	GetLogScope(id string) (*SQLLogScope, error)
 	FinishLogScope(id string, failed bool) error
+	LogScopeRootID(id string) (string, error)
+	LogScopeSubtreeIDs(id string) ([]string, error)
 }
 
 type postgresstorage struct {
@@ -309,6 +311,40 @@ func (s *postgresstorage) FinishLogScope(id string, failed bool) error {
 	}
 	return nil
 }
+
+func (s *postgresstorage) LogScopeRootID(id string) (string, error) {
+	var rootID string
+	err := s.db.QueryRow(`SELECT root_id FROM log_scope WHERE id = $1`, id).Scan(&rootID)
+	if err != nil {
+		return "", fmt.Errorf("LogScopeRootID: %s", err)
+	}
+	return rootID, nil
+}
+
+func (s *postgresstorage) LogScopeSubtreeIDs(id string) ([]string, error) {
+	rows, err := s.db.Query(`
+		WITH RECURSIVE subtree AS (
+			SELECT id FROM log_scope WHERE id = $1
+			UNION ALL
+			SELECT c.id FROM log_scope c JOIN subtree st ON c.parent_id = st.id
+		)
+		SELECT id FROM subtree`, id)
+	if err != nil {
+		return nil, fmt.Errorf("LogScopeSubtreeIDs: %s", err)
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var sid string
+		if err := rows.Scan(&sid); err != nil {
+			return nil, fmt.Errorf("LogScopeSubtreeIDs: %s", err)
+		}
+		ids = append(ids, sid)
+	}
+	return ids, nil
+}
+
 
 type SQLUsageSurveyEmail struct {
 	Id         int64  `db:"id"`
