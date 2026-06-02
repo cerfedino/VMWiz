@@ -3,6 +3,7 @@
 import { useAuth } from "@/context/auth";
 import { Separator } from "@/components/ui/separator";
 import { VMDelete } from "@/components/admin/vm-delete";
+import { DnsDelete } from "@/components/admin/dns-delete";
 import { SurveyAdmin } from "@/components/admin/survey-admin";
 import { VMRequestAdmin } from "@/components/admin/vm-request-admin";
 import { ClipboardList, BarChart3, Trash2, User, Server } from "lucide-react";
@@ -50,6 +51,14 @@ export default function ConsolePage() {
                     Delete VM
                 </h2>
                 <VMDelete />
+            </section>
+
+            <section className="space-y-4">
+                <h2 className="flex items-center gap-2 text-lg font-semibold">
+                    <Trash2 className="h-5 w-5" />
+                    Delete DNS
+                </h2>
+                <DnsDelete />
             </section>
 
             <Separator className="opacity-30" />

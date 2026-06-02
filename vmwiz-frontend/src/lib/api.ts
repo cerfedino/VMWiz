@@ -151,7 +151,7 @@ export async function fetchBackend<T = void>(
 
         throw new FetchError(
             text ||
-            `Request failed with status ${response.status} ${getReasonPhrase(response.status)}`,
+                `Request failed with status ${response.status} ${getReasonPhrase(response.status)}`,
             response,
             request,
         );
@@ -265,6 +265,26 @@ export function prepareDeleteVM(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ vmName, deleteDNS }),
+    };
+}
+
+/**
+ * Deletes the DNS entries for a hostname, without touching any VM.
+ * @param hostname the hostname whose DNS entries to delete
+ * @param onConfirmRequired See the type OnConfirmCallback for details.
+ */
+export async function deleteDNS(
+    hostname: string,
+    onConfirmRequired?: OnConfirmCallback,
+): Promise<void> {
+    await fetchBackend(prepareDeleteDNS(hostname), { onConfirmRequired });
+}
+export function prepareDeleteDNS(hostname: string): BackendRequest {
+    return {
+        path: "/api/dns/deleteByHostname",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hostname }),
     };
 }
 
