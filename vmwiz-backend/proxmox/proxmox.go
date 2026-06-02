@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5"
+	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -31,6 +32,9 @@ import (
 	"github.com/melbahja/goph"
 	"github.com/pkg/sftp"
 )
+
+//go:embed *.tmpl
+var templatesFS embed.FS
 
 func proxmoxMakeRequest(method string, path string, body []byte) (*http.Request, *http.Client, error) {
 	url, err := url.Parse(fmt.Sprintf("%v%v", config.AppConfig.PVE_HOST, path))
@@ -687,14 +691,13 @@ Reinstall: %v
 
 	//! Creating VM configuration in Proxmox
 	lg.Infof("\t[-] Generating VM configuration\n")
-	VM_CONF_TEMPLATE_PATH := fmt.Sprintf("%sproxmox/VM.conf.tmpl", config.AppConfig.PATH_PREFIX)
 	uuidv7, err := uuid.NewV7()
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Failed to generate UUID: %v", err)
 	}
 
 	vm_config := new(bytes.Buffer)
-	vm_config_template, err := template.ParseFiles(VM_CONF_TEMPLATE_PATH)
+	vm_config_template, err := template.ParseFS(templatesFS, "VM.conf.tmpl")
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Failed to parse template: %v", err)
 	}
@@ -1009,10 +1012,9 @@ Reinstall: %v
 	}
 
 	//! Prepare VM post-install script
-	POST_INSTALL_SCRIPT_TEMPLATE_PATH := fmt.Sprintf("%sproxmox/vm_finish_script.sh.tmpl", config.AppConfig.PATH_PREFIX)
-	lg.Infof("\t[-] Preparing VM post-install script from template '%v'\n", POST_INSTALL_SCRIPT_TEMPLATE_PATH)
+	lg.Infof("\t[-] Preparing VM post-install script from template\n")
 	vm_finish_script_content := new(bytes.Buffer)
-	post_install_template, err := template.ParseFiles(POST_INSTALL_SCRIPT_TEMPLATE_PATH)
+	post_install_template, err := template.ParseFS(templatesFS, "vm_finish_script.sh.tmpl")
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Failed to parse template: %v", err)
 	}

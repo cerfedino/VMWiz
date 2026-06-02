@@ -3,6 +3,7 @@ package survey
 import (
 	"bytes"
 	"context"
+	"embed"
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,6 +16,9 @@ import (
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/storage"
 	"github.com/google/uuid"
 )
+
+//go:embed *.tmpl
+var templatesFS embed.FS
 
 // Creates a new VM Usage Survey in the database and sends out the emails to the users.
 // This function may return error if any email fails to send: in that case, the surveyId is still returned such that the missed emails can be retried later.
@@ -123,8 +127,7 @@ func SendSurveyReminder(ctx context.Context, surveyId int64) error {
 
 func sendVMUsageSurveyReminder(ctx context.Context, surveyId int64, surveyEmails []storage.SQLUsageSurveyEmail) error {
 	// Process the email template for VM Usage Survey
-	VMUSAGE_SURVEY_REMINDER_TEMPLATE_PATH := "survey/vmusage_survey_reminder.tmpl"
-	vmusage_survey_reminder_template, err := template.ParseFiles(VMUSAGE_SURVEY_REMINDER_TEMPLATE_PATH)
+	vmusage_survey_reminder_template, err := template.ParseFS(templatesFS, "vmusage_survey_reminder.tmpl")
 	if err != nil {
 		return fmt.Errorf("Failed send VM usage survey reminder: Failed to parse email template: %v", err)
 	}
@@ -183,8 +186,7 @@ func sendVMUsageSurveyReminder(ctx context.Context, surveyId int64, surveyEmails
 
 func sendVMUsageSurvey(ctx context.Context, surveyId int64, surveyEmails []storage.SQLUsageSurveyEmail) error {
 	// Process the email template for VM Usage Survey
-	VMUSAGE_SURVEY_TEMPLATE_PATH := "survey/vmusage_survey.tmpl"
-	vmusage_survey_template, err := template.ParseFiles(VMUSAGE_SURVEY_TEMPLATE_PATH)
+	vmusage_survey_template, err := template.ParseFS(templatesFS, "vmusage_survey.tmpl")
 	if err != nil {
 		return fmt.Errorf("Failed send VM usage survey: Failed to parse email template: %v", err)
 	}

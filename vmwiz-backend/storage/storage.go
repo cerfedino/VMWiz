@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"embed"
 	"fmt"
 	"time"
 
@@ -10,10 +11,13 @@ import (
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
+
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
 const (
 	REQUEST_STATUS_PENDING  = "pending"
@@ -145,7 +149,11 @@ func (s *postgresstorage) InitMigrations() error {
 		s.migration.Close()
 		s.migration = nil
 	}
-	m, err := migrate.New(fmt.Sprintf("file://%smigrations/", config.AppConfig.PATH_PREFIX), buildConnectionString(config.AppConfig.POSTGRES_USER, config.AppConfig.POSTGRES_PASSWORD, config.AppConfig.POSTGRES_DB))
+	src, err := iofs.New(migrationsFS, "migrations")
+	if err != nil {
+		return fmt.Errorf("Couldn't load embedded migrations: %v", err.Error())
+	}
+	m, err := migrate.NewWithSourceInstance("iofs", src, buildConnectionString(config.AppConfig.POSTGRES_USER, config.AppConfig.POSTGRES_PASSWORD, config.AppConfig.POSTGRES_DB))
 	if err != nil {
 		return fmt.Errorf("Couldn't initialize migrations: %v", err.Error())
 	}
