@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 
 import {
     FetchError,
+    fetchBackend,
     type OnConfirmCallback,
     type BackendRequest,
 } from "@/lib/api";
@@ -32,7 +33,12 @@ class CancelledError extends Error {
     }
 }
 
-type Phase = "idle" | "loading" | "confirming" | "success" | "error";
+type Phase =
+    | "idle"
+    | "loading"
+    | "confirming"
+    | "success"
+    | "error";
 
 function PhaseIcon({ phase }: { phase: Phase }) {
     const base =
@@ -73,15 +79,11 @@ interface FetchDialogProps {
     onOpenChange: (open: boolean) => void;
 
     /**
-     * The fetch function that performs the actual request.
-     * The dialog injects its `onConfirmRequired` callback so it can show the confirmation prompt if needed.
+     * The request to perform, built by a prepare* helper from api.ts.
+     * The dialog handles confirmation on its own transparently.
+     * Callers shape success/error via successContent/onSuccess/onError.
      */
-    fetchFn: (
-        onConfirmRequired: OnConfirmCallback,
-    ) => Promise<{ data: unknown }>;
-
-    /** Optional request metadata shown in the debug info panel. Built by prepare* helpers from api.ts. */
-    requestInfo?: BackendRequest;
+    request: BackendRequest;
 
     title: string;
     description?: string;
@@ -124,8 +126,7 @@ interface FetchDialogProps {
 export function FetchDialog({
     open,
     onOpenChange,
-    fetchFn,
-    requestInfo,
+    request,
     title,
     description,
     successDescription = "Completed successfully",
@@ -189,9 +190,11 @@ export function FetchDialog({
         setResponseInfo(undefined);
 
         try {
-            const { data } = await fetchFn(onConfirmRequired);
+            const { data, original } = await fetchBackend(request, {
+                onConfirmRequired,
+            });
             setResponseInfo({
-                status: 200,
+                status: original.status,
                 body:
                     data !== undefined
                         ? JSON.stringify(data, null, 2)
@@ -225,7 +228,7 @@ export function FetchDialog({
             setErrorMessage(error.message);
             setPhase("error");
         }
-    }, [fetchFn, onConfirmRequired, onSuccess, onError, onOpenChange]);
+    }, [request, onConfirmRequired, onSuccess, onError, onOpenChange]);
 
     const hasFired = useRef(false);
     // Handle auto-fire the request when the dialog is opened and `immediate` is true
@@ -344,7 +347,7 @@ export function FetchDialog({
 
                 {/*Collapsible panel showing request info*/}
                 <RequestDebugPanel
-                    requestInfo={requestInfo}
+                    requestInfo={request}
                     responseInfo={responseInfo}
                 />
 

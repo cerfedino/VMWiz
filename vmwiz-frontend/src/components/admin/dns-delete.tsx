@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { FetchDialog } from "@/components/fetch-dialog";
-import { deleteDNS, prepareDeleteDNS } from "@/lib/api";
+import { prepareDeleteDNS } from "@/lib/api";
 import { Trash2 } from "lucide-react";
 
 export function DnsDelete() {
@@ -40,10 +40,7 @@ export function DnsDelete() {
             <FetchDialog
                 open={dialogOpen}
                 onOpenChange={setDialogOpen}
-                fetchFn={(onConfirm) =>
-                    deleteDNS(hostname, onConfirm).then((data) => ({ data }))
-                }
-                requestInfo={prepareDeleteDNS(hostname)}
+                request={prepareDeleteDNS(hostname)}
                 title="Delete DNS entries"
                 description={`You are about to delete the DNS entries for "${hostname}". This cannot be undone.`}
                 onSuccess={() => setHostname("")}

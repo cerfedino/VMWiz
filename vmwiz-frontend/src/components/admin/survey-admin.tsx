@@ -5,13 +5,9 @@ import { formatDate } from "@/lib/utils";
 import {
     fetchSurveyIds,
     fetchSurveyInfo,
-    fetchSurveyResponses,
     prepareFetchSurveyResponses,
-    createSurvey,
     prepareCreateSurvey,
-    resendUnsent,
     prepareResendUnsent,
-    resendUnanswered,
     prepareResendUnanswered,
 } from "@/lib/api";
 import type { SurveyInfo, SurveyResponseCategory } from "@/lib/types/api";
@@ -279,10 +275,7 @@ export function SurveyAdmin() {
             <FetchDialog
                 open={createSurveyOpen}
                 onOpenChange={setCreateSurveyOpen}
-                fetchFn={(onConfirm) =>
-                    createSurvey(onConfirm).then((data) => ({ data }))
-                }
-                requestInfo={prepareCreateSurvey()}
+                request={prepareCreateSurvey()}
                 title="Create New Survey"
                 description="This will create a new usage survey and send emails to all VM owners. Continue?"
                 proceedLabel="Create"
@@ -296,17 +289,7 @@ export function SurveyAdmin() {
                 onOpenChange={(open) =>
                     setResendDialog((prev) => ({ ...prev, open }))
                 }
-                fetchFn={(onConfirm) =>
-                    resendDialog.type === "unsent"
-                        ? resendUnsent(resendDialog.surveyId, onConfirm).then(
-                              (data) => ({ data }),
-                          )
-                        : resendUnanswered(
-                              resendDialog.surveyId,
-                              onConfirm,
-                          ).then((data) => ({ data }))
-                }
-                requestInfo={
+                request={
                     resendDialog.type === "unsent"
                         ? prepareResendUnsent(resendDialog.surveyId)
                         : prepareResendUnanswered(resendDialog.surveyId)
@@ -336,13 +319,7 @@ export function SurveyAdmin() {
                 onOpenChange={(open) =>
                     setResponseDialog((prev) => ({ ...prev, open }))
                 }
-                fetchFn={() =>
-                    fetchSurveyResponses(
-                        responseDialog.surveyId,
-                        responseDialog.category,
-                    ).then((data) => ({ data }))
-                }
-                requestInfo={prepareFetchSurveyResponses(
+                request={prepareFetchSurveyResponses(
                     responseDialog.surveyId,
                     responseDialog.category,
                 )}
