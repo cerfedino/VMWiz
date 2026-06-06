@@ -1,0 +1,25 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema: "storage/migrations"
+    queries: "storage/query"
+    gen:
+      go:
+        package: "storage"
+        out: "storage"
+        sql_package: "database/sql"
+        emit_empty_slices: true
+        rename:
+          requestid: "RequestID"
+          requestcreatedat: "RequestCreatedAt"
+          requeststatus: "RequestStatus"
+          personalemail: "PersonalEmail"
+          isorganization: "IsOrganization"
+          orgname: "OrgName"
+          ramgb: "RAMGB"
+          diskgb: "DiskGB"
+          secondarydiskgb: "SecondaryDiskGB"
+          sshpubkeys: "SSHPubkeys"
+          surveyid: "SurveyID"
+          vmid: "VMID"
+          uuid: "UUID"

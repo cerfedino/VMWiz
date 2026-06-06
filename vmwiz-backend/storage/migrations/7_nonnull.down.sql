@@ -1,0 +1,11 @@
+ALTER TABLE confirmation_tokens ALTER COLUMN created DROP NOT NULL;
+ALTER TABLE confirmation_tokens ALTER COLUMN used DROP NOT NULL;
+
+ALTER TABLE survey_email ALTER COLUMN email_sent DROP NOT NULL;
+ALTER TABLE survey_email ALTER COLUMN surveyId DROP NOT NULL;
+
+ALTER TABLE survey ALTER COLUMN date DROP NOT NULL;
+
+ALTER TABLE request ALTER COLUMN isOrganization DROP NOT NULL;
+ALTER TABLE request ALTER COLUMN isOrganization DROP DEFAULT;
+ALTER TABLE request ALTER COLUMN requestCreatedAt DROP NOT NULL;

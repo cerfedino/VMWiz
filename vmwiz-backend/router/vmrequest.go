@@ -2,10 +2,12 @@ package router
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
@@ -24,14 +26,14 @@ import (
 // sends notifications, and emails the requester.
 // Returns an ErrorBundle if any step fails.
 func AcceptVMRequest(ctx context.Context, id int64) *ErrorBundle {
-	request, err := storage.DB.GetVMRequestById(id)
+	request, err := storage.DB.GetVMRequestByID(context.Background(), id)
 
 	if err != nil {
 		return SimpleError(err, "Error fetching VM request")
 	}
 
 	request.RequestStatus = storage.REQUEST_STATUS_ACCEPTED
-	err = notifier.NotifyVMRequestStatusChanged(ctx, *request, "Creating VM now, it'll take a while ...")
+	err = notifier.NotifyVMRequestStatusChanged(ctx, request, "Creating VM now, it'll take a while ...")
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM request status change")
 	}
@@ -43,7 +45,7 @@ func AcceptVMRequest(ctx context.Context, id int64) *ErrorBundle {
 		opts.ResourcePool = config.AppConfig.VM_PERSONAL_POOL
 	}
 
-	err = storage.DB.UpdateVMRequestStatus(id, storage.REQUEST_STATUS_ACCEPTED)
+	err = storage.DB.UpdateVMRequestStatus(context.Background(), storage.UpdateVMRequestStatusParams{RequestID: id, RequestStatus: storage.REQUEST_STATUS_ACCEPTED})
 	if err != nil {
 		return SimpleError(err, "Failed to update VM request status")
 	}
@@ -63,7 +65,7 @@ func AcceptVMRequest(ctx context.Context, id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to send email")
 	}
 
-	successMsg := fmt.Sprintf("Request %v: VM %s created successfully:\n%s", request.ID, opts.FQDN, "```\n"+summary.String()+"\n```")
+	successMsg := fmt.Sprintf("Request %v: VM %s created successfully:\n%s", request.RequestID, opts.FQDN, "```\n"+summary.String()+"\n```")
 	logger.From(ctx).Info(successMsg)
 
 	err = notifier.NotifyVMCreationUpdate(ctx, successMsg)
@@ -78,7 +80,7 @@ func AcceptVMRequest(ctx context.Context, id int64) *ErrorBundle {
 // Returns an ErrorBundle if the request was already accepted
 // or if any database/notification step fails.
 func RejectVMRequest(id int64) *ErrorBundle {
-	request, err := storage.DB.GetVMRequestById(id)
+	request, err := storage.DB.GetVMRequestByID(context.Background(), id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
@@ -87,17 +89,17 @@ func RejectVMRequest(id int64) *ErrorBundle {
 		return SimpleError(nil, "Cannot reject an accepted request")
 	}
 
-	err = storage.DB.UpdateVMRequestStatus(id, storage.REQUEST_STATUS_REJECTED)
+	err = storage.DB.UpdateVMRequestStatus(context.Background(), storage.UpdateVMRequestStatusParams{RequestID: id, RequestStatus: storage.REQUEST_STATUS_REJECTED})
 	if err != nil {
 		return SimpleError(err, "Failed to update VM request status")
 	}
 
-	request, err = storage.DB.GetVMRequestById(id)
+	request, err = storage.DB.GetVMRequestByID(context.Background(), id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
 
-	err = notifier.NotifyVMRequestStatusChanged(context.Background(), *request, "")
+	err = notifier.NotifyVMRequestStatusChanged(context.Background(), request, "")
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM request status change")
 	}
@@ -110,7 +112,7 @@ func RejectVMRequest(id int64) *ErrorBundle {
 // HoldVMRequest changes a VM request from PENDING to HELD,
 // sends a status update notification, and returns any errors.
 func HoldVMRequest(id int64) *ErrorBundle {
-	request, err := storage.DB.GetVMRequestById(id)
+	request, err := storage.DB.GetVMRequestByID(context.Background(), id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
@@ -119,17 +121,17 @@ func HoldVMRequest(id int64) *ErrorBundle {
 		return SimpleError(nil, "You can only put pending requests on hold")
 	}
 
-	err = storage.DB.UpdateVMRequestStatus(id, storage.REQUEST_STATUS_HELD)
+	err = storage.DB.UpdateVMRequestStatus(context.Background(), storage.UpdateVMRequestStatusParams{RequestID: id, RequestStatus: storage.REQUEST_STATUS_HELD})
 	if err != nil {
 		return SimpleError(err, "Failed to update VM request status")
 	}
 
-	request, err = storage.DB.GetVMRequestById(id)
+	request, err = storage.DB.GetVMRequestByID(context.Background(), id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
 
-	err = notifier.NotifyVMRequestStatusChanged(context.Background(), *request, "")
+	err = notifier.NotifyVMRequestStatusChanged(context.Background(), request, "")
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM request status change")
 	}
@@ -142,7 +144,7 @@ func HoldVMRequest(id int64) *ErrorBundle {
 // UnholdVMRequest changes a VM request from HELD to PENDING,
 // sends a status update notification, and returns any errors.
 func UnholdVMRequest(id int64) *ErrorBundle {
-	request, err := storage.DB.GetVMRequestById(id)
+	request, err := storage.DB.GetVMRequestByID(context.Background(), id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
@@ -151,17 +153,17 @@ func UnholdVMRequest(id int64) *ErrorBundle {
 		return SimpleError(nil, "Unhold invalid: request is not on hold")
 	}
 
-	err = storage.DB.UpdateVMRequestStatus(id, storage.REQUEST_STATUS_PENDING)
+	err = storage.DB.UpdateVMRequestStatus(context.Background(), storage.UpdateVMRequestStatusParams{RequestID: id, RequestStatus: storage.REQUEST_STATUS_PENDING})
 	if err != nil {
 		return SimpleError(err, "Failed to update VM request status")
 	}
 
-	request, err = storage.DB.GetVMRequestById(id)
+	request, err = storage.DB.GetVMRequestByID(context.Background(), id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
 
-	err = notifier.NotifyVMRequestStatusChanged(context.Background(), *request, "")
+	err = notifier.NotifyVMRequestStatusChanged(context.Background(), request, "")
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM request status change")
 	}
@@ -195,21 +197,34 @@ func addVMRequestRoutes(r *mux.Router) {
 
 		w.WriteHeader(http.StatusOK)
 
-		id, err := storage.DB.StoreVMRequest(&f)
+		id, err := storage.DB.CreateVMRequest(context.Background(), storage.CreateVMRequestParams{
+			Email:           f.Email,
+			PersonalEmail:   f.PersonalEmail,
+			IsOrganization:  f.IsOrganization,
+			OrgName:         sql.NullString{String: f.OrgName, Valid: true},
+			Hostname:        fmt.Sprintf("%v.vsos.ethz.ch", f.Hostname),
+			Image:           f.Image,
+			Cores:           int32(f.Cores),
+			RAMGB:           int32(f.RamGB),
+			DiskGB:          int32(f.DiskGB),
+			SecondaryDiskGB: int32(f.SecondaryDiskGB),
+			SSHPubkeys:      f.SshPubkeys,
+			Comments:        sql.NullString{String: f.Comments, Valid: true},
+		})
 		if err != nil {
 			log.Printf("Failed to store VM request: %v", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
 
-		req, err := storage.DB.GetVMRequestById(*id)
+		req, err := storage.DB.GetVMRequestByID(context.Background(), id)
 		if err != nil {
 			log.Printf("Failed to get VM request: %v", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
 
-		err = notifier.NotifyVMRequest(context.Background(), *req)
+		err = notifier.NotifyVMRequest(context.Background(), req)
 		if err != nil {
 			log.Printf("Failed to send notification: %v", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -224,13 +239,53 @@ func addVMRequestRoutes(r *mux.Router) {
 	}))
 
 	r.Methods("GET").Path("/api/vmrequest").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		vmRequests, err := storage.DB.GetAllVMRequests()
+		vmRequests, err := storage.DB.ListVMRequests(context.Background())
 		if err != nil {
 			log.Printf("Failed to get VM requests: %v", err)
 			http.Error(w, "Failed to get VM requests", http.StatusInternalServerError)
 			return
 		}
-		resp, err := json.Marshal(vmRequests)
+
+		// API response shape, decoupled from the DB row: flatten the nullable
+		// columns and keep the historical JSON field names the frontend expects.
+		type vmRequestResp struct {
+			ID               int64     `json:"ID"`
+			RequestCreatedAt time.Time `json:"RequestCreatedAt"`
+			RequestStatus    string    `json:"RequestStatus"`
+			Email            string    `json:"Email"`
+			PersonalEmail    string    `json:"PersonalEmail"`
+			IsOrganization   bool      `json:"IsOrganization"`
+			OrgName          string    `json:"OrgName"`
+			Hostname         string    `json:"Hostname"`
+			Image            string    `json:"Image"`
+			Cores            int32     `json:"Cores"`
+			RamGB            int32     `json:"RamGB"`
+			DiskGB           int32     `json:"DiskGB"`
+			SecondaryDiskGB  int32     `json:"SecondaryDiskGB"`
+			SshPubkeys       []string  `json:"SshPubkeys"`
+			Comments         string    `json:"Comments"`
+		}
+		out := make([]vmRequestResp, 0, len(vmRequests))
+		for _, req := range vmRequests {
+			out = append(out, vmRequestResp{
+				ID:               req.RequestID,
+				RequestCreatedAt: req.RequestCreatedAt,
+				RequestStatus:    string(req.RequestStatus),
+				Email:            req.Email,
+				PersonalEmail:    req.PersonalEmail,
+				IsOrganization:   req.IsOrganization,
+				OrgName:          req.OrgName.String,
+				Hostname:         req.Hostname,
+				Image:            req.Image,
+				Cores:            req.Cores,
+				RamGB:            req.RAMGB,
+				DiskGB:           req.DiskGB,
+				SecondaryDiskGB:  req.SecondaryDiskGB,
+				SshPubkeys:       req.SSHPubkeys,
+				Comments:         req.Comments.String,
+			})
+		}
+		resp, err := json.Marshal(out)
 		if err != nil {
 			log.Printf("Failed to marshal VM requests: %v", err)
 			http.Error(w, "Failed to marshal VM requests", http.StatusInternalServerError)
@@ -348,7 +403,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		request, err := storage.DB.GetVMRequestById(int64(body.ID))
+		request, err := storage.DB.GetVMRequestByID(context.Background(), int64(body.ID))
 		if err != nil {
 			log.Printf("Error getting VM request: %v", err)
 			http.Error(w, "Failed to fetch VM request", http.StatusInternalServerError)
@@ -361,22 +416,38 @@ func addVMRequestRoutes(r *mux.Router) {
 		}
 
 		if body.Cores_cpu != 0 {
-			request.Cores = body.Cores_cpu
+			request.Cores = int32(body.Cores_cpu)
 		}
 		if body.Ram_gb != 0 {
-			request.RamGB = body.Ram_gb
+			request.RAMGB = int32(body.Ram_gb)
 		}
 		if body.Storage_gb != 0 {
-			request.DiskGB = body.Storage_gb
+			request.DiskGB = int32(body.Storage_gb)
 		}
 		if body.Secondary_storage_gb != 0 {
-			request.SecondaryDiskGB = body.Secondary_storage_gb
+			request.SecondaryDiskGB = int32(body.Secondary_storage_gb)
 		}
 		if body.Hostname != "" {
 			request.Hostname = body.Hostname
 		}
 
-		err = storage.DB.UpdateVMRequest(*request)
+		err = storage.DB.UpdateVMRequest(context.Background(), storage.UpdateVMRequestParams{
+			RequestID:        request.RequestID,
+			RequestCreatedAt: request.RequestCreatedAt,
+			RequestStatus:    request.RequestStatus,
+			Email:            request.Email,
+			PersonalEmail:    request.PersonalEmail,
+			IsOrganization:   request.IsOrganization,
+			OrgName:          request.OrgName,
+			Hostname:         request.Hostname,
+			Image:            request.Image,
+			Cores:            request.Cores,
+			RAMGB:            request.RAMGB,
+			DiskGB:           request.DiskGB,
+			SecondaryDiskGB:  request.SecondaryDiskGB,
+			SSHPubkeys:       request.SSHPubkeys,
+			Comments:         request.Comments,
+		})
 		if err != nil {
 			log.Printf("Error updating VM request: %v", err)
 			http.Error(w, "Failed to update VM request", http.StatusInternalServerError)
