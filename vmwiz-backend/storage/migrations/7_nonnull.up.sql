@@ -15,9 +15,3 @@ ALTER TABLE survey_email ALTER COLUMN surveyId SET NOT NULL;
 
 UPDATE survey_email SET email_sent = false WHERE email_sent IS NULL;
 ALTER TABLE survey_email ALTER COLUMN email_sent SET NOT NULL;
-
-UPDATE confirmation_tokens SET used = false WHERE used IS NULL;
-ALTER TABLE confirmation_tokens ALTER COLUMN used SET NOT NULL;
-
-UPDATE confirmation_tokens SET created = CURRENT_TIMESTAMP WHERE created IS NULL;
-ALTER TABLE confirmation_tokens ALTER COLUMN created SET NOT NULL;

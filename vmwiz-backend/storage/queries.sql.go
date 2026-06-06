@@ -13,20 +13,9 @@ import (
 	"github.com/lib/pq"
 )
 
-const confirmationTokenExists = `-- name: ConfirmationTokenExists :one
-SELECT EXISTS(SELECT 1 FROM confirmation_tokens WHERE token = $1)
-`
-
-func (q *Queries) ConfirmationTokenExists(ctx context.Context, token string) (bool, error) {
-	row := q.db.QueryRowContext(ctx, confirmationTokenExists, token)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
 const countNegativeSurveyEmails = `-- name: CountNegativeSurveyEmails :one
 SELECT COUNT(*) FROM survey_email
-WHERE email_sent = TRUE AND still_used = FALSE AND surveyId = $1
+WHERE surveyId = $1 AND (email_sent = TRUE AND still_used = FALSE)
 `
 
 func (q *Queries) CountNegativeSurveyEmails(ctx context.Context, surveyid int64) (int64, error) {
@@ -38,7 +27,7 @@ func (q *Queries) CountNegativeSurveyEmails(ctx context.Context, surveyid int64)
 
 const countPositiveSurveyEmails = `-- name: CountPositiveSurveyEmails :one
 SELECT COUNT(*) FROM survey_email
-WHERE email_sent = TRUE AND still_used = TRUE AND surveyId = $1
+WHERE surveyId = $1 AND (email_sent = TRUE AND still_used = TRUE)
 `
 
 func (q *Queries) CountPositiveSurveyEmails(ctx context.Context, surveyid int64) (int64, error) {
@@ -50,7 +39,7 @@ func (q *Queries) CountPositiveSurveyEmails(ctx context.Context, surveyid int64)
 
 const countUnansweredSurveyEmails = `-- name: CountUnansweredSurveyEmails :one
 SELECT COUNT(*) FROM survey_email
-WHERE email_sent = TRUE AND still_used IS NULL AND surveyId = $1
+WHERE surveyId = $1 AND (email_sent = TRUE AND still_used IS NULL)
 `
 
 func (q *Queries) CountUnansweredSurveyEmails(ctx context.Context, surveyid int64) (int64, error) {
@@ -62,7 +51,7 @@ func (q *Queries) CountUnansweredSurveyEmails(ctx context.Context, surveyid int6
 
 const countUnsentSurveyEmails = `-- name: CountUnsentSurveyEmails :one
 SELECT COUNT(*) FROM survey_email
-WHERE email_sent = FALSE AND surveyId = $1
+WHERE surveyId = $1 AND (email_sent = FALSE)
 `
 
 func (q *Queries) CountUnsentSurveyEmails(ctx context.Context, surveyid int64) (int64, error) {
@@ -70,15 +59,6 @@ func (q *Queries) CountUnsentSurveyEmails(ctx context.Context, surveyid int64) (
 	var count int64
 	err := row.Scan(&count)
 	return count, err
-}
-
-const createConfirmationToken = `-- name: CreateConfirmationToken :exec
-INSERT INTO confirmation_tokens (token) VALUES ($1)
-`
-
-func (q *Queries) CreateConfirmationToken(ctx context.Context, token string) error {
-	_, err := q.db.ExecContext(ctx, createConfirmationToken, token)
-	return err
 }
 
 const createLogScope = `-- name: CreateLogScope :exec
@@ -192,15 +172,6 @@ func (q *Queries) CreateVMRequest(ctx context.Context, arg CreateVMRequestParams
 	return requestid, err
 }
 
-const deleteConfirmationTokensCreatedBefore = `-- name: DeleteConfirmationTokensCreatedBefore :exec
-DELETE FROM confirmation_tokens WHERE created < $1
-`
-
-func (q *Queries) DeleteConfirmationTokensCreatedBefore(ctx context.Context, created time.Time) error {
-	_, err := q.db.ExecContext(ctx, deleteConfirmationTokensCreatedBefore, created)
-	return err
-}
-
 const finishLogScope = `-- name: FinishLogScope :exec
 UPDATE log_scope SET ended_at = CURRENT_TIMESTAMP, failed = $2 WHERE id = $1
 `
@@ -224,25 +195,6 @@ func (q *Queries) GetLatestSurveyID(ctx context.Context) (int64, error) {
 	var id int64
 	err := row.Scan(&id)
 	return id, err
-}
-
-const getLogScope = `-- name: GetLogScope :one
-SELECT id, parent_id, root_id, label, started_at, ended_at, failed FROM log_scope WHERE id = $1
-`
-
-func (q *Queries) GetLogScope(ctx context.Context, id string) (LogScope, error) {
-	row := q.db.QueryRowContext(ctx, getLogScope, id)
-	var i LogScope
-	err := row.Scan(
-		&i.ID,
-		&i.ParentID,
-		&i.RootID,
-		&i.Label,
-		&i.StartedAt,
-		&i.EndedAt,
-		&i.Failed,
-	)
-	return i, err
 }
 
 const getLogScopeRootID = `-- name: GetLogScopeRootID :one
@@ -423,7 +375,7 @@ func (q *Queries) ListLogScopeSubtreeIDs(ctx context.Context, id string) ([]stri
 
 const listNegativeSurveyHostnames = `-- name: ListNegativeSurveyHostnames :many
 SELECT hostname FROM survey_email
-WHERE email_sent = TRUE AND still_used = FALSE AND surveyId = $1
+WHERE surveyId = $1 AND (email_sent = TRUE AND still_used = FALSE)
 `
 
 func (q *Queries) ListNegativeSurveyHostnames(ctx context.Context, surveyid int64) ([]string, error) {
@@ -451,7 +403,7 @@ func (q *Queries) ListNegativeSurveyHostnames(ctx context.Context, surveyid int6
 
 const listPositiveSurveyHostnames = `-- name: ListPositiveSurveyHostnames :many
 SELECT hostname FROM survey_email
-WHERE email_sent = TRUE AND still_used = TRUE AND surveyId = $1
+WHERE surveyId = $1 AND (email_sent = TRUE AND still_used = TRUE)
 `
 
 func (q *Queries) ListPositiveSurveyHostnames(ctx context.Context, surveyid int64) ([]string, error) {
@@ -526,7 +478,7 @@ func (q *Queries) ListRootLogScopes(ctx context.Context, arg ListRootLogScopesPa
 
 const listSentUnansweredSurveyEmails = `-- name: ListSentUnansweredSurveyEmails :many
 SELECT id, recipient, surveyid, vmid, hostname, uuid, email_sent, still_used FROM survey_email
-WHERE surveyId = $1 AND still_used IS NULL AND email_sent = TRUE
+WHERE surveyId = $1 AND (still_used IS NULL AND email_sent = TRUE)
 `
 
 func (q *Queries) ListSentUnansweredSurveyEmails(ctx context.Context, surveyid int64) ([]SurveyEmail, error) {
@@ -617,7 +569,7 @@ func (q *Queries) ListSurveys(ctx context.Context) ([]Survey, error) {
 
 const listUnansweredOrUnsentSurveyEmails = `-- name: ListUnansweredOrUnsentSurveyEmails :many
 SELECT id, recipient, surveyid, vmid, hostname, uuid, email_sent, still_used FROM survey_email
-WHERE surveyId = $1 AND still_used IS NULL OR email_sent = FALSE
+WHERE surveyId = $1 AND (still_used IS NULL OR email_sent = FALSE)
 `
 
 func (q *Queries) ListUnansweredOrUnsentSurveyEmails(ctx context.Context, surveyid int64) ([]SurveyEmail, error) {
@@ -654,7 +606,7 @@ func (q *Queries) ListUnansweredOrUnsentSurveyEmails(ctx context.Context, survey
 
 const listUnansweredSurveyHostnames = `-- name: ListUnansweredSurveyHostnames :many
 SELECT hostname FROM survey_email
-WHERE email_sent = TRUE AND still_used IS NULL AND surveyId = $1
+WHERE surveyId = $1 AND (email_sent = TRUE AND still_used IS NULL)
 `
 
 func (q *Queries) ListUnansweredSurveyHostnames(ctx context.Context, surveyid int64) ([]string, error) {
@@ -682,7 +634,7 @@ func (q *Queries) ListUnansweredSurveyHostnames(ctx context.Context, surveyid in
 
 const listUnsentSurveyEmails = `-- name: ListUnsentSurveyEmails :many
 SELECT id, recipient, surveyid, vmid, hostname, uuid, email_sent, still_used FROM survey_email
-WHERE surveyId = $1 AND email_sent = FALSE
+WHERE surveyId = $1 AND (email_sent = FALSE)
 `
 
 func (q *Queries) ListUnsentSurveyEmails(ctx context.Context, surveyid int64) ([]SurveyEmail, error) {
@@ -719,7 +671,7 @@ func (q *Queries) ListUnsentSurveyEmails(ctx context.Context, surveyid int64) ([
 
 const listUnsentSurveyHostnames = `-- name: ListUnsentSurveyHostnames :many
 SELECT hostname FROM survey_email
-WHERE email_sent = FALSE AND surveyId = $1
+WHERE surveyId = $1 AND email_sent = FALSE
 `
 
 func (q *Queries) ListUnsentSurveyHostnames(ctx context.Context, surveyid int64) ([]string, error) {
@@ -786,15 +738,6 @@ func (q *Queries) ListVMRequests(ctx context.Context) ([]Request, error) {
 		return nil, err
 	}
 	return items, nil
-}
-
-const markConfirmationTokenUsed = `-- name: MarkConfirmationTokenUsed :exec
-UPDATE confirmation_tokens SET used = TRUE WHERE token = $1
-`
-
-func (q *Queries) MarkConfirmationTokenUsed(ctx context.Context, token string) error {
-	_, err := q.db.ExecContext(ctx, markConfirmationTokenUsed, token)
-	return err
 }
 
 const markSurveyEmailSent = `-- name: MarkSurveyEmailSent :exec

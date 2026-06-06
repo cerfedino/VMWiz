@@ -58,29 +58,12 @@ SELECT id FROM survey ORDER BY date DESC LIMIT 1;
 
 
 
--- name: CreateConfirmationToken :exec
-INSERT INTO confirmation_tokens (token) VALUES ($1);
-
--- name: ConfirmationTokenExists :one
-SELECT EXISTS(SELECT 1 FROM confirmation_tokens WHERE token = $1);
-
--- name: MarkConfirmationTokenUsed :exec
-UPDATE confirmation_tokens SET used = TRUE WHERE token = $1;
-
--- name: DeleteConfirmationTokensCreatedBefore :exec
-DELETE FROM confirmation_tokens WHERE created < $1;
-
-
-
 
 
 
 
 -- name: CreateLogScope :exec
 INSERT INTO log_scope (id, parent_id, root_id, label) VALUES ($1, $2, $3, $4);
-
--- name: GetLogScope :one
-SELECT * FROM log_scope WHERE id = $1;
 
 -- name: FinishLogScope :exec
 UPDATE log_scope SET ended_at = CURRENT_TIMESTAMP, failed = $2 WHERE id = $1;
@@ -136,47 +119,47 @@ UPDATE survey_email SET email_sent = TRUE WHERE uuid = $1;
 
 -- name: ListUnansweredOrUnsentSurveyEmails :many
 SELECT * FROM survey_email
-WHERE surveyId = $1 AND still_used IS NULL OR email_sent = FALSE;
+WHERE surveyId = $1 AND (still_used IS NULL OR email_sent = FALSE);
 
 -- name: ListSentUnansweredSurveyEmails :many
 SELECT * FROM survey_email
-WHERE surveyId = $1 AND still_used IS NULL AND email_sent = TRUE;
+WHERE surveyId = $1 AND (still_used IS NULL AND email_sent = TRUE);
 
 -- name: ListUnsentSurveyEmails :many
 SELECT * FROM survey_email
-WHERE surveyId = $1 AND email_sent = FALSE;
+WHERE surveyId = $1 AND (email_sent = FALSE);
 
 -- name: CountUnsentSurveyEmails :one
 SELECT COUNT(*) FROM survey_email
-WHERE email_sent = FALSE AND surveyId = $1;
+WHERE surveyId = $1 AND (email_sent = FALSE);
 
 -- name: CountPositiveSurveyEmails :one
 SELECT COUNT(*) FROM survey_email
-WHERE email_sent = TRUE AND still_used = TRUE AND surveyId = $1;
+WHERE surveyId = $1 AND (email_sent = TRUE AND still_used = TRUE);
 
 -- name: CountNegativeSurveyEmails :one
 SELECT COUNT(*) FROM survey_email
-WHERE email_sent = TRUE AND still_used = FALSE AND surveyId = $1;
+WHERE surveyId = $1 AND (email_sent = TRUE AND still_used = FALSE);
 
 -- name: CountUnansweredSurveyEmails :one
 SELECT COUNT(*) FROM survey_email
-WHERE email_sent = TRUE AND still_used IS NULL AND surveyId = $1;
+WHERE surveyId = $1 AND (email_sent = TRUE AND still_used IS NULL);
 
 -- name: ListPositiveSurveyHostnames :many
 SELECT hostname FROM survey_email
-WHERE email_sent = TRUE AND still_used = TRUE AND surveyId = $1;
+WHERE surveyId = $1 AND (email_sent = TRUE AND still_used = TRUE);
 
 -- name: ListNegativeSurveyHostnames :many
 SELECT hostname FROM survey_email
-WHERE email_sent = TRUE AND still_used = FALSE AND surveyId = $1;
+WHERE surveyId = $1 AND (email_sent = TRUE AND still_used = FALSE);
 
 -- name: ListUnansweredSurveyHostnames :many
 SELECT hostname FROM survey_email
-WHERE email_sent = TRUE AND still_used IS NULL AND surveyId = $1;
+WHERE surveyId = $1 AND (email_sent = TRUE AND still_used IS NULL);
 
 -- name: ListUnsentSurveyHostnames :many
 SELECT hostname FROM survey_email
-WHERE email_sent = FALSE AND surveyId = $1;
+WHERE surveyId = $1 AND email_sent = FALSE;
 
 -- name: SurveyEmailExistsByUUID :one
 SELECT EXISTS(SELECT 1 FROM survey_email WHERE uuid = $1);

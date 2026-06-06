@@ -1,6 +1,3 @@
-ALTER TABLE confirmation_tokens ALTER COLUMN created DROP NOT NULL;
-ALTER TABLE confirmation_tokens ALTER COLUMN used DROP NOT NULL;
-
 ALTER TABLE survey_email ALTER COLUMN email_sent DROP NOT NULL;
 ALTER TABLE survey_email ALTER COLUMN surveyId DROP NOT NULL;
 

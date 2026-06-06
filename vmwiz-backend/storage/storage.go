@@ -75,7 +75,6 @@ func (s Survey) ToString() string {
 	return fmt.Sprintf("Survey ID: %v\nCreated date: %v", s.ID, s.Date)
 }
 
-
 type postgresstorage struct {
 	*Queries
 	db        *sql.DB
@@ -146,7 +145,6 @@ func (s *postgresstorage) Init() error {
 
 	return nil
 }
-
 
 // logger.ScopeStore stuff
 

@@ -55,12 +55,6 @@ func (ns NullRequestStatus) Value() (driver.Value, error) {
 	return string(ns.RequestStatus), nil
 }
 
-type ConfirmationToken struct {
-	Token   string
-	Used    bool
-	Created time.Time
-}
-
 type LogScope struct {
 	ID        string
 	ParentID  sql.NullString
