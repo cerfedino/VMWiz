@@ -30,7 +30,7 @@ func CreateVMUsageSurvey(ctx context.Context, restrict_pool []string) (*int64, e
 	}
 
 	// We create a new survey
-	surveyId, err := storage.DB.CreateSurvey(context.Background())
+	surveyId, err := storage.DB.CreateSurvey(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func CreateVMUsageSurvey(ctx context.Context, restrict_pool []string) (*int64, e
 		}
 
 		// Store the new survey question in the database
-		_, err := storage.DB.CreateSurveyEmail(context.Background(), storage.CreateSurveyEmailParams{
+		_, err := storage.DB.CreateSurveyEmail(ctx, storage.CreateSurveyEmailParams{
 			Recipient: receivers[0],
 			SurveyID:  surveyId,
 			VMID:      int32(vm.Vmid),
@@ -68,16 +68,16 @@ func CreateVMUsageSurvey(ctx context.Context, restrict_pool []string) (*int64, e
 		if err != nil {
 			msg := fmt.Sprintf("Failed create VM usage survey %v: Failed to estabilish all emails that need to be sent (Stopped at VM %v out of %v): %v", surveyId, idx, len(vms), err)
 			notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)
-			return &surveyId, fmt.Errorf(msg)
+			return &surveyId, fmt.Errorf("%s", msg)
 		}
 	}
 
 	// Retrieve all emails that need to be sent from the database
-	surveyEmails, err := storage.DB.ListUnansweredOrUnsentSurveyEmails(context.Background(), surveyId)
+	surveyEmails, err := storage.DB.ListUnansweredOrUnsentSurveyEmails(ctx, surveyId)
 	if err != nil {
 		msg := fmt.Sprintf("Failed send VM usage survey %v: Failed to get all emails that need to be sent from db: %v", surveyId, err)
 		notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)
-		return &surveyId, fmt.Errorf(msg)
+		return &surveyId, fmt.Errorf("%s", msg)
 	}
 
 	err = sendVMUsageSurvey(ctx, surveyId, surveyEmails)
@@ -96,11 +96,11 @@ func RetryUnsentEmails(ctx context.Context, surveyId int64) error {
 	}
 
 	// Retrieve all unsent emails
-	surveyEmails, err := storage.DB.ListUnsentSurveyEmails(context.Background(), surveyId)
+	surveyEmails, err := storage.DB.ListUnsentSurveyEmails(ctx, surveyId)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to retry unsent emails for VM usage survey %v: Failed to get all emails that need to be sent from db: %v", surveyId, err)
 		notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)
-		return fmt.Errorf(msg)
+		return fmt.Errorf("%s", msg)
 	}
 
 	err = sendVMUsageSurvey(ctx, surveyId, surveyEmails)
@@ -119,11 +119,11 @@ func SendSurveyReminder(ctx context.Context, surveyId int64) error {
 	}
 
 	// Retrieve all unsent emails
-	surveyEmails, err := storage.DB.ListSentUnansweredSurveyEmails(context.Background(), surveyId)
+	surveyEmails, err := storage.DB.ListSentUnansweredSurveyEmails(ctx, surveyId)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to retry unsent emails for VM usage survey %v: Failed to get all emails that need to be sent from db: %v", surveyId, err)
 		notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)
-		return fmt.Errorf(msg)
+		return fmt.Errorf("%s", msg)
 	}
 
 	err = sendVMUsageSurveyReminder(ctx, surveyId, surveyEmails)
@@ -183,7 +183,7 @@ func sendVMUsageSurveyReminder(ctx context.Context, surveyId int64, surveyEmails
 		msg = fmt.Sprintf("Dry-run Sent %d reminder emails for VM usage survey %v (SMTP disabled)", emails_sent, surveyId)
 	}
 
-	logger.From(ctx).Infof("[+] " + msg)
+	logger.From(ctx).Info("[+] " + msg)
 
 	// Notify about the survey getting sent
 	err = notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)
@@ -236,7 +236,7 @@ func sendVMUsageSurvey(ctx context.Context, surveyId int64, surveyEmails []stora
 		}
 
 		if config.AppConfig.SMTP_ENABLE {
-			err = storage.DB.MarkSurveyEmailSent(context.Background(), surveyEmail.UUID)
+			err = storage.DB.MarkSurveyEmailSent(ctx, surveyEmail.UUID)
 			if err != nil {
 				logger.From(ctx).Errorf("Failed send VM usage survey: Failed to set EmailMarkAsSent %v", err)
 				continue
@@ -252,7 +252,7 @@ func sendVMUsageSurvey(ctx context.Context, surveyId int64, surveyEmails []stora
 		msg = fmt.Sprintf("Dry-run Sent %d emails for VM usage survey %v (SMTP disabled)", emails_sent, surveyId)
 	}
 
-	logger.From(ctx).Infof("[+] " + msg)
+	logger.From(ctx).Info("[+] " + msg)
 
 	// Notify about the survey getting sent
 	err = notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)

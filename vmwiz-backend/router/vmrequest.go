@@ -26,7 +26,7 @@ import (
 // sends notifications, and emails the requester.
 // Returns an ErrorBundle if any step fails.
 func AcceptVMRequest(ctx context.Context, id int64) *ErrorBundle {
-	request, err := storage.DB.GetVMRequestByID(context.Background(), id)
+	request, err := storage.DB.GetVMRequestByID(ctx, id)
 
 	if err != nil {
 		return SimpleError(err, "Error fetching VM request")
@@ -45,7 +45,7 @@ func AcceptVMRequest(ctx context.Context, id int64) *ErrorBundle {
 		opts.ResourcePool = config.AppConfig.VM_PERSONAL_POOL
 	}
 
-	err = storage.DB.UpdateVMRequestStatus(context.Background(), storage.UpdateVMRequestStatusParams{RequestID: id, RequestStatus: storage.REQUEST_STATUS_ACCEPTED})
+	err = storage.DB.UpdateVMRequestStatus(ctx, storage.UpdateVMRequestStatusParams{RequestID: id, RequestStatus: storage.REQUEST_STATUS_ACCEPTED})
 	if err != nil {
 		return SimpleError(err, "Failed to update VM request status")
 	}
@@ -79,8 +79,8 @@ func AcceptVMRequest(ctx context.Context, id int64) *ErrorBundle {
 // RejectVMRequest marks a VM request as rejected.
 // Returns an ErrorBundle if the request was already accepted
 // or if any database/notification step fails.
-func RejectVMRequest(id int64) *ErrorBundle {
-	request, err := storage.DB.GetVMRequestByID(context.Background(), id)
+func RejectVMRequest(ctx context.Context, id int64) *ErrorBundle {
+	request, err := storage.DB.GetVMRequestByID(ctx, id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
@@ -89,17 +89,17 @@ func RejectVMRequest(id int64) *ErrorBundle {
 		return SimpleError(nil, "Cannot reject an accepted request")
 	}
 
-	err = storage.DB.UpdateVMRequestStatus(context.Background(), storage.UpdateVMRequestStatusParams{RequestID: id, RequestStatus: storage.REQUEST_STATUS_REJECTED})
+	err = storage.DB.UpdateVMRequestStatus(ctx, storage.UpdateVMRequestStatusParams{RequestID: id, RequestStatus: storage.REQUEST_STATUS_REJECTED})
 	if err != nil {
 		return SimpleError(err, "Failed to update VM request status")
 	}
 
-	request, err = storage.DB.GetVMRequestByID(context.Background(), id)
+	request, err = storage.DB.GetVMRequestByID(ctx, id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
 
-	err = notifier.NotifyVMRequestStatusChanged(context.Background(), request, "")
+	err = notifier.NotifyVMRequestStatusChanged(ctx, request, "")
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM request status change")
 	}
@@ -111,8 +111,8 @@ func RejectVMRequest(id int64) *ErrorBundle {
 
 // HoldVMRequest changes a VM request from PENDING to HELD,
 // sends a status update notification, and returns any errors.
-func HoldVMRequest(id int64) *ErrorBundle {
-	request, err := storage.DB.GetVMRequestByID(context.Background(), id)
+func HoldVMRequest(ctx context.Context, id int64) *ErrorBundle {
+	request, err := storage.DB.GetVMRequestByID(ctx, id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
@@ -121,17 +121,17 @@ func HoldVMRequest(id int64) *ErrorBundle {
 		return SimpleError(nil, "You can only put pending requests on hold")
 	}
 
-	err = storage.DB.UpdateVMRequestStatus(context.Background(), storage.UpdateVMRequestStatusParams{RequestID: id, RequestStatus: storage.REQUEST_STATUS_HELD})
+	err = storage.DB.UpdateVMRequestStatus(ctx, storage.UpdateVMRequestStatusParams{RequestID: id, RequestStatus: storage.REQUEST_STATUS_HELD})
 	if err != nil {
 		return SimpleError(err, "Failed to update VM request status")
 	}
 
-	request, err = storage.DB.GetVMRequestByID(context.Background(), id)
+	request, err = storage.DB.GetVMRequestByID(ctx, id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
 
-	err = notifier.NotifyVMRequestStatusChanged(context.Background(), request, "")
+	err = notifier.NotifyVMRequestStatusChanged(ctx, request, "")
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM request status change")
 	}
@@ -143,8 +143,8 @@ func HoldVMRequest(id int64) *ErrorBundle {
 
 // UnholdVMRequest changes a VM request from HELD to PENDING,
 // sends a status update notification, and returns any errors.
-func UnholdVMRequest(id int64) *ErrorBundle {
-	request, err := storage.DB.GetVMRequestByID(context.Background(), id)
+func UnholdVMRequest(ctx context.Context, id int64) *ErrorBundle {
+	request, err := storage.DB.GetVMRequestByID(ctx, id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
@@ -153,17 +153,17 @@ func UnholdVMRequest(id int64) *ErrorBundle {
 		return SimpleError(nil, "Unhold invalid: request is not on hold")
 	}
 
-	err = storage.DB.UpdateVMRequestStatus(context.Background(), storage.UpdateVMRequestStatusParams{RequestID: id, RequestStatus: storage.REQUEST_STATUS_PENDING})
+	err = storage.DB.UpdateVMRequestStatus(ctx, storage.UpdateVMRequestStatusParams{RequestID: id, RequestStatus: storage.REQUEST_STATUS_PENDING})
 	if err != nil {
 		return SimpleError(err, "Failed to update VM request status")
 	}
 
-	request, err = storage.DB.GetVMRequestByID(context.Background(), id)
+	request, err = storage.DB.GetVMRequestByID(ctx, id)
 	if err != nil {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
 
-	err = notifier.NotifyVMRequestStatusChanged(context.Background(), request, "")
+	err = notifier.NotifyVMRequestStatusChanged(ctx, request, "")
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM request status change")
 	}
@@ -239,7 +239,7 @@ func addVMRequestRoutes(r *mux.Router) {
 	}))
 
 	r.Methods("GET").Path("/api/vmrequest").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		vmRequests, err := storage.DB.ListVMRequests(context.Background())
+		vmRequests, err := storage.DB.ListVMRequests(r.Context())
 		if err != nil {
 			log.Printf("Failed to get VM requests: %v", err)
 			http.Error(w, "Failed to get VM requests", http.StatusInternalServerError)
@@ -335,7 +335,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		eb := RejectVMRequest(int64(body.ID))
+		eb := RejectVMRequest(r.Context(), int64(body.ID))
 
 		if eb != nil {
 			http.Error(w, eb.UserMsg, eb.HttpCode)
@@ -356,7 +356,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		eb := HoldVMRequest(int64(body.ID))
+		eb := HoldVMRequest(r.Context(), int64(body.ID))
 
 		if eb != nil {
 			http.Error(w, eb.UserMsg, eb.HttpCode)
@@ -377,7 +377,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		eb := UnholdVMRequest(int64(body.ID))
+		eb := UnholdVMRequest(r.Context(), int64(body.ID))
 
 		if eb != nil {
 			http.Error(w, eb.UserMsg, eb.HttpCode)
@@ -403,7 +403,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		request, err := storage.DB.GetVMRequestByID(context.Background(), int64(body.ID))
+		request, err := storage.DB.GetVMRequestByID(r.Context(), int64(body.ID))
 		if err != nil {
 			log.Printf("Error getting VM request: %v", err)
 			http.Error(w, "Failed to fetch VM request", http.StatusInternalServerError)
@@ -431,7 +431,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			request.Hostname = body.Hostname
 		}
 
-		err = storage.DB.UpdateVMRequest(context.Background(), storage.UpdateVMRequestParams{
+		err = storage.DB.UpdateVMRequest(r.Context(), storage.UpdateVMRequestParams{
 			RequestID:        request.RequestID,
 			RequestCreatedAt: request.RequestCreatedAt,
 			RequestStatus:    request.RequestStatus,

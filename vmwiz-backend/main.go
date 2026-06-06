@@ -204,17 +204,17 @@ func main() {
 }
 
 // helper function that looks up a VM request by ID or hostname, and checks that it is pending if justpending is true. If multiple matching requests are found, an error is returned.
-func findVMRequest(id int, name string, justpending bool) (*storage.Request, error) {
+func findVMRequest(ctx context.Context, id int, name string, justpending bool) (*storage.Request, error) {
 	vmrequests := []storage.Request{}
 	if id >= 0 {
-		vmrequest, err := storage.DB.GetVMRequestByID(context.Background(), int64(id))
+		vmrequest, err := storage.DB.GetVMRequestByID(ctx, int64(id))
 		if err != nil {
 			return nil, err
 		}
 		vmrequests = append(vmrequests, vmrequest)
 
 	} else {
-		reqs, err := storage.DB.GetVMRequestsByHostname(context.Background(), name)
+		reqs, err := storage.DB.GetVMRequestsByHostname(ctx, name)
 		if err != nil {
 			return nil, err
 		}
@@ -272,7 +272,7 @@ func handle_ip_list(ctx context.Context, cmd *cli.Command) error {
 	return nil
 }
 func handle_request_list(ctx context.Context, cmd *cli.Command) error {
-	requests, err := storage.DB.ListVMRequests(context.Background())
+	requests, err := storage.DB.ListVMRequests(ctx)
 	if err != nil {
 		return err
 	}
@@ -296,7 +296,7 @@ func handle_request_accept(ctx context.Context, cmd *cli.Command) error {
 	if cmd.Int("id") == -1 && cmd.String("name") == "" {
 		return fmt.Errorf("Either --id or --name must be provided")
 	}
-	vmrequest, err := findVMRequest(cmd.Int("id"), cmd.String("name"), true)
+	vmrequest, err := findVMRequest(ctx, cmd.Int("id"), cmd.String("name"), true)
 	if err != nil {
 		return err
 	}
@@ -321,7 +321,7 @@ func handle_request_reject(ctx context.Context, cmd *cli.Command) error {
 	if cmd.Int("id") == -1 && cmd.String("name") == "" {
 		return fmt.Errorf("Either --id or --name must be provided")
 	}
-	vmrequest, err := findVMRequest(cmd.Int("id"), cmd.String("name"), true)
+	vmrequest, err := findVMRequest(ctx, cmd.Int("id"), cmd.String("name"), true)
 	if err != nil {
 		return err
 	}
@@ -335,14 +335,14 @@ func handle_request_reject(ctx context.Context, cmd *cli.Command) error {
 		return nil
 	}
 
-	errB := router.RejectVMRequest(vmrequest.RequestID)
+	errB := router.RejectVMRequest(ctx, vmrequest.RequestID)
 	if errB != nil {
 		return fmt.Errorf("%s: %v\n", errB.Err, errB.UserMsg)
 	}
 	return nil
 }
 func handle_survey_list(ctx context.Context, cmd *cli.Command) error {
-	surveys, err := storage.DB.ListSurveys(context.Background())
+	surveys, err := storage.DB.ListSurveys(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get surveys: %v", err)
 	}
@@ -363,33 +363,33 @@ func handle_survey_inspect(ctx context.Context, cmd *cli.Command) error {
 	unansweredList := []string{}
 
 	sid := int64(surveyId)
-	negativeCount, err := storage.DB.CountNegativeSurveyEmails(context.Background(), sid)
+	negativeCount, err := storage.DB.CountNegativeSurveyEmails(ctx, sid)
 	if err != nil {
 		return err
 	}
-	positiveCount, err := storage.DB.CountPositiveSurveyEmails(context.Background(), sid)
+	positiveCount, err := storage.DB.CountPositiveSurveyEmails(ctx, sid)
 	if err != nil {
 		return err
 	}
-	unansweredCount, err := storage.DB.CountUnansweredSurveyEmails(context.Background(), sid)
+	unansweredCount, err := storage.DB.CountUnansweredSurveyEmails(ctx, sid)
 	if err != nil {
 		return err
 	}
 
 	if positives {
-		positiveList, err = storage.DB.ListPositiveSurveyHostnames(context.Background(), sid)
+		positiveList, err = storage.DB.ListPositiveSurveyHostnames(ctx, sid)
 		if err != nil {
 			return err
 		}
 	}
 	if negatives {
-		negativeList, err = storage.DB.ListNegativeSurveyHostnames(context.Background(), sid)
+		negativeList, err = storage.DB.ListNegativeSurveyHostnames(ctx, sid)
 		if err != nil {
 			return err
 		}
 	}
 	if unanswered {
-		unansweredList, err = storage.DB.ListUnansweredSurveyHostnames(context.Background(), sid)
+		unansweredList, err = storage.DB.ListUnansweredSurveyHostnames(ctx, sid)
 		if err != nil {
 			return err
 		}
@@ -413,7 +413,7 @@ func handle_survey_inspect(ctx context.Context, cmd *cli.Command) error {
 }
 func handle_survey_shutdownunanswered(ctx context.Context, cmd *cli.Command) error {
 	surveyId := cmd.Int("id")
-	shutdownList, err := storage.DB.ListUnansweredSurveyHostnames(context.Background(), int64(surveyId))
+	shutdownList, err := storage.DB.ListUnansweredSurveyHostnames(ctx, int64(surveyId))
 	if err != nil {
 		return err
 	}

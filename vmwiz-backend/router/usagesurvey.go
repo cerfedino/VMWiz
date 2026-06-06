@@ -27,7 +27,7 @@ func addAllPollRoutes(r *mux.Router) {
 			Surveys []int64 `json:"surveyIds"`
 		}
 
-		surveys, err := storage.DB.ListSurveyIDs(context.Background())
+		surveys, err := storage.DB.ListSurveyIDs(r.Context())
 		if err != nil {
 			log.Printf("Error getting all surveys: %v", err)
 			http.Error(w, "Failed to get all surveys", http.StatusInternalServerError)
@@ -63,7 +63,7 @@ func addAllPollRoutes(r *mux.Router) {
 			return
 		}
 
-		survey, err := storage.DB.GetSurveyByID(context.Background(), surveyId)
+		survey, err := storage.DB.GetSurveyByID(r.Context(), surveyId)
 		if err != nil {
 			log.Printf("Error retrieving survey from DB: %v", err)
 			http.Error(w, "Failed to retrieve survey", http.StatusInternalServerError)
@@ -71,25 +71,25 @@ func addAllPollRoutes(r *mux.Router) {
 		}
 
 		sid := survey.ID
-		unsent, err := storage.DB.CountUnsentSurveyEmails(context.Background(), sid)
+		unsent, err := storage.DB.CountUnsentSurveyEmails(r.Context(), sid)
 		if err != nil {
 			log.Printf("Error getting unsent emails: %v", err)
 			http.Error(w, "Failed to get unsent emails", http.StatusInternalServerError)
 			return
 		}
-		positive, err := storage.DB.CountPositiveSurveyEmails(context.Background(), sid)
+		positive, err := storage.DB.CountPositiveSurveyEmails(r.Context(), sid)
 		if err != nil {
 			log.Printf("Error getting positive emails: %v", err)
 			http.Error(w, "Failed to get positive emails", http.StatusInternalServerError)
 			return
 		}
-		negative, err := storage.DB.CountNegativeSurveyEmails(context.Background(), sid)
+		negative, err := storage.DB.CountNegativeSurveyEmails(r.Context(), sid)
 		if err != nil {
 			log.Printf("Error getting negative emails: %v", err)
 			http.Error(w, "Failed to get negative emails", http.StatusInternalServerError)
 			return
 		}
-		notResponded, err := storage.DB.CountUnansweredSurveyEmails(context.Background(), sid)
+		notResponded, err := storage.DB.CountUnansweredSurveyEmails(r.Context(), sid)
 		if err != nil {
 			log.Printf("Error getting not responded emails: %v", err)
 			http.Error(w, "Failed to get not responded emails", http.StatusInternalServerError)
@@ -149,7 +149,7 @@ func addAllPollRoutes(r *mux.Router) {
 			return
 		}
 
-		exists, err := storage.DB.SurveyEmailExistsByUUID(context.Background(), body.ID)
+		exists, err := storage.DB.SurveyEmailExistsByUUID(r.Context(), body.ID)
 		if err != nil {
 			log.Printf("Error checking if survey response exists: %v", err)
 			http.Error(w, "Failed to check if survey response exists", http.StatusInternalServerError)
@@ -161,7 +161,7 @@ func addAllPollRoutes(r *mux.Router) {
 			return
 		}
 
-		err = storage.DB.UpdateSurveyEmailResponse(context.Background(), storage.UpdateSurveyEmailResponseParams{
+		err = storage.DB.UpdateSurveyEmailResponse(r.Context(), storage.UpdateSurveyEmailResponseParams{
 			UUID:      body.ID,
 			StillUsed: sql.NullBool{Bool: body.Keep, Valid: true},
 		})
@@ -190,7 +190,7 @@ func addAllPollRoutes(r *mux.Router) {
 			http.Error(w, "Invalid id provided", http.StatusBadRequest)
 			return
 		}
-		responses, err := storage.DB.ListPositiveSurveyHostnames(context.Background(), int64(idInt))
+		responses, err := storage.DB.ListPositiveSurveyHostnames(r.Context(), int64(idInt))
 		if err != nil {
 			log.Printf("Error getting survey responses: %v", err)
 			http.Error(w, "Failed to get survey responses", http.StatusInternalServerError)
@@ -216,7 +216,7 @@ func addAllPollRoutes(r *mux.Router) {
 			http.Error(w, "Invalid id provided", http.StatusBadRequest)
 			return
 		}
-		responses, err := storage.DB.ListNegativeSurveyHostnames(context.Background(), int64(idInt))
+		responses, err := storage.DB.ListNegativeSurveyHostnames(r.Context(), int64(idInt))
 		if err != nil {
 			log.Printf("Error getting survey responses: %v", err)
 			http.Error(w, "Failed to get survey responses", http.StatusInternalServerError)
@@ -242,7 +242,7 @@ func addAllPollRoutes(r *mux.Router) {
 			http.Error(w, "Invalid id provided", http.StatusBadRequest)
 			return
 		}
-		responses, err := storage.DB.ListUnsentSurveyHostnames(context.Background(), int64(idInt))
+		responses, err := storage.DB.ListUnsentSurveyHostnames(r.Context(), int64(idInt))
 		if err != nil {
 			log.Printf("Error getting unsent emails: %v", err)
 			http.Error(w, "Failed to get unsent emails", http.StatusInternalServerError)
@@ -268,7 +268,7 @@ func addAllPollRoutes(r *mux.Router) {
 			http.Error(w, "Invalid id provided", http.StatusBadRequest)
 			return
 		}
-		responses, err := storage.DB.ListUnansweredSurveyHostnames(context.Background(), int64(idInt))
+		responses, err := storage.DB.ListUnansweredSurveyHostnames(r.Context(), int64(idInt))
 		if err != nil {
 			log.Printf("Error getting survey responses: %v", err)
 			http.Error(w, "Failed to get survey responses", http.StatusInternalServerError)
