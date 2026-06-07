@@ -35,7 +35,11 @@ func addLogRoutes(r *mux.Router) {
 			limit = n
 		}
 
-		scopes, err := storage.DB.ListRootScopes(before, limit)
+		scopes, err := storage.DB.ListRootLogScopes(req.Context(), storage.ListRootLogScopesParams{
+			RootScopeID: storage.SCOPE_ROOT,
+			BeforeID:    before,
+			MaxResults:  int32(limit),
+		})
 		if err != nil {
 			log.Printf("Failed to list log scopes: %v", err)
 			http.Error(w, "Failed to list log scopes", http.StatusInternalServerError)

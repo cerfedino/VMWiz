@@ -1,18 +1,17 @@
 package storage
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"fmt"
 	"time"
 
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
-	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/form"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/proxmox"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
-	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
 
@@ -29,89 +28,55 @@ const (
 	SCOPE_ROOT = "0"
 )
 
-type SQLVMRequest struct {
-	ID               int64     `db:"requestId"`
-	RequestCreatedAt time.Time `db:"requestCreatedAt"`
-	RequestStatus    string    `db:"requestStatus"`
-	Email            string    `db:"email"`
-	PersonalEmail    string    `db:"personalEmail"`
-	IsOrganization   bool      `db:"isOrganization"`
-	OrgName          string    `db:"orgName"`
-	Hostname         string    `db:"hostname"`
-	Image            string    `db:"image"`
-	Cores            int       `db:"cores"`
-	RamGB            int       `db:"ramGB"`
-	DiskGB           int       `db:"diskGB"`
-	SecondaryDiskGB  int       `db:"secondaryDiskGB"`
-	SshPubkeys       []string  `db:"sshPubkeys"`
-	Comments         string    `db:"comments"`
-}
-
-func (f *SQLVMRequest) ToString() string {
-	return `ID: ` + fmt.Sprintf("%v", f.ID) + `
-RequestCreatedAt: ` + fmt.Sprintf("%v", f.RequestCreatedAt) + `
-RequestStatus: ` + fmt.Sprintf("%v", f.RequestStatus) + `
-Email: ` + fmt.Sprintf("%v", f.Email) + `
-PersonalEmail: ` + fmt.Sprintf("%v", f.PersonalEmail) + `
-IsOrganization: ` + fmt.Sprintf("%v", f.IsOrganization) + `
-OrgName: ` + fmt.Sprintf("%v", f.OrgName) + `
-Hostname: ` + fmt.Sprintf("%v", f.Hostname) + `
-Image: ` + fmt.Sprintf("%v", f.Image) + `
-Cores: ` + fmt.Sprintf("%v", f.Cores) + `
-RamGB: ` + fmt.Sprintf("%v", f.RamGB) + `
-DiskGB: ` + fmt.Sprintf("%v", f.DiskGB) + `
-SecondaryDiskGB: ` + fmt.Sprintf("%v", f.SecondaryDiskGB) + `
-SshPubkeys: ` + fmt.Sprintf("%v", f.SshPubkeys) + `
-Comments: ` + fmt.Sprintf("%v", f.Comments) + `
+// ToString renders a VM request for CLI output and notifications.
+func (r Request) ToString() string {
+	return `ID: ` + fmt.Sprintf("%v", r.Requestid) + `
+RequestCreatedAt: ` + fmt.Sprintf("%v", r.Requestcreatedat) + `
+RequestStatus: ` + fmt.Sprintf("%v", r.Requeststatus) + `
+Email: ` + fmt.Sprintf("%v", r.Email) + `
+PersonalEmail: ` + fmt.Sprintf("%v", r.Personalemail) + `
+IsOrganization: ` + fmt.Sprintf("%v", r.Isorganization) + `
+OrgName: ` + fmt.Sprintf("%v", r.Orgname.String) + `
+Hostname: ` + fmt.Sprintf("%v", r.Hostname) + `
+Image: ` + fmt.Sprintf("%v", r.Image) + `
+Cores: ` + fmt.Sprintf("%v", r.Cores) + `
+RamGB: ` + fmt.Sprintf("%v", r.Ramgb) + `
+DiskGB: ` + fmt.Sprintf("%v", r.Diskgb) + `
+SecondaryDiskGB: ` + fmt.Sprintf("%v", r.Secondarydiskgb) + `
+SshPubkeys: ` + fmt.Sprintf("%v", r.Sshpubkeys) + `
+Comments: ` + fmt.Sprintf("%v", r.Comments.String) + `
 `
 }
 
-func (s *SQLVMRequest) ToVMOptions() *proxmox.VMCreationOptions {
+func (r Request) ToVMOptions() *proxmox.VMCreationOptions {
 	return &proxmox.VMCreationOptions{
-		Template:         s.Image,
-		FQDN:             s.Hostname,
+		Template:         r.Image,
+		FQDN:             r.Hostname,
 		Reinstall:        false,
-		Cores_CPU:        s.Cores,
-		RAM_MB:           int64(s.RamGB * 1024),
-		Disk_GB:          int64(s.DiskGB),
-		SecondaryDisk_GB: int64(s.SecondaryDiskGB),
-		SSHPubkeys:       s.SshPubkeys,
+		Cores_CPU:        int(r.Cores),
+		RAM_MB:           int64(r.Ramgb) * 1024,
+		Disk_GB:          int64(r.Diskgb),
+		SecondaryDisk_GB: int64(r.Secondarydiskgb),
+		SSHPubkeys:       r.Sshpubkeys,
 		Notes:            "VM is being set up, please wait...",
 		Tags:             []string{"created-by-vmwiz"},
 		DescriptionKVPairs: map[string]string{
 			"nethz":       "TODO",
-			"uni_contact": s.Email,
-			"contact":     s.PersonalEmail,
+			"uni_contact": r.Email,
+			"contact":     r.Personalemail,
 		},
 
 		UseQemuAgent: false,
 	}
 }
 
-type Storage interface {
-	CreateConnection() error
-	InitMigrations() error
-	Init(dataSourceName string)
-
-	StoreVMRequest(req *form.Form) error
-	GetVMRequest(id int64) (*SQLVMRequest, error)
-	UpdateVMRequest(req SQLVMRequest) error
-	UpdateVMRequestStatus(id int64, status string) error
-	GetAllVMRequests() ([]*SQLVMRequest, error)
-	SurveyStore(vmid int, hostname string, uuid string) (int64, error)
-	SurveyResponseUpdate(uuid string, response bool) error
-
-	CreateLogScope(id string, parentID string, rootID string, label string) error
-	GetLogScope(id string) (*SQLLogScope, error)
-	FinishLogScope(id string, failed bool) error
-	LogScopeRootID(id string) (string, error)
-	LogScopeSubtreeIDs(id string) ([]string, error)
-	LogScopeFinished(id string) (finished bool, failed bool, err error)
-	ListRootScopes(beforeID string, limit int) ([]*SQLLogScope, error)
-	ScopeIDsBefore(cutoff time.Time) ([]string, error)
+// ToString renders a usage survey for CLI output.
+func (s Survey) ToString() string {
+	return fmt.Sprintf("Survey ID: %v\nCreated date: %v", s.ID, s.Date)
 }
 
 type postgresstorage struct {
+	*Queries
 	db        *sql.DB
 	migration *migrate.Migrate
 }
@@ -130,18 +95,19 @@ func (s *postgresstorage) CreateConnection() error {
 	if s.db != nil {
 		s.db.Close()
 		s.db = nil
+		s.Queries = nil
 	}
-	db, err := sql.Open("postgres", buildConnectionString(POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB))
+	conn, err := sql.Open("postgres", buildConnectionString(POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB))
 	if err != nil {
 		return fmt.Errorf("Test DB connection failed: %v", err.Error())
 	}
 
-	if err := db.Ping(); err != nil {
+	if err := conn.Ping(); err != nil {
 		return fmt.Errorf("Test DB connection failed: %v", err.Error())
-	} else {
-		s.db = db
-		return nil
 	}
+	s.db = conn
+	s.Queries = New(conn)
+	return nil
 }
 
 func (s *postgresstorage) InitMigrations() error {
@@ -180,624 +146,44 @@ func (s *postgresstorage) Init() error {
 	return nil
 }
 
-func (s *postgresstorage) StoreVMRequest(req *form.Form) (*int64, error) {
-
-	res := s.db.QueryRow(`INSERT INTO request
-		(email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, secondaryDiskGB, sshPubkeys, comments)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING requestID`,
-		req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, fmt.Sprintf("%v.vsos.ethz.ch", req.Hostname), req.Image, req.Cores, req.RamGB, req.DiskGB, req.SecondaryDiskGB, pq.Array(req.SshPubkeys), req.Comments)
-	// Get the last inserted ID
-	var id int64
-	err := res.Scan(&id)
-	if err != nil {
-		return nil, fmt.Errorf("StoreVMRequest: Error getting last insert ID: %s", err)
-	}
-
-	return &id, nil
-}
-
-func (s *postgresstorage) GetVMRequestById(id int64) (*SQLVMRequest, error) {
-	var req SQLVMRequest
-	err := s.db.QueryRow(`SELECT
-	requestID,requestCreatedAt, requestStatus, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, secondaryDiskGB, sshPubkeys, comments
-	FROM request WHERE requestID=$1`, id).Scan(&req.ID, &req.RequestCreatedAt, &req.RequestStatus, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, &req.SecondaryDiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
-	if err != nil {
-		return nil, fmt.Errorf("GetVMRequest: Error when executing query: %s", err)
-	}
-	return &req, nil
-}
-
-func (s *postgresstorage) GetVMRequestByHostname(hostname string) ([]*SQLVMRequest, error) {
-	rows, err := s.db.Query(`SELECT requestID,requestCreatedAt, requestStatus, email, personalEmail, isOrganization, orgName, hostname, image, cores, ramGB, diskGB, secondaryDiskGB, sshPubkeys, comments FROM request WHERE hostname=$1`, hostname)
-	if err != nil {
-		return nil, fmt.Errorf("GetVMRequestByHostname: Error when executing query: %s", err)
-	}
-	defer rows.Close()
-
-	var reqs []*SQLVMRequest
-	for rows.Next() {
-		var req SQLVMRequest
-		err = rows.Scan(&req.ID, &req.RequestCreatedAt, &req.RequestStatus, &req.Email, &req.PersonalEmail, &req.IsOrganization, &req.OrgName, &req.Hostname, &req.Image, &req.Cores, &req.RamGB, &req.DiskGB, &req.SecondaryDiskGB, pq.Array(&req.SshPubkeys), &req.Comments)
-		if err != nil {
-			return nil, fmt.Errorf("GetVMRequestByHostname: Error scanning row: %s", err)
-		}
-		reqs = append(reqs, &req)
-	}
-
-	return reqs, nil
-}
-
-func (s *postgresstorage) UpdateVMRequest(req SQLVMRequest) error {
-	_, err := s.db.Exec(`UPDATE request SET requestCreatedAt=$1, requestStatus=$2, email=$3, personalEmail=$4, isOrganization=$5, orgName=$6, hostname=$7, image=$8, cores=$9, ramGB=$10, diskGB=$11, secondaryDiskGB=$12, sshPubkeys=$13, comments=$14 WHERE requestID=$15`,
-		req.RequestCreatedAt, req.RequestStatus, req.Email, req.PersonalEmail, req.IsOrganization, req.OrgName, req.Hostname, req.Image, req.Cores, req.RamGB, req.DiskGB, req.SecondaryDiskGB, pq.Array(req.SshPubkeys), req.Comments, req.ID)
-	if err != nil {
-		return fmt.Errorf("UpdateVMRequest: Error updating SQL: %s", err)
-	}
-
-	return nil
-}
-
-func (s *postgresstorage) UpdateVMRequestStatus(id int64, status string) error {
-	_, err := s.db.Exec(`UPDATE request SET requestStatus=$1 WHERE requestID=$2`, status, id)
-	if err != nil {
-		return fmt.Errorf("UpdateVMRequestStatus: Error updating SQL: %s", err)
-	}
-	return nil
-}
-
-func (s *postgresstorage) GetAllVMRequests() ([]*SQLVMRequest, error) {
-	rows, err := s.db.Query(`SELECT requestID FROM request`)
-	if err != nil {
-		return nil, fmt.Errorf("GetAllVMRequests: Error when executing query: %s", err)
-	}
-	defer rows.Close()
-	// Store all IDs
-	var ids []*int64
-	for rows.Next() {
-		var id int64
-		err = rows.Scan(&id)
-		if err != nil {
-			return nil, fmt.Errorf("GetAllVMRequests: Error while scanning rows: %s", err)
-		}
-		ids = append(ids, &id)
-	}
-
-	//for id in ids
-	var reqs []*SQLVMRequest
-	for _, id := range ids {
-		var req *SQLVMRequest
-		req, err := s.GetVMRequestById(*id)
-		if err != nil {
-			return nil, fmt.Errorf("GetAllVMRequests: %s", err)
-		}
-		reqs = append(reqs, req)
-	}
-	if reqs == nil {
-		reqs = []*SQLVMRequest{}
-	}
-
-	return reqs, nil
-}
-
-type SQLLogScope struct {
-	ID        string         `db:"id" json:"id"`
-	ParentID  sql.NullString `db:"parent_id" json:"parentId"`
-	RootID    string         `db:"root_id" json:"rootId"`
-	Label     string         `db:"label" json:"label"`
-	StartedAt time.Time      `db:"started_at" json:"startedAt"`
-	EndedAt   sql.NullTime   `db:"ended_at" json:"endedAt"`
-	Failed    bool           `db:"failed" json:"failed"`
-}
+// logger.ScopeStore stuff
 
 func (s *postgresstorage) CreateLogScope(id string, parentID string, rootID string, label string) error {
-	var parent any
+	parent := sql.NullString{}
 	if parentID != "" {
-		parent = parentID
+		parent = sql.NullString{String: parentID, Valid: true}
 	}
-	_, err := s.db.Exec(
-		`INSERT INTO log_scope (id, parent_id, root_id, label) VALUES ($1, $2, $3, $4)`,
-		id, parent, rootID, label)
-	if err != nil {
-		return fmt.Errorf("CreateScope: %s", err)
-	}
-	return nil
-}
-
-func (s *postgresstorage) GetLogScope(id string) (*SQLLogScope, error) {
-	row := s.db.QueryRow(
-		`SELECT id, parent_id, root_id, label, started_at, ended_at, failed FROM log_scope WHERE id = $1`, id)
-	var sc SQLLogScope
-	if err := row.Scan(&sc.ID, &sc.ParentID, &sc.RootID, &sc.Label, &sc.StartedAt, &sc.EndedAt, &sc.Failed); err != nil {
-		return nil, fmt.Errorf("GetScope: %s", err)
-	}
-	return &sc, nil
+	return s.Queries.CreateLogScope(context.Background(), CreateLogScopeParams{
+		ID:       id,
+		ParentID: parent,
+		RootID:   rootID,
+		Label:    label,
+	})
 }
 
 func (s *postgresstorage) FinishLogScope(id string, failed bool) error {
-	_, err := s.db.Exec(
-		`UPDATE log_scope SET ended_at = CURRENT_TIMESTAMP, failed = $1 WHERE id = $2`,
-		failed, id)
-	if err != nil {
-		return fmt.Errorf("FinishScope: %s", err)
-	}
-	return nil
+	return s.Queries.FinishLogScope(context.Background(), FinishLogScopeParams{ID: id, Failed: failed})
 }
 
-func (s *postgresstorage) LogScopeFinished(id string) (bool, bool, error) {
-	var endedAt sql.NullTime
-	var failed bool
-	err := s.db.QueryRow(`SELECT ended_at, failed FROM log_scope WHERE id = $1`, id).Scan(&endedAt, &failed)
+func (s *postgresstorage) LogScopeFinished(id string) (finished bool, failed bool, err error) {
+	row, err := s.Queries.GetLogScopeStatus(context.Background(), id)
 	if err != nil {
-		return false, false, fmt.Errorf("LogScopeFinished: %s", err)
+		return false, false, err
 	}
-	return endedAt.Valid, failed, nil
-}
-
-// Returns up to limit top-level scopes newest-first. IDs are time ordered so beforeID retrieved all logs created before the specified one
-func (s *postgresstorage) ListRootScopes(beforeID string, limit int) ([]*SQLLogScope, error) {
-	rows, err := s.db.Query(
-		`SELECT id, parent_id, root_id, label, started_at, ended_at, failed
-		 FROM log_scope WHERE id = root_id AND id <> $1 AND ($2 = '' OR id < $2)
-		 ORDER BY id DESC LIMIT $3`, SCOPE_ROOT, beforeID, limit)
-	if err != nil {
-		return nil, fmt.Errorf("ListRootScopes: %s", err)
-	}
-	defer rows.Close()
-
-	scopes := []*SQLLogScope{}
-	for rows.Next() {
-		var sc SQLLogScope
-		if err := rows.Scan(&sc.ID, &sc.ParentID, &sc.RootID, &sc.Label, &sc.StartedAt, &sc.EndedAt, &sc.Failed); err != nil {
-			return nil, fmt.Errorf("ListRootScopes: %s", err)
-		}
-		scopes = append(scopes, &sc)
-	}
-	return scopes, nil
+	return row.EndedAt.Valid, row.Failed, nil
 }
 
 func (s *postgresstorage) LogScopeRootID(id string) (string, error) {
-	var rootID string
-	err := s.db.QueryRow(`SELECT root_id FROM log_scope WHERE id = $1`, id).Scan(&rootID)
-	if err != nil {
-		return "", fmt.Errorf("LogScopeRootID: %s", err)
-	}
-	return rootID, nil
+	return s.Queries.GetLogScopeRootID(context.Background(), id)
 }
 
 func (s *postgresstorage) LogScopeSubtreeIDs(id string) ([]string, error) {
-	rows, err := s.db.Query(`
-		WITH RECURSIVE subtree AS (
-			SELECT id FROM log_scope WHERE id = $1
-			UNION ALL
-			SELECT c.id FROM log_scope c JOIN subtree st ON c.parent_id = st.id
-		)
-		SELECT id FROM subtree`, id)
-	if err != nil {
-		return nil, fmt.Errorf("LogScopeSubtreeIDs: %s", err)
-	}
-	defer rows.Close()
-
-	var ids []string
-	for rows.Next() {
-		var sid string
-		if err := rows.Scan(&sid); err != nil {
-			return nil, fmt.Errorf("LogScopeSubtreeIDs: %s", err)
-		}
-		ids = append(ids, sid)
-	}
-	return ids, nil
+	return s.Queries.ListLogScopeSubtreeIDs(context.Background(), id)
 }
 
 func (s *postgresstorage) ScopeIDsBefore(cutoff time.Time) ([]string, error) {
-	rows, err := s.db.Query(
-		`SELECT id FROM log_scope WHERE id = root_id AND id <> $1 AND ended_at IS NOT NULL AND ended_at < $2`,
-		SCOPE_ROOT, cutoff)
-	if err != nil {
-		return nil, fmt.Errorf("ScopeIDsBefore: %s", err)
-	}
-	defer rows.Close()
-
-	var ids []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("ScopeIDsBefore: %s", err)
-		}
-		ids = append(ids, id)
-	}
-	return ids, nil
-}
-
-type SQLUsageSurveyEmail struct {
-	Id         int64  `db:"id"`
-	Recipient  string `db:"recipient"`
-	SurveyId   int64  `db:"surveyId"`
-	Vmid       int    `db:"vmid"`
-	Hostname   string `db:"hostname"`
-	Uuid       string `db:"uuid"`
-	Email_sent bool   `db:"email_sent"`
-	Still_used *bool  `db:"still_used"`
-}
-
-type SQLUsageSurvey struct {
-	Id   int64     `db:"id"`
-	Date time.Time `db:"date"`
-}
-
-func (s *SQLUsageSurvey) ToString() string {
-	return fmt.Sprintf("Survey ID: %v\nCreated date: %v", s.Id, s.Date)
-}
-
-func (s *postgresstorage) SurveyCreateNew() (int64, error) {
-	res := s.db.QueryRow(`INSERT INTO survey DEFAULT VALUES RETURNING id`)
-	// Get the last inserted ID
-	var id int64
-	err := res.Scan(&id)
-	if err != nil {
-		return -1, fmt.Errorf("SurveyCreateNew: Error getting last insert ID: %s", err)
-	}
-	return id, nil
-}
-
-func (s *postgresstorage) SurveyEmailStore(recipient string, surveyId int64, vmid int, hostname string, uuid string, email_sent bool, still_used *bool) (int64, error) {
-	res := s.db.QueryRow(`INSERT INTO survey_email (recipient, vmid, surveyId, hostname, uuid, email_sent, still_used) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`, recipient, vmid, surveyId, hostname, uuid, email_sent, still_used)
-	// Get the last inserted ID
-	var insertedID int64
-	err := res.Scan(&insertedID)
-	if err != nil {
-		return -1, fmt.Errorf("SurveyEmailStore: Error getting last insert ID: %s", err)
-	}
-	return insertedID, nil
-}
-
-func (s *postgresstorage) SurveyEmailUpdateResponse(uuid string, response bool) error {
-	_, err := s.db.Exec(`UPDATE survey_email SET still_used = $1 WHERE uuid = $2`, response, uuid)
-	if err != nil {
-		return fmt.Errorf("SurveyEmailUpdate: Error updating survey response:\n%s", err)
-	}
-	return nil
-}
-
-func (s *postgresstorage) SurveyEmailMarkAsSent(uuid string) error {
-	_, err := s.db.Exec(`UPDATE survey_email SET email_sent = $1 WHERE uuid = $2`, true, uuid)
-	if err != nil {
-		return fmt.Errorf("SurveyEmailMarkAsSent: Error updating survey email sent status: %s", err)
-	}
-	return nil
-}
-
-func (s *postgresstorage) SurveyGetById(id int64) (*SQLUsageSurvey, error) {
-	var survey SQLUsageSurvey
-	err := s.db.QueryRow(`SELECT id, date FROM survey WHERE id=$1`, id).Scan(&survey.Id, &survey.Date)
-	if err != nil {
-		return nil, fmt.Errorf("SurveyGetById: Error when executing query: %s", err)
-	}
-	return &survey, nil
-}
-
-func (s *postgresstorage) SurveyGetAllIDs() ([]int64, error) {
-	res, err := s.db.Query(`SELECT id FROM survey`)
-	if err != nil {
-		return nil, fmt.Errorf("SurveyGetAllIDs: Error executing query: %s", err)
-	}
-	defer res.Close()
-
-	var ids []int64
-	for res.Next() {
-		if err = res.Err(); err == sql.ErrNoRows {
-			return ids, nil
-		}
-
-		var id int64
-		err = res.Scan(&id)
-		if err != nil {
-			return nil, fmt.Errorf("Error while scanning rows: %s", err)
-		}
-
-		ids = append(ids, id)
-	}
-	if ids == nil {
-		ids = []int64{}
-	}
-
-	return ids, nil
-}
-
-func (s *postgresstorage) SurveyGetAll() ([]*SQLUsageSurvey, error) {
-	ids, err := s.SurveyGetAllIDs()
-	if err != nil {
-		return nil, fmt.Errorf("SurveyGetAll: Error getting survey IDs: %s", err)
-	}
-
-	surveys := []*SQLUsageSurvey{}
-	for _, id := range ids {
-		survey, err := s.SurveyGetById(id)
-		if err != nil {
-			return nil, fmt.Errorf("SurveyGetAll: Error getting survey by ID: %s", err)
-		}
-		surveys = append(surveys, survey)
-	}
-	return surveys, nil
-}
-
-func (s *postgresstorage) SurveyEmailGetAllNotAnsweredOrUnsentBySurveyID(surveyId int64) (*[]SQLUsageSurveyEmail, error) {
-	var surveyEmails []SQLUsageSurveyEmail
-	rows, err := s.db.Query(`SELECT id, recipient, surveyId, vmid, hostname, uuid, email_sent, still_used FROM survey_email WHERE surveyId=$1 AND still_used IS NULL OR email_sent = FALSE`, surveyId)
-	if err != nil {
-		return nil, fmt.Errorf("SurveyEmailGetAllBySurveyID: Error while executing query: %s", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var surveyEmail SQLUsageSurveyEmail
-		err = rows.Scan(&surveyEmail.Id, &surveyEmail.Recipient, &surveyEmail.SurveyId, &surveyEmail.Vmid, &surveyEmail.Hostname, &surveyEmail.Uuid, &surveyEmail.Email_sent, &surveyEmail.Still_used)
-		if err != nil {
-			return nil, fmt.Errorf("SurveyEmailGetAllBySurveyID: Error while scanning rows: %s", err)
-		}
-		surveyEmails = append(surveyEmails, surveyEmail)
-	}
-
-	return &surveyEmails, nil
-}
-
-func (s *postgresstorage) SurveyEmailGetAllNotAnsweredBySurveyID(surveyId int64) (*[]SQLUsageSurveyEmail, error) {
-	var surveyEmails []SQLUsageSurveyEmail
-	rows, err := s.db.Query(`SELECT id, recipient, surveyId, vmid, hostname, uuid, email_sent, still_used FROM survey_email WHERE surveyId=$1 AND still_used IS NULL AND email_sent = TRUE`, surveyId)
-	if err != nil {
-		return nil, fmt.Errorf("SurveyEmailGetAllBySurveyID: Error while executing query: %s", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var surveyEmail SQLUsageSurveyEmail
-		err = rows.Scan(&surveyEmail.Id, &surveyEmail.Recipient, &surveyEmail.SurveyId, &surveyEmail.Vmid, &surveyEmail.Hostname, &surveyEmail.Uuid, &surveyEmail.Email_sent, &surveyEmail.Still_used)
-		if err != nil {
-			return nil, fmt.Errorf("SurveyEmailGetAllBySurveyID: Error while scanning rows: %s", err)
-		}
-		surveyEmails = append(surveyEmails, surveyEmail)
-	}
-
-	return &surveyEmails, nil
-}
-
-func (s *postgresstorage) SurveyEmailGetAllUnsentBySurveyID(surveyId int64) (*[]SQLUsageSurveyEmail, error) {
-	var surveyEmails []SQLUsageSurveyEmail
-	rows, err := s.db.Query(`SELECT id, recipient, surveyId, vmid, hostname, uuid, email_sent, still_used FROM survey_email WHERE surveyId=$1 AND email_sent = FALSE`, surveyId)
-	if err != nil {
-		return nil, fmt.Errorf("SurveyEmailGetAllBySurveyID: Error while executing query: %s", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var surveyEmail SQLUsageSurveyEmail
-		err = rows.Scan(&surveyEmail.Id, &surveyEmail.Recipient, &surveyEmail.SurveyId, &surveyEmail.Vmid, &surveyEmail.Hostname, &surveyEmail.Uuid, &surveyEmail.Email_sent, &surveyEmail.Still_used)
-		if err != nil {
-			return nil, fmt.Errorf("SurveyEmailGetAllBySurveyID: Error while scanning rows: %s", err)
-		}
-		surveyEmails = append(surveyEmails, surveyEmail)
-	}
-
-	return &surveyEmails, nil
-}
-
-func (s *postgresstorage) SurveyGetLastId() (int, error) {
-	// Get the last inserted ID
-	var id int
-	err := s.db.QueryRow(`SELECT id FROM survey ORDER BY date DESC LIMIT 1`).Scan(&id)
-	if err == sql.ErrNoRows {
-		id = 0
-		err = nil
-	}
-	if err != nil {
-		return -1, fmt.Errorf("SurveyGetLastId: Error getting last insert ID: %s", err)
-	}
-	return id, nil
-}
-
-func (s *postgresstorage) SurveyEmailCountNotSent(surveyId int64) (*int, error) {
-	res := s.db.QueryRow(`SELECT COUNT(*) FROM survey_email WHERE email_sent = false AND surveyId = $1`, surveyId)
-	if err := res.Err(); err != nil {
-		return nil, fmt.Errorf("SurveyEmailCountNotSent: Error executing query: %s", err)
-	}
-	var count int
-	err := res.Scan(&count)
-	if err != nil {
-		return nil, fmt.Errorf("SurveyEmailCountNotSent: Error getting count: %s", err)
-	}
-
-	return &count, nil
-}
-
-func (s *postgresstorage) SurveyEmailCountPositive(surveyId int64) (*int, error) {
-	res := s.db.QueryRow(`SELECT COUNT(*) FROM survey_email WHERE email_sent = true AND still_used = true AND surveyId = $1`, surveyId)
-	if err := res.Err(); err != nil {
-		return nil, fmt.Errorf("SurveyEmailCountPositive: Error executing query: %s", err)
-	}
-	var count int
-	err := res.Scan(&count)
-	if err != nil {
-		return nil, fmt.Errorf("SurveyEmailCountPositive: Error getting count: %s", err)
-	}
-
-	return &count, nil
-}
-
-func (s *postgresstorage) SurveyEmailCountNegative(surveyId int64) (*int, error) {
-	res := s.db.QueryRow(`SELECT COUNT(*) FROM survey_email WHERE email_sent = true AND still_used = false AND surveyId = $1`, surveyId)
-	if err := res.Err(); err != nil {
-		return nil, fmt.Errorf("SurveyEmailCountNegative: Error executing query: %s", err)
-	}
-	var count int
-	err := res.Scan(&count)
-	if err != nil {
-		return nil, fmt.Errorf("SurveyEmailCountNegative: Error getting count: %s", err)
-	}
-	return &count, nil
-}
-
-func (s *postgresstorage) SurveyEmailCountNotResponded(surveyId int64) (*int, error) {
-	res := s.db.QueryRow(`SELECT COUNT(*) as count FROM survey_email WHERE email_sent = TRUE AND still_used IS NULL AND surveyId = $1`, surveyId)
-	if err := res.Err(); err != nil {
-		return nil, fmt.Errorf("SurveyEmailCountNotResponded: Error executing query: %s", err)
-	}
-	var count int
-	err := res.Scan(&count)
-	if err != nil {
-		return nil, fmt.Errorf("SurveyEmailCountNotResponded: Error getting count: %s", err)
-	}
-	return &count, nil
-}
-
-func (s *postgresstorage) SurveyEmailPositive(surveyId int) ([]string, error) {
-	res, err := s.db.Query(`SELECT hostname FROM survey_email WHERE email_sent = true AND still_used = true AND surveyId = $1`, surveyId)
-	if err != nil {
-		return nil, fmt.Errorf("SurveyEmailPositive: Error executing query: %s", err)
-	}
-	defer res.Close()
-	var hostnames []string
-	for res.Next() {
-		var hostname string
-		err = res.Scan(&hostname)
-		if err != nil {
-			return nil, fmt.Errorf("SurveyEmailPositive: Error while scanning rows: %s", err)
-		}
-		hostnames = append(hostnames, hostname)
-	}
-	if err = res.Err(); err != nil {
-		return nil, fmt.Errorf("SurveyEmailPositive: Error while scanning rows: %s", err)
-	}
-	if hostnames == nil {
-		hostnames = []string{}
-	}
-	return hostnames, nil
-}
-
-func (s *postgresstorage) SurveyEmailNegative(surveyId int) ([]string, error) {
-	res, err := s.db.Query(`SELECT hostname FROM survey_email WHERE email_sent = true AND still_used = false AND surveyId = $1`, surveyId)
-	if err != nil {
-		return nil, fmt.Errorf("SurveyEmailNegative: Error executing query: %s", err)
-	}
-	defer res.Close()
-	var hostnames []string
-	for res.Next() {
-		var hostname string
-		err = res.Scan(&hostname)
-		if err != nil {
-			return nil, fmt.Errorf("SurveyEmailNegative: Error while scanning rows: %s", err)
-		}
-		hostnames = append(hostnames, hostname)
-	}
-	if err = res.Err(); err != nil {
-		return nil, fmt.Errorf("SurveyEmailNegative: Error while scanning rows: %s", err)
-	}
-	if hostnames == nil {
-		hostnames = []string{}
-	}
-	return hostnames, nil
-}
-
-func (s *postgresstorage) SurveyEmailNotResponded(surveyId int) ([]string, error) {
-	res, err := s.db.Query(`SELECT hostname FROM survey_email WHERE email_sent = true AND still_used IS NULL AND surveyId = $1`, surveyId)
-	if err != nil {
-		return nil, fmt.Errorf("SurveyEmailNotResponded: Error executing query: %s", err)
-	}
-	defer res.Close()
-	var hostnames []string
-	for res.Next() {
-		var hostname string
-		err = res.Scan(&hostname)
-		if err != nil {
-			return nil, fmt.Errorf("SurveyEmailNotResponded: Error while scanning rows: %s", err)
-		}
-		hostnames = append(hostnames, hostname)
-	}
-	if err = res.Err(); err != nil {
-		return nil, fmt.Errorf("SurveyEmailNotResponded: Error while scanning rows: %s", err)
-	}
-	if hostnames == nil {
-		hostnames = []string{}
-	}
-	return hostnames, nil
-}
-
-func (s *postgresstorage) SurveyEmailNotSent(surveyId int) ([]string, error) {
-	res, err := s.db.Query(`SELECT hostname FROM survey_email WHERE email_sent = false AND surveyId = $1`, surveyId)
-	if err != nil {
-		return nil, fmt.Errorf("SurveyEmailNotSent: Error executing query: %s", err)
-	}
-	defer res.Close()
-	var hostnames []string
-	for res.Next() {
-		var hostname string
-		err = res.Scan(&hostname)
-		if err != nil {
-			return nil, fmt.Errorf("SurveyEmailNotSent: Error while scanning rows: %s", err)
-		}
-		hostnames = append(hostnames, hostname)
-	}
-	if err = res.Err(); err != nil {
-		return nil, fmt.Errorf("SurveyEmailNotSent: Error while scanning rows: %s", err)
-	}
-	if hostnames == nil {
-		hostnames = []string{}
-	}
-	return hostnames, nil
-}
-
-func (s *postgresstorage) SurveyEmailExistsByUUID(uuid string) (bool, error) {
-	res := s.db.QueryRow(`SELECT COUNT(*) FROM survey_email WHERE uuid = $1`, uuid)
-	if err := res.Err(); err != nil {
-		return false, fmt.Errorf("SurveyEmailExistsByUUID: Error executing query: %s", err)
-	}
-	var count int
-	err := res.Scan(&count)
-	if err != nil {
-		return false, fmt.Errorf("SurveyEmailExistsByUUID: Error getting count: %s", err)
-	}
-	return count > 0, nil
-}
-
-func (s *postgresstorage) ConfirmationPromptTokenStore(token string) (*string, error) {
-	_, err := s.db.Exec(
-		`INSERT INTO confirmation_tokens (token) VALUES ($1)`,
-		token,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("ConfirmationPromptTokenStore: %v", err)
-	}
-	return &token, nil
-}
-
-func (s *postgresstorage) ConfirmationPromptTokenExists(token string) (bool, error) {
-	res := s.db.QueryRow(`SELECT COUNT(*) FROM confirmation_tokens WHERE token = $1`, token)
-	if err := res.Err(); err != nil {
-		return false, fmt.Errorf("SurveyEmailExistsByUUID: Error executing query: %s", err)
-	}
-	var count int
-	err := res.Scan(&count)
-	if err != nil {
-		return false, fmt.Errorf("SurveyEmailExistsByUUID: Error getting count: %s", err)
-	}
-	return count > 0, nil
-}
-
-func (s *postgresstorage) ConfirmationPromptTokenSetUsed(token string) error {
-	_, err := s.db.Exec(
-		`UPDATE confirmation_tokens SET used=TRUE WHERE token = $1`,
-		token,
-	)
-	if err != nil {
-		return fmt.Errorf("ConfirmationPromptTokenSetUsed: %v", err)
-	}
-
-	return nil
-}
-
-func (s *postgresstorage) ConfirmationPromptTokenRemoveCreatedBefore(date time.Time) error {
-	_, err := s.db.Exec(
-		`DELETE FROM confirmation_tokens WHERE created < $1`,
-		date,
-	)
-	if err != nil {
-		return fmt.Errorf("ConfirmationPromptTokenRemoveCreatedBefore: %v", err)
-	}
-
-	return nil
+	return s.Queries.ListExpiredRootLogScopeIDs(context.Background(), ListExpiredRootLogScopeIDsParams{
+		RootScopeID: SCOPE_ROOT,
+		Cutoff:      sql.NullTime{Time: cutoff, Valid: true},
+	})
 }
