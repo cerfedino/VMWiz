@@ -47,15 +47,15 @@ func NotifyTest(ctx context.Context, body string) error {
 }
 
 func NotifyVMRequest(ctx context.Context, req storage.Request) error {
-	return useNotifier(ctx, "new_vmrequest", fmt.Sprintf("New VM Request %v:\n```\n%v\n```", req.RequestID, req.ToString()))
+	return useNotifier(ctx, "new_vmrequest", fmt.Sprintf("New VM Request %v:\n```\n%v\n```", req.Requestid, req.ToString()))
 }
 
 func NotifyVMRequestStatusChanged(ctx context.Context, req storage.Request, additional_text string) error {
-	switch req.RequestStatus {
+	switch req.Requeststatus {
 	case storage.REQUEST_STATUS_ACCEPTED:
-		return useNotifier(ctx, "vmrequest_accepted", fmt.Sprintf("Request %v approved ! %v", req.RequestID, additional_text))
+		return useNotifier(ctx, "vmrequest_accepted", fmt.Sprintf("Request %v approved ! %v", req.Requestid, additional_text))
 	case storage.REQUEST_STATUS_REJECTED:
-		return useNotifier(ctx, "vmrequest_rejected", fmt.Sprintf("Request %v denied ! %v", req.RequestID, additional_text))
+		return useNotifier(ctx, "vmrequest_rejected", fmt.Sprintf("Request %v denied ! %v", req.Requestid, additional_text))
 	}
 
 	return nil

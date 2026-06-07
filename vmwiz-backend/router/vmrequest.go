@@ -32,20 +32,20 @@ func AcceptVMRequest(ctx context.Context, id int64) *ErrorBundle {
 		return SimpleError(err, "Error fetching VM request")
 	}
 
-	request.RequestStatus = storage.REQUEST_STATUS_ACCEPTED
+	request.Requeststatus = storage.REQUEST_STATUS_ACCEPTED
 	err = notifier.NotifyVMRequestStatusChanged(ctx, request, "Creating VM now, it'll take a while ...")
 	if err != nil {
 		return SimpleError(err, "Failed to notify VM request status change")
 	}
 
 	opts := request.ToVMOptions()
-	if request.IsOrganization {
+	if request.Isorganization {
 		opts.ResourcePool = config.AppConfig.VM_ORGANIZATION_POOL
 	} else {
 		opts.ResourcePool = config.AppConfig.VM_PERSONAL_POOL
 	}
 
-	err = storage.DB.UpdateVMRequestStatus(ctx, storage.UpdateVMRequestStatusParams{RequestID: id, RequestStatus: storage.REQUEST_STATUS_ACCEPTED})
+	err = storage.DB.UpdateVMRequestStatus(ctx, storage.UpdateVMRequestStatusParams{Requestid: id, Requeststatus: storage.REQUEST_STATUS_ACCEPTED})
 	if err != nil {
 		return SimpleError(err, "Failed to update VM request status")
 	}
@@ -65,7 +65,7 @@ func AcceptVMRequest(ctx context.Context, id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to send email")
 	}
 
-	successMsg := fmt.Sprintf("Request %v: VM %s created successfully:\n%s", request.RequestID, opts.FQDN, "```\n"+summary.String()+"\n```")
+	successMsg := fmt.Sprintf("Request %v: VM %s created successfully:\n%s", request.Requestid, opts.FQDN, "```\n"+summary.String()+"\n```")
 	logger.From(ctx).Info(successMsg)
 
 	err = notifier.NotifyVMCreationUpdate(ctx, successMsg)
@@ -85,11 +85,11 @@ func RejectVMRequest(ctx context.Context, id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
 
-	if request.RequestStatus == storage.REQUEST_STATUS_ACCEPTED {
+	if request.Requeststatus == storage.REQUEST_STATUS_ACCEPTED {
 		return SimpleError(nil, "Cannot reject an accepted request")
 	}
 
-	err = storage.DB.UpdateVMRequestStatus(ctx, storage.UpdateVMRequestStatusParams{RequestID: id, RequestStatus: storage.REQUEST_STATUS_REJECTED})
+	err = storage.DB.UpdateVMRequestStatus(ctx, storage.UpdateVMRequestStatusParams{Requestid: id, Requeststatus: storage.REQUEST_STATUS_REJECTED})
 	if err != nil {
 		return SimpleError(err, "Failed to update VM request status")
 	}
@@ -117,11 +117,11 @@ func HoldVMRequest(ctx context.Context, id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
 
-	if request.RequestStatus != storage.REQUEST_STATUS_PENDING {
+	if request.Requeststatus != storage.REQUEST_STATUS_PENDING {
 		return SimpleError(nil, "You can only put pending requests on hold")
 	}
 
-	err = storage.DB.UpdateVMRequestStatus(ctx, storage.UpdateVMRequestStatusParams{RequestID: id, RequestStatus: storage.REQUEST_STATUS_HELD})
+	err = storage.DB.UpdateVMRequestStatus(ctx, storage.UpdateVMRequestStatusParams{Requestid: id, Requeststatus: storage.REQUEST_STATUS_HELD})
 	if err != nil {
 		return SimpleError(err, "Failed to update VM request status")
 	}
@@ -149,11 +149,11 @@ func UnholdVMRequest(ctx context.Context, id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to fetch VM request")
 	}
 
-	if request.RequestStatus != storage.REQUEST_STATUS_HELD {
+	if request.Requeststatus != storage.REQUEST_STATUS_HELD {
 		return SimpleError(nil, "Unhold invalid: request is not on hold")
 	}
 
-	err = storage.DB.UpdateVMRequestStatus(ctx, storage.UpdateVMRequestStatusParams{RequestID: id, RequestStatus: storage.REQUEST_STATUS_PENDING})
+	err = storage.DB.UpdateVMRequestStatus(ctx, storage.UpdateVMRequestStatusParams{Requestid: id, Requeststatus: storage.REQUEST_STATUS_PENDING})
 	if err != nil {
 		return SimpleError(err, "Failed to update VM request status")
 	}
@@ -199,16 +199,16 @@ func addVMRequestRoutes(r *mux.Router) {
 
 		id, err := storage.DB.CreateVMRequest(context.Background(), storage.CreateVMRequestParams{
 			Email:           f.Email,
-			PersonalEmail:   f.PersonalEmail,
-			IsOrganization:  f.IsOrganization,
-			OrgName:         sql.NullString{String: f.OrgName, Valid: true},
+			Personalemail:   f.PersonalEmail,
+			Isorganization:  f.IsOrganization,
+			Orgname:         sql.NullString{String: f.OrgName, Valid: true},
 			Hostname:        fmt.Sprintf("%v.vsos.ethz.ch", f.Hostname),
 			Image:           f.Image,
 			Cores:           int32(f.Cores),
-			RAMGB:           int32(f.RamGB),
-			DiskGB:          int32(f.DiskGB),
-			SecondaryDiskGB: int32(f.SecondaryDiskGB),
-			SSHPubkeys:      f.SshPubkeys,
+			Ramgb:           int32(f.RamGB),
+			Diskgb:          int32(f.DiskGB),
+			Secondarydiskgb: int32(f.SecondaryDiskGB),
+			Sshpubkeys:      f.SshPubkeys,
 			Comments:        sql.NullString{String: f.Comments, Valid: true},
 		})
 		if err != nil {
@@ -268,20 +268,20 @@ func addVMRequestRoutes(r *mux.Router) {
 		out := make([]vmRequestResp, 0, len(vmRequests))
 		for _, req := range vmRequests {
 			out = append(out, vmRequestResp{
-				ID:               req.RequestID,
-				RequestCreatedAt: req.RequestCreatedAt,
-				RequestStatus:    string(req.RequestStatus),
+				ID:               req.Requestid,
+				RequestCreatedAt: req.Requestcreatedat,
+				RequestStatus:    string(req.Requeststatus),
 				Email:            req.Email,
-				PersonalEmail:    req.PersonalEmail,
-				IsOrganization:   req.IsOrganization,
-				OrgName:          req.OrgName.String,
+				PersonalEmail:    req.Personalemail,
+				IsOrganization:   req.Isorganization,
+				OrgName:          req.Orgname.String,
 				Hostname:         req.Hostname,
 				Image:            req.Image,
 				Cores:            req.Cores,
-				RamGB:            req.RAMGB,
-				DiskGB:           req.DiskGB,
-				SecondaryDiskGB:  req.SecondaryDiskGB,
-				SshPubkeys:       req.SSHPubkeys,
+				RamGB:            req.Ramgb,
+				DiskGB:           req.Diskgb,
+				SecondaryDiskGB:  req.Secondarydiskgb,
+				SshPubkeys:       req.Sshpubkeys,
 				Comments:         req.Comments.String,
 			})
 		}
@@ -410,7 +410,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		if request.RequestStatus != storage.REQUEST_STATUS_PENDING {
+		if request.Requeststatus != storage.REQUEST_STATUS_PENDING {
 			http.Error(w, "Cannot edit a request that is not pending", http.StatusBadRequest)
 			return
 		}
@@ -419,33 +419,33 @@ func addVMRequestRoutes(r *mux.Router) {
 			request.Cores = int32(body.Cores_cpu)
 		}
 		if body.Ram_gb != 0 {
-			request.RAMGB = int32(body.Ram_gb)
+			request.Ramgb = int32(body.Ram_gb)
 		}
 		if body.Storage_gb != 0 {
-			request.DiskGB = int32(body.Storage_gb)
+			request.Diskgb = int32(body.Storage_gb)
 		}
 		if body.Secondary_storage_gb != 0 {
-			request.SecondaryDiskGB = int32(body.Secondary_storage_gb)
+			request.Secondarydiskgb = int32(body.Secondary_storage_gb)
 		}
 		if body.Hostname != "" {
 			request.Hostname = body.Hostname
 		}
 
 		err = storage.DB.UpdateVMRequest(r.Context(), storage.UpdateVMRequestParams{
-			RequestID:        request.RequestID,
-			RequestCreatedAt: request.RequestCreatedAt,
-			RequestStatus:    request.RequestStatus,
+			Requestid:        request.Requestid,
+			Requestcreatedat: request.Requestcreatedat,
+			Requeststatus:    request.Requeststatus,
 			Email:            request.Email,
-			PersonalEmail:    request.PersonalEmail,
-			IsOrganization:   request.IsOrganization,
-			OrgName:          request.OrgName,
+			Personalemail:    request.Personalemail,
+			Isorganization:   request.Isorganization,
+			Orgname:          request.Orgname,
 			Hostname:         request.Hostname,
 			Image:            request.Image,
 			Cores:            request.Cores,
-			RAMGB:            request.RAMGB,
-			DiskGB:           request.DiskGB,
-			SecondaryDiskGB:  request.SecondaryDiskGB,
-			SSHPubkeys:       request.SSHPubkeys,
+			Ramgb:            request.Ramgb,
+			Diskgb:           request.Diskgb,
+			Secondarydiskgb:  request.Secondarydiskgb,
+			Sshpubkeys:       request.Sshpubkeys,
 			Comments:         request.Comments,
 		})
 		if err != nil {

@@ -162,7 +162,7 @@ func addAllPollRoutes(r *mux.Router) {
 		}
 
 		err = storage.DB.UpdateSurveyEmailResponse(r.Context(), storage.UpdateSurveyEmailResponseParams{
-			UUID:      body.ID,
+			Uuid:      body.ID,
 			StillUsed: sql.NullBool{Bool: body.Keep, Valid: true},
 		})
 		if err != nil {
