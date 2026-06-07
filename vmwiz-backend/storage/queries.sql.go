@@ -104,10 +104,10 @@ RETURNING id
 
 type CreateSurveyEmailParams struct {
 	Recipient string
-	SurveyID  int64
-	VMID      int32
+	Surveyid  int64
+	Vmid      int32
 	Hostname  string
-	UUID      string
+	Uuid      string
 	EmailSent bool
 	StillUsed sql.NullBool
 }
@@ -115,10 +115,10 @@ type CreateSurveyEmailParams struct {
 func (q *Queries) CreateSurveyEmail(ctx context.Context, arg CreateSurveyEmailParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, createSurveyEmail,
 		arg.Recipient,
-		arg.SurveyID,
-		arg.VMID,
+		arg.Surveyid,
+		arg.Vmid,
 		arg.Hostname,
-		arg.UUID,
+		arg.Uuid,
 		arg.EmailSent,
 		arg.StillUsed,
 	)
@@ -139,32 +139,32 @@ RETURNING requestID
 
 type CreateVMRequestParams struct {
 	Email           string
-	PersonalEmail   string
-	IsOrganization  bool
-	OrgName         sql.NullString
+	Personalemail   string
+	Isorganization  bool
+	Orgname         sql.NullString
 	Hostname        string
 	Image           string
 	Cores           int32
-	RAMGB           int32
-	DiskGB          int32
-	SecondaryDiskGB int32
-	SSHPubkeys      []string
+	Ramgb           int32
+	Diskgb          int32
+	Secondarydiskgb int32
+	Sshpubkeys      []string
 	Comments        sql.NullString
 }
 
 func (q *Queries) CreateVMRequest(ctx context.Context, arg CreateVMRequestParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, createVMRequest,
 		arg.Email,
-		arg.PersonalEmail,
-		arg.IsOrganization,
-		arg.OrgName,
+		arg.Personalemail,
+		arg.Isorganization,
+		arg.Orgname,
 		arg.Hostname,
 		arg.Image,
 		arg.Cores,
-		arg.RAMGB,
-		arg.DiskGB,
-		arg.SecondaryDiskGB,
-		pq.Array(arg.SSHPubkeys),
+		arg.Ramgb,
+		arg.Diskgb,
+		arg.Secondarydiskgb,
+		pq.Array(arg.Sshpubkeys),
 		arg.Comments,
 	)
 	var requestid int64
@@ -243,21 +243,21 @@ func (q *Queries) GetVMRequestByID(ctx context.Context, requestid int64) (Reques
 	row := q.db.QueryRowContext(ctx, getVMRequestByID, requestid)
 	var i Request
 	err := row.Scan(
-		&i.RequestID,
-		&i.RequestCreatedAt,
-		&i.RequestStatus,
+		&i.Requestid,
+		&i.Requestcreatedat,
+		&i.Requeststatus,
 		&i.Email,
-		&i.PersonalEmail,
-		&i.IsOrganization,
-		&i.OrgName,
+		&i.Personalemail,
+		&i.Isorganization,
+		&i.Orgname,
 		&i.Hostname,
 		&i.Image,
 		&i.Cores,
-		&i.RAMGB,
-		&i.DiskGB,
-		pq.Array(&i.SSHPubkeys),
+		&i.Ramgb,
+		&i.Diskgb,
+		pq.Array(&i.Sshpubkeys),
 		&i.Comments,
-		&i.SecondaryDiskGB,
+		&i.Secondarydiskgb,
 	)
 	return i, err
 }
@@ -276,21 +276,21 @@ func (q *Queries) GetVMRequestsByHostname(ctx context.Context, hostname string) 
 	for rows.Next() {
 		var i Request
 		if err := rows.Scan(
-			&i.RequestID,
-			&i.RequestCreatedAt,
-			&i.RequestStatus,
+			&i.Requestid,
+			&i.Requestcreatedat,
+			&i.Requeststatus,
 			&i.Email,
-			&i.PersonalEmail,
-			&i.IsOrganization,
-			&i.OrgName,
+			&i.Personalemail,
+			&i.Isorganization,
+			&i.Orgname,
 			&i.Hostname,
 			&i.Image,
 			&i.Cores,
-			&i.RAMGB,
-			&i.DiskGB,
-			pq.Array(&i.SSHPubkeys),
+			&i.Ramgb,
+			&i.Diskgb,
+			pq.Array(&i.Sshpubkeys),
 			&i.Comments,
-			&i.SecondaryDiskGB,
+			&i.Secondarydiskgb,
 		); err != nil {
 			return nil, err
 		}
@@ -493,10 +493,10 @@ func (q *Queries) ListSentUnansweredSurveyEmails(ctx context.Context, surveyid i
 		if err := rows.Scan(
 			&i.ID,
 			&i.Recipient,
-			&i.SurveyID,
-			&i.VMID,
+			&i.Surveyid,
+			&i.Vmid,
 			&i.Hostname,
-			&i.UUID,
+			&i.Uuid,
 			&i.EmailSent,
 			&i.StillUsed,
 		); err != nil {
@@ -584,10 +584,10 @@ func (q *Queries) ListUnansweredOrUnsentSurveyEmails(ctx context.Context, survey
 		if err := rows.Scan(
 			&i.ID,
 			&i.Recipient,
-			&i.SurveyID,
-			&i.VMID,
+			&i.Surveyid,
+			&i.Vmid,
 			&i.Hostname,
-			&i.UUID,
+			&i.Uuid,
 			&i.EmailSent,
 			&i.StillUsed,
 		); err != nil {
@@ -649,10 +649,10 @@ func (q *Queries) ListUnsentSurveyEmails(ctx context.Context, surveyid int64) ([
 		if err := rows.Scan(
 			&i.ID,
 			&i.Recipient,
-			&i.SurveyID,
-			&i.VMID,
+			&i.Surveyid,
+			&i.Vmid,
 			&i.Hostname,
-			&i.UUID,
+			&i.Uuid,
 			&i.EmailSent,
 			&i.StillUsed,
 		); err != nil {
@@ -711,21 +711,21 @@ func (q *Queries) ListVMRequests(ctx context.Context) ([]Request, error) {
 	for rows.Next() {
 		var i Request
 		if err := rows.Scan(
-			&i.RequestID,
-			&i.RequestCreatedAt,
-			&i.RequestStatus,
+			&i.Requestid,
+			&i.Requestcreatedat,
+			&i.Requeststatus,
 			&i.Email,
-			&i.PersonalEmail,
-			&i.IsOrganization,
-			&i.OrgName,
+			&i.Personalemail,
+			&i.Isorganization,
+			&i.Orgname,
 			&i.Hostname,
 			&i.Image,
 			&i.Cores,
-			&i.RAMGB,
-			&i.DiskGB,
-			pq.Array(&i.SSHPubkeys),
+			&i.Ramgb,
+			&i.Diskgb,
+			pq.Array(&i.Sshpubkeys),
 			&i.Comments,
-			&i.SecondaryDiskGB,
+			&i.Secondarydiskgb,
 		); err != nil {
 			return nil, err
 		}
@@ -765,12 +765,12 @@ UPDATE survey_email SET still_used = $2 WHERE uuid = $1
 `
 
 type UpdateSurveyEmailResponseParams struct {
-	UUID      string
+	Uuid      string
 	StillUsed sql.NullBool
 }
 
 func (q *Queries) UpdateSurveyEmailResponse(ctx context.Context, arg UpdateSurveyEmailResponseParams) error {
-	_, err := q.db.ExecContext(ctx, updateSurveyEmailResponse, arg.UUID, arg.StillUsed)
+	_, err := q.db.ExecContext(ctx, updateSurveyEmailResponse, arg.Uuid, arg.StillUsed)
 	return err
 }
 
@@ -794,39 +794,39 @@ WHERE requestID = $1
 `
 
 type UpdateVMRequestParams struct {
-	RequestID        int64
-	RequestCreatedAt time.Time
-	RequestStatus    RequestStatus
+	Requestid        int64
+	Requestcreatedat time.Time
+	Requeststatus    RequestStatus
 	Email            string
-	PersonalEmail    string
-	IsOrganization   bool
-	OrgName          sql.NullString
+	Personalemail    string
+	Isorganization   bool
+	Orgname          sql.NullString
 	Hostname         string
 	Image            string
 	Cores            int32
-	RAMGB            int32
-	DiskGB           int32
-	SecondaryDiskGB  int32
-	SSHPubkeys       []string
+	Ramgb            int32
+	Diskgb           int32
+	Secondarydiskgb  int32
+	Sshpubkeys       []string
 	Comments         sql.NullString
 }
 
 func (q *Queries) UpdateVMRequest(ctx context.Context, arg UpdateVMRequestParams) error {
 	_, err := q.db.ExecContext(ctx, updateVMRequest,
-		arg.RequestID,
-		arg.RequestCreatedAt,
-		arg.RequestStatus,
+		arg.Requestid,
+		arg.Requestcreatedat,
+		arg.Requeststatus,
 		arg.Email,
-		arg.PersonalEmail,
-		arg.IsOrganization,
-		arg.OrgName,
+		arg.Personalemail,
+		arg.Isorganization,
+		arg.Orgname,
 		arg.Hostname,
 		arg.Image,
 		arg.Cores,
-		arg.RAMGB,
-		arg.DiskGB,
-		arg.SecondaryDiskGB,
-		pq.Array(arg.SSHPubkeys),
+		arg.Ramgb,
+		arg.Diskgb,
+		arg.Secondarydiskgb,
+		pq.Array(arg.Sshpubkeys),
 		arg.Comments,
 	)
 	return err
@@ -837,11 +837,11 @@ UPDATE request SET requestStatus = $2 WHERE requestID = $1
 `
 
 type UpdateVMRequestStatusParams struct {
-	RequestID     int64
-	RequestStatus RequestStatus
+	Requestid     int64
+	Requeststatus RequestStatus
 }
 
 func (q *Queries) UpdateVMRequestStatus(ctx context.Context, arg UpdateVMRequestStatusParams) error {
-	_, err := q.db.ExecContext(ctx, updateVMRequestStatus, arg.RequestID, arg.RequestStatus)
+	_, err := q.db.ExecContext(ctx, updateVMRequestStatus, arg.Requestid, arg.Requeststatus)
 	return err
 }

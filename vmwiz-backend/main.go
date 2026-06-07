@@ -223,7 +223,7 @@ func findVMRequest(ctx context.Context, id int, name string, justpending bool) (
 
 	res := []storage.Request{}
 	for _, req := range vmrequests {
-		if justpending && req.RequestStatus != storage.REQUEST_STATUS_PENDING {
+		if justpending && req.Requeststatus != storage.REQUEST_STATUS_PENDING {
 			continue
 		}
 		res = append(res, req)
@@ -280,7 +280,7 @@ func handle_request_list(ctx context.Context, cmd *cli.Command) error {
 	numPrintedReqs := 0
 
 	for _, req := range requests {
-		if !cmd.Bool("all") && req.RequestStatus != storage.REQUEST_STATUS_PENDING {
+		if !cmd.Bool("all") && req.Requeststatus != storage.REQUEST_STATUS_PENDING {
 			continue
 		}
 		fmt.Printf("%s\n", req.ToString())
@@ -310,7 +310,7 @@ func handle_request_accept(ctx context.Context, cmd *cli.Command) error {
 		return nil
 	}
 
-	errB := router.AcceptVMRequest(ctx, vmrequest.RequestID)
+	errB := router.AcceptVMRequest(ctx, vmrequest.Requestid)
 	if errB != nil {
 		return fmt.Errorf("%s: %v\n", errB.Err, errB.UserMsg)
 	}
@@ -335,7 +335,7 @@ func handle_request_reject(ctx context.Context, cmd *cli.Command) error {
 		return nil
 	}
 
-	errB := router.RejectVMRequest(ctx, vmrequest.RequestID)
+	errB := router.RejectVMRequest(ctx, vmrequest.Requestid)
 	if errB != nil {
 		return fmt.Errorf("%s: %v\n", errB.Err, errB.UserMsg)
 	}

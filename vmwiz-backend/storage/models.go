@@ -66,21 +66,21 @@ type LogScope struct {
 }
 
 type Request struct {
-	RequestID        int64
-	RequestCreatedAt time.Time
-	RequestStatus    RequestStatus
+	Requestid        int64
+	Requestcreatedat time.Time
+	Requeststatus    RequestStatus
 	Email            string
-	PersonalEmail    string
-	IsOrganization   bool
-	OrgName          sql.NullString
+	Personalemail    string
+	Isorganization   bool
+	Orgname          sql.NullString
 	Hostname         string
 	Image            string
 	Cores            int32
-	RAMGB            int32
-	DiskGB           int32
-	SSHPubkeys       []string
+	Ramgb            int32
+	Diskgb           int32
+	Sshpubkeys       []string
 	Comments         sql.NullString
-	SecondaryDiskGB  int32
+	Secondarydiskgb  int32
 }
 
 type Survey struct {
@@ -91,10 +91,10 @@ type Survey struct {
 type SurveyEmail struct {
 	ID        int64
 	Recipient string
-	SurveyID  int64
-	VMID      int32
+	Surveyid  int64
+	Vmid      int32
 	Hostname  string
-	UUID      string
+	Uuid      string
 	EmailSent bool
 	StillUsed sql.NullBool
 }

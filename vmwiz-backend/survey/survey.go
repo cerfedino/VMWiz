@@ -57,10 +57,10 @@ func CreateVMUsageSurvey(ctx context.Context, restrict_pool []string) (*int64, e
 		// Store the new survey question in the database
 		_, err := storage.DB.CreateSurveyEmail(ctx, storage.CreateSurveyEmailParams{
 			Recipient: receivers[0],
-			SurveyID:  surveyId,
-			VMID:      int32(vm.Vmid),
+			Surveyid:  surveyId,
+			Vmid:      int32(vm.Vmid),
 			Hostname:  vm.Hostname,
-			UUID:      uuidString,
+			Uuid:      uuidString,
 			EmailSent: false,
 			StillUsed: sql.NullBool{},
 		})
@@ -160,7 +160,7 @@ func sendVMUsageSurveyReminder(ctx context.Context, surveyId int64, surveyEmails
 			REPLYTO  string
 		}{
 			HOSTNAME: surveyEmail.Hostname,
-			URL:      config.AppConfig.VMWIZ_SCHEME + "://" + config.AppConfig.VMWIZ_HOSTNAME + ":" + strconv.Itoa(config.AppConfig.VMWIZ_PORT) + "/survey?id=" + surveyEmail.UUID + "&hostname=" + surveyEmail.Hostname,
+			URL:      config.AppConfig.VMWIZ_SCHEME + "://" + config.AppConfig.VMWIZ_HOSTNAME + ":" + strconv.Itoa(config.AppConfig.VMWIZ_PORT) + "/survey?id=" + surveyEmail.Uuid + "&hostname=" + surveyEmail.Hostname,
 			REPLYTO:  config.AppConfig.SMTP_REPLYTO,
 		})
 		if err != nil {
@@ -221,7 +221,7 @@ func sendVMUsageSurvey(ctx context.Context, surveyId int64, surveyEmails []stora
 		}{
 			HOSTNAME:       surveyEmail.Hostname,
 			HOSTNAME_SHORT: strings.Split(surveyEmail.Hostname, ".")[0],
-			URL:            config.AppConfig.VMWIZ_SCHEME + "://" + config.AppConfig.VMWIZ_HOSTNAME + ":" + strconv.Itoa(config.AppConfig.VMWIZ_PORT) + "/survey?id=" + surveyEmail.UUID + "&hostname=" + surveyEmail.Hostname,
+			URL:            config.AppConfig.VMWIZ_SCHEME + "://" + config.AppConfig.VMWIZ_HOSTNAME + ":" + strconv.Itoa(config.AppConfig.VMWIZ_PORT) + "/survey?id=" + surveyEmail.Uuid + "&hostname=" + surveyEmail.Hostname,
 			REPLYTO:        config.AppConfig.SMTP_REPLYTO,
 		})
 		if err != nil {
@@ -236,7 +236,7 @@ func sendVMUsageSurvey(ctx context.Context, surveyId int64, surveyEmails []stora
 		}
 
 		if config.AppConfig.SMTP_ENABLE {
-			err = storage.DB.MarkSurveyEmailSent(ctx, surveyEmail.UUID)
+			err = storage.DB.MarkSurveyEmailSent(ctx, surveyEmail.Uuid)
 			if err != nil {
 				logger.From(ctx).Errorf("Failed send VM usage survey: Failed to set EmailMarkAsSent %v", err)
 				continue

@@ -30,20 +30,20 @@ const (
 
 // ToString renders a VM request for CLI output and notifications.
 func (r Request) ToString() string {
-	return `ID: ` + fmt.Sprintf("%v", r.RequestID) + `
-RequestCreatedAt: ` + fmt.Sprintf("%v", r.RequestCreatedAt) + `
-RequestStatus: ` + fmt.Sprintf("%v", r.RequestStatus) + `
+	return `ID: ` + fmt.Sprintf("%v", r.Requestid) + `
+RequestCreatedAt: ` + fmt.Sprintf("%v", r.Requestcreatedat) + `
+RequestStatus: ` + fmt.Sprintf("%v", r.Requeststatus) + `
 Email: ` + fmt.Sprintf("%v", r.Email) + `
-PersonalEmail: ` + fmt.Sprintf("%v", r.PersonalEmail) + `
-IsOrganization: ` + fmt.Sprintf("%v", r.IsOrganization) + `
-OrgName: ` + fmt.Sprintf("%v", r.OrgName.String) + `
+PersonalEmail: ` + fmt.Sprintf("%v", r.Personalemail) + `
+IsOrganization: ` + fmt.Sprintf("%v", r.Isorganization) + `
+OrgName: ` + fmt.Sprintf("%v", r.Orgname.String) + `
 Hostname: ` + fmt.Sprintf("%v", r.Hostname) + `
 Image: ` + fmt.Sprintf("%v", r.Image) + `
 Cores: ` + fmt.Sprintf("%v", r.Cores) + `
-RamGB: ` + fmt.Sprintf("%v", r.RAMGB) + `
-DiskGB: ` + fmt.Sprintf("%v", r.DiskGB) + `
-SecondaryDiskGB: ` + fmt.Sprintf("%v", r.SecondaryDiskGB) + `
-SshPubkeys: ` + fmt.Sprintf("%v", r.SSHPubkeys) + `
+RamGB: ` + fmt.Sprintf("%v", r.Ramgb) + `
+DiskGB: ` + fmt.Sprintf("%v", r.Diskgb) + `
+SecondaryDiskGB: ` + fmt.Sprintf("%v", r.Secondarydiskgb) + `
+SshPubkeys: ` + fmt.Sprintf("%v", r.Sshpubkeys) + `
 Comments: ` + fmt.Sprintf("%v", r.Comments.String) + `
 `
 }
@@ -54,16 +54,16 @@ func (r Request) ToVMOptions() *proxmox.VMCreationOptions {
 		FQDN:             r.Hostname,
 		Reinstall:        false,
 		Cores_CPU:        int(r.Cores),
-		RAM_MB:           int64(r.RAMGB) * 1024,
-		Disk_GB:          int64(r.DiskGB),
-		SecondaryDisk_GB: int64(r.SecondaryDiskGB),
-		SSHPubkeys:       r.SSHPubkeys,
+		RAM_MB:           int64(r.Ramgb) * 1024,
+		Disk_GB:          int64(r.Diskgb),
+		SecondaryDisk_GB: int64(r.Secondarydiskgb),
+		SSHPubkeys:       r.Sshpubkeys,
 		Notes:            "VM is being set up, please wait...",
 		Tags:             []string{"created-by-vmwiz"},
 		DescriptionKVPairs: map[string]string{
 			"nethz":       "TODO",
 			"uni_contact": r.Email,
-			"contact":     r.PersonalEmail,
+			"contact":     r.Personalemail,
 		},
 
 		UseQemuAgent: false,
