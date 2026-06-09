@@ -7,7 +7,7 @@ networks:
 services:
   vmwiz-caddy:
     container_name: vmwiz-caddy
-    image: caddy:2.11.3@sha256:ec18ee54aab3315c22e25f3b2babda73ff8007d39b13b3bd1bfffa2f0444c7d9
+    image: caddy:2.11.4@sha256:cfeb0b281bc44a5a51fecde39e9e577c60d863c0b6196e6bbdf58fd00960887f
     restart: unless-stopped
     ports:
       - "80:80"
