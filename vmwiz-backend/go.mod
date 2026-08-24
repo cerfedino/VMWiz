@@ -1,6 +1,6 @@
 module git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/coreos/go-oidc v2.5.0+incompatible
@@ -15,7 +15,7 @@ require (
 	github.com/seancfoley/ipaddress-go v1.7.1
 	github.com/urfave/cli/v3 v3.9.0
 	golang.org/x/crypto v0.52.0
-	golang.org/x/exp v0.0.0-20260529124908-c761662dc8c9
+	golang.org/x/exp v0.0.0-20260824195058-e88cd73687aa
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/time v0.15.0
 )
