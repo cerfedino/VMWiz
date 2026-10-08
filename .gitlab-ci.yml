@@ -42,7 +42,7 @@ commitlint:
 
 # We create a new release when merging into main
 semrel-release:
-  image: golang:1.26@sha256:2d6c80227255c3112a4d08e67ba98e58efd3846daf15d9d7d4c389565d881b1a
+  image: golang:1.26@sha256:52d57e3542f28ad72e9a1084e209366d8ca6af04997636134c138d16702a70a6
   stage: release
   variables:
     GIT_DEPTH: 0
