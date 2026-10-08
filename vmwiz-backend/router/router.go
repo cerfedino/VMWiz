@@ -49,5 +49,7 @@ func Router() *mux.Router {
 
 	addLogRoutes(r)
 
+	addAllOsscanRoutes(r)
+
 	return r
 }

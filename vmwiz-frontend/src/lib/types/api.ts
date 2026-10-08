@@ -223,3 +223,100 @@ export const EMPTY_VALIDATION_ERRORS: VMRequestValidationErrors = {
     sshPubkey: [],
     accept_terms: "",
 };
+
+/** /api/osscan/* */
+
+/** POST /api/osscan/scan */
+export type OsScanStatus =
+    | "ok"
+    | "unreachable"
+    | "no_ssh_banner"
+    | "unknown_os"
+    | "unknown_version";
+
+export interface OsScanResult {
+    host: string;
+    rdns?: string;
+    status: OsScanStatus;
+    banner?: string;
+    os?: string;
+    version?: string;
+    codename?: string;
+    poolKey?: string;
+    displayName?: string;
+    outdated?: boolean;
+    error?: string;
+    durationMs: number;
+}
+
+export interface OsScanPool {
+    poolKey: string;
+    os: string;
+    version: string;
+    codename: string;
+    displayName: string;
+    outdated: boolean;
+    hosts: string[];
+}
+
+export interface OsScanReport {
+    results: OsScanResult[];
+    pools: OsScanPool[];
+}
+
+export interface OsScanRunBody {
+    includeProxmox: boolean;
+    includeSosHosts: boolean;
+    cidrRanges: string[];
+    extraHosts: string[];
+    timeoutMs?: number;
+    concurrency?: number;
+}
+
+/** GET /api/osscan/info */
+export interface OsScanInfo {
+    defaultCidr: string;
+}
+
+/** GET & POST /api/osscan/soshosts */
+export interface OsScanSOSHostsResponse {
+    hosts: string[];
+}
+
+/** POST /api/osscan/mail */
+export interface OsScanMailBody {
+    hosts: string[];
+    subject: string;
+    body: string;
+    additionalCc: string[];
+    includeNoContact: boolean;
+}
+
+export interface OsScanMailHostResult {
+    host: string;
+    recipients: string[] | null;
+    sent: boolean;
+    skipped: boolean;
+    skipReason?: string;
+    error?: string;
+}
+
+export interface OsScanMailResponse {
+    sent: number;
+    skipped: number;
+    failed: number;
+    perHost: OsScanMailHostResult[];
+}
+
+/** POST /api/osscan/mail/preview */
+export interface OsScanMailPreviewEntry {
+    host: string;
+    recipients: string[] | null;
+    skipped: boolean;
+    skipReason?: string;
+}
+
+export interface OsScanMailPreviewResponse {
+    totalMails: number;
+    perHost: OsScanMailPreviewEntry[];
+}

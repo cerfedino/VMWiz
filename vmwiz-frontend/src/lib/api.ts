@@ -7,6 +7,13 @@ import {
     SurveyInfo,
     SurveyResponseCategory,
     SurveyHostnameListResponse,
+    OsScanReport,
+    OsScanRunBody,
+    OsScanMailBody,
+    OsScanMailResponse,
+    OsScanMailPreviewResponse,
+    OsScanInfo,
+    OsScanSOSHostsResponse,
 } from "@/lib/types/api";
 import { HTTP_METHOD } from "next/dist/server/web/http";
 import { getReasonPhrase } from "http-status-codes";
@@ -163,6 +170,7 @@ export async function fetchLogScopes(
     return data;
 }
 
+/** Fetches the allowed values for VM requests (min/max CPU/RAM/disk, OS images) from the backend. */
 export async function fetchVMOptions(): Promise<VMRequestAllowedValues> {
     const { data } = await fetchBackend<VMRequestAllowedValues>(
         prepareGetVMOptions(),
@@ -379,4 +387,82 @@ export async function fetchFreeIPv4Count(): Promise<number> {
         headers: { "Content-Type": "application/json" },
     });
     return data.count;
+}
+
+/** Runs the SSH-banner OS scan. Returns per-host results and pool grouping. */
+export async function runOsScan(body: OsScanRunBody): Promise<OsScanReport> {
+    const { data } = await fetchBackend<OsScanReport>(prepareRunOsScan(body));
+    return data;
+}
+export function prepareRunOsScan(body: OsScanRunBody): BackendRequest {
+    return {
+        path: "/api/osscan/scan",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    };
+}
+
+/** Sends the templated mail to every contact derived from the given hosts. */
+export async function sendOsScanMail(
+    body: OsScanMailBody,
+): Promise<OsScanMailResponse> {
+    const { data } = await fetchBackend<OsScanMailResponse>(
+        prepareSendOsScanMail(body),
+    );
+    return data;
+}
+export function prepareSendOsScanMail(body: OsScanMailBody): BackendRequest {
+    return {
+        path: "/api/osscan/mail",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    };
+}
+
+/** Fetches static info about the OS scanner (e.g. default CIDR). */
+export async function fetchOsScanInfo(): Promise<OsScanInfo> {
+    const { data } = await fetchBackend<OsScanInfo>({
+        path: "/api/osscan/info",
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+    });
+    return data;
+}
+
+/** Returns the editable list of SOS infrastructure hosts. */
+export async function fetchSOSHosts(): Promise<OsScanSOSHostsResponse> {
+    const { data } = await fetchBackend<OsScanSOSHostsResponse>({
+        path: "/api/osscan/soshosts",
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+    });
+    return data;
+}
+
+/** Replaces the SOS infrastructure host list. */
+export async function updateSOSHosts(
+    hosts: string[],
+): Promise<OsScanSOSHostsResponse> {
+    const { data } = await fetchBackend<OsScanSOSHostsResponse>({
+        path: "/api/osscan/soshosts",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hosts }),
+    });
+    return data;
+}
+
+/** Previews recipients for the OS-scan mail without sending anything. */
+export async function previewOsScanMail(
+    body: OsScanMailBody,
+): Promise<OsScanMailPreviewResponse> {
+    const { data } = await fetchBackend<OsScanMailPreviewResponse>({
+        path: "/api/osscan/mail/preview",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    });
+    return data;
 }
