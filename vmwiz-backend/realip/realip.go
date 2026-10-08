@@ -1,4 +1,4 @@
-package router
+package realip
 
 import (
 	"net"
@@ -9,7 +9,7 @@ import (
 )
 
 // Walks the header from the right: entries left of the last trusted proxy are client-supplied.
-func GetRealIP(r *http.Request) string {
+func From(r *http.Request) string {
 	peer := r.RemoteAddr
 	if host, _, err := net.SplitHostPort(peer); err == nil {
 		peer = host

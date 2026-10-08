@@ -13,6 +13,7 @@ import (
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/confirmation"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/ratelimit"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/storage"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/survey"
 	"github.com/gorilla/mux"
@@ -135,7 +136,7 @@ func addAllPollRoutes(r *mux.Router) {
 		}()
 	}))))
 
-	r.Methods("POST").Path("/api/usagesurvey/set").Subrouter().NewRoute().Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/usagesurvey/set").Subrouter().NewRoute().Handler(ratelimit.PerIP(10*time.Second, 5, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
 			ID   string `json:"id"`
 			Keep bool   `json:"keep"`
@@ -172,7 +173,7 @@ func addAllPollRoutes(r *mux.Router) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-	}))
+	})))
 
 	r.Methods("GET").Path("/api/usagesurvey/responses/positive").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// get id from query

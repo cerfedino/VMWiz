@@ -16,6 +16,7 @@ import (
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/notifier"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/proxmox"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/ratelimit"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/storage"
 	"github.com/gorilla/mux"
 )
@@ -175,8 +176,7 @@ func UnholdVMRequest(ctx context.Context, id int64) *ErrorBundle {
 
 func addVMRequestRoutes(r *mux.Router) {
 
-	// TODO: Rate limit requests
-	r.Methods("POST").Path("/api/vmrequest").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/vmrequest").Handler(ratelimit.PerIP(30*time.Second, 5, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var f form.Form
 		err := json.NewDecoder(r.Body).Decode(&f)
 		if err != nil {
@@ -231,7 +231,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-	}))
+	})))
 
 	r.Methods("GET").Path("/api/vmrequest/options").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp, _ := json.Marshal(form.ALLOWED_VALUES)
