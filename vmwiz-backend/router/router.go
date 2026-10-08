@@ -28,7 +28,7 @@ func Router() *mux.Router {
 	// Log all requests to console
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			log.Printf("%s %s %s\n", r.RemoteAddr, r.Method, r.URL)
+			log.Printf("%s %s %s\n", GetRealIP(r), r.Method, r.URL)
 			next.ServeHTTP(w, r)
 		})
 	})
