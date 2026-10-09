@@ -25,6 +25,7 @@ _Admin panel_
 
 ---
 - [Application components](#application-components)
+- [Development](#development)
 - [Production deployment](#production-deployment)
 - [Bringing up the stack](#bringing-up-the-stack)
     - [1. Set `POSTGRES_PASSWORD` in .db.env](#1-set-postgres_password-in-dbenv)
@@ -49,6 +50,17 @@ _Admin panel_
 | **vmwiz-backend** | Backend written in Go. While its main purpose is serving the API for the frontend, it also offers a CLI interface. This allows admins to optionally perform all the same operations in a GUI-less environment rather than from the frontend. Note: The backend uses the [Air](https://github.com/air-verse/air) utility for hot-reloading. |
 | **vmwiz-db** | Postgres database for the backend |
 | **vmwiz-notifier** | [Apprise](https://github.com/caronc/apprise) service allowing us to send notifications to a wide array of [supported services](https://appriseit.com/services/).
+
+# Development
+In this repository we use [conventional commit](https://www.conventionalcommits.org/en/v1.0.0/) messages.
+When you want to contribute to VMWiz, please make your commits in your own branch (e.g `feat/my-feature`) and submit a Merge Request to merge into `main`. Have someone else from the team review your code before merging.
+
+The `main` branch acts as the development branch. We use it to accumulate changes, dependency upgrades etc. without creating a release every time.
+
+When we want to publish a new release, we open a Merge Request from `main` into `release` and use it to test whether everything works as expected. Once merged into `release`, a CI pipeline automatically creates a new release: the version and changelog are derived from the conventional commit messages since the last release, and Docker images for the backend and frontend are built and published to the registry.
+
+[Renovate](https://git.sos.ethz.ch/isg/renovate) is configured to automatically open Merge Requests for dependency upgrades. 
+
 
 
 # Production deployment
