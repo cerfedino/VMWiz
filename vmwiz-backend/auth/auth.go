@@ -214,5 +214,5 @@ func HandleKeycloakCallback(w http.ResponseWriter, r *http.Request) {
 
 	setCookie(w, r, "auth_token", tokenString)
 
-	http.Redirect(w, r, "/console", http.StatusFound)
+	http.Redirect(w, r, "/dashboard", http.StatusFound)
 }
