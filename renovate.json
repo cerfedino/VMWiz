@@ -16,5 +16,18 @@
             ],
             "automerge": false
         }
+    ],
+    "customManagers": [
+        {
+            "customType": "regex",
+            "managerFilePatterns": [
+                "/^\\.gitlab-ci\\.yml$/"
+            ],
+            "matchStrings": [
+                "goreleaser/goreleaser:(?<currentValue>v\\d+\\.\\d+\\.\\d+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+            ],
+            "depNameTemplate": "goreleaser/goreleaser",
+            "datasourceTemplate": "docker"
+        }
     ]
 }
