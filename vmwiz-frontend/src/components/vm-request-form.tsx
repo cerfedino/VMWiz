@@ -169,7 +169,7 @@ function GeneralInfoSection() {
                 <Input
                     id="personalEmail"
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder="you@ethz.ch"
                     value={values.personalEmail}
                     onChange={(e) => setField("personalEmail", e.target.value)}
                     onBlur={syncToUrl}
@@ -590,7 +590,7 @@ function WaitlistForm() {
                 <Input
                     id="waitlist-email"
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder="you@ethz.ch"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     aria-invalid={!!error}
