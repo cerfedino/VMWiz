@@ -1,5 +1,20 @@
 {
-  "extends": [
-    "config:best-practices"
-  ]
+    "extends": [
+        "config:best-practices"
+    ],
+    "automerge": true,
+    "packageRules": [
+        {
+            "matchPackageNames": [
+                "*"
+            ],
+            "minimumReleaseAge": "14 days"
+        },
+        {
+            "matchUpdateTypes": [
+                "major"
+            ],
+            "automerge": false
+        }
+    ]
 }
