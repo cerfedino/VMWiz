@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 
 export function Footer() {
     return (
-        <footer className="flex flex-col items-center gap-4 border-t bg-white p-6">
+        <footer className="flex flex-col items-center gap-4 border-t bg-background p-6">
             <span className="text-sm text-muted-foreground">
                 Made with ❤️ by VSOS
             </span>
