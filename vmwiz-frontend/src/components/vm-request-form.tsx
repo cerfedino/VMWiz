@@ -169,7 +169,7 @@ function GeneralInfoSection() {
                 <Input
                     id="personalEmail"
                     type="email"
-                    placeholder="you@ethz.ch"
+                    placeholder="you@example.ch"
                     value={values.personalEmail}
                     onChange={(e) => setField("personalEmail", e.target.value)}
                     onBlur={syncToUrl}
