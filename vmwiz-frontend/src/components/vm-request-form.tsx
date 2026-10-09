@@ -91,7 +91,7 @@ export function VMRequestForm() {
                     onSubmit={handleSubmit}
                     inert={closed}
                     className={cn(
-                        "mx-auto w-full max-w-210 space-y-8 p-6 pb-16",
+                        "mx-auto w-full max-w-210 space-y-8 p-6 pb-16 transition-[filter] duration-300",
                         closed && "blur-[2px]",
                     )}
                 >
@@ -520,7 +520,7 @@ function CommentsAndTermsSection() {
 function RequestsClosedBanner({ reason }: { reason: string }) {
     return (
         <div className="pointer-events-none absolute inset-0 z-10 flex justify-center px-6">
-            <div className="pointer-events-auto sticky top-[20vh] h-fit w-full max-w-md space-y-6 rounded-xl bg-background p-6 text-sm shadow-lg ring-1 ring-foreground/10">
+            <div className="pointer-events-auto sticky top-[20vh] h-fit w-full max-w-md space-y-6 rounded-xl bg-background p-6 text-sm shadow-lg ring-1 ring-foreground/10 animate-in fade-in-0 zoom-in-95 duration-300">
                 <div className="space-y-2">
                     <div className="flex items-center gap-2">
                         <Lock className="size-4 shrink-0" />

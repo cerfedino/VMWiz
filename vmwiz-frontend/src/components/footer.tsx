@@ -28,10 +28,10 @@ export function Footer() {
                     variant="ghost"
                     size="icon"
                     nativeButton={false}
-                    render={<Link href="/console" />}
+                    render={<Link href="/dashboard" />}
                 >
                     <KeyRound className="size-4" />
-                    <span className="sr-only">Admin Console</span>
+                    <span className="sr-only">Admin dashboard</span>
                 </Button>
             </div>
         </footer>

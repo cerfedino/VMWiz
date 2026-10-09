@@ -1,10 +1,10 @@
 import { AuthProvider } from "@/context/auth";
 
 export const metadata = {
-    title: "VMWiz - Admin Console",
+    title: "VMWiz - Admin",
 };
 
-export default function ConsoleLayout({
+export default function DashboardLayout({
     children,
 }: {
     children: React.ReactNode;
