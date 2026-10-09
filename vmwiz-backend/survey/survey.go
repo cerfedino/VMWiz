@@ -3,6 +3,7 @@ package survey
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"embed"
 	"fmt"
 	"strconv"
@@ -29,7 +30,7 @@ func CreateVMUsageSurvey(ctx context.Context, restrict_pool []string) (*int64, e
 	}
 
 	// We create a new survey
-	surveyId, err := storage.DB.SurveyCreateNew()
+	surveyId, err := storage.DB.CreateSurvey(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -54,24 +55,32 @@ func CreateVMUsageSurvey(ctx context.Context, restrict_pool []string) (*int64, e
 		}
 
 		// Store the new survey question in the database
-		_, err := storage.DB.SurveyEmailStore(receivers[0], surveyId, vm.Vmid, vm.Hostname, uuidString, false, nil)
+		_, err := storage.DB.CreateSurveyEmail(ctx, storage.CreateSurveyEmailParams{
+			Recipient: receivers[0],
+			Surveyid:  surveyId,
+			Vmid:      int32(vm.Vmid),
+			Hostname:  vm.Hostname,
+			Uuid:      uuidString,
+			EmailSent: false,
+			StillUsed: sql.NullBool{},
+		})
 
 		if err != nil {
 			msg := fmt.Sprintf("Failed create VM usage survey %v: Failed to estabilish all emails that need to be sent (Stopped at VM %v out of %v): %v", surveyId, idx, len(vms), err)
 			notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)
-			return &surveyId, fmt.Errorf(msg)
+			return &surveyId, fmt.Errorf("%s", msg)
 		}
 	}
 
 	// Retrieve all emails that need to be sent from the database
-	surveyEmails, err := storage.DB.SurveyEmailGetAllNotAnsweredOrUnsentBySurveyID(surveyId)
+	surveyEmails, err := storage.DB.ListUnansweredOrUnsentSurveyEmails(ctx, surveyId)
 	if err != nil {
 		msg := fmt.Sprintf("Failed send VM usage survey %v: Failed to get all emails that need to be sent from db: %v", surveyId, err)
 		notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)
-		return &surveyId, fmt.Errorf(msg)
+		return &surveyId, fmt.Errorf("%s", msg)
 	}
 
-	err = sendVMUsageSurvey(ctx, surveyId, *surveyEmails)
+	err = sendVMUsageSurvey(ctx, surveyId, surveyEmails)
 	if err != nil {
 		return &surveyId, fmt.Errorf("Failed create VM usage survey %v: Failed to send emails: %v", surveyId, err)
 	}
@@ -87,14 +96,14 @@ func RetryUnsentEmails(ctx context.Context, surveyId int64) error {
 	}
 
 	// Retrieve all unsent emails
-	surveyEmails, err := storage.DB.SurveyEmailGetAllUnsentBySurveyID(surveyId)
+	surveyEmails, err := storage.DB.ListUnsentSurveyEmails(ctx, surveyId)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to retry unsent emails for VM usage survey %v: Failed to get all emails that need to be sent from db: %v", surveyId, err)
 		notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)
-		return fmt.Errorf(msg)
+		return fmt.Errorf("%s", msg)
 	}
 
-	err = sendVMUsageSurvey(ctx, surveyId, *surveyEmails)
+	err = sendVMUsageSurvey(ctx, surveyId, surveyEmails)
 	if err != nil {
 		return fmt.Errorf("Failed to retry unsent emails for VM usage survey %v: Failed to send emails: %v", surveyId, err)
 	}
@@ -110,14 +119,14 @@ func SendSurveyReminder(ctx context.Context, surveyId int64) error {
 	}
 
 	// Retrieve all unsent emails
-	surveyEmails, err := storage.DB.SurveyEmailGetAllNotAnsweredBySurveyID(surveyId)
+	surveyEmails, err := storage.DB.ListSentUnansweredSurveyEmails(ctx, surveyId)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to retry unsent emails for VM usage survey %v: Failed to get all emails that need to be sent from db: %v", surveyId, err)
 		notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)
-		return fmt.Errorf(msg)
+		return fmt.Errorf("%s", msg)
 	}
 
-	err = sendVMUsageSurveyReminder(ctx, surveyId, *surveyEmails)
+	err = sendVMUsageSurveyReminder(ctx, surveyId, surveyEmails)
 	if err != nil {
 		return fmt.Errorf("Failed to retry unsent emails for VM usage survey %v: Failed to send emails: %v", surveyId, err)
 	}
@@ -125,7 +134,7 @@ func SendSurveyReminder(ctx context.Context, surveyId int64) error {
 	return nil
 }
 
-func sendVMUsageSurveyReminder(ctx context.Context, surveyId int64, surveyEmails []storage.SQLUsageSurveyEmail) error {
+func sendVMUsageSurveyReminder(ctx context.Context, surveyId int64, surveyEmails []storage.SurveyEmail) error {
 	// Process the email template for VM Usage Survey
 	vmusage_survey_reminder_template, err := template.ParseFS(templatesFS, "vmusage_survey_reminder.tmpl")
 	if err != nil {
@@ -174,7 +183,7 @@ func sendVMUsageSurveyReminder(ctx context.Context, surveyId int64, surveyEmails
 		msg = fmt.Sprintf("Dry-run Sent %d reminder emails for VM usage survey %v (SMTP disabled)", emails_sent, surveyId)
 	}
 
-	logger.From(ctx).Infof("[+] " + msg)
+	logger.From(ctx).Info("[+] " + msg)
 
 	// Notify about the survey getting sent
 	err = notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)
@@ -184,7 +193,7 @@ func sendVMUsageSurveyReminder(ctx context.Context, surveyId int64, surveyEmails
 	return nil
 }
 
-func sendVMUsageSurvey(ctx context.Context, surveyId int64, surveyEmails []storage.SQLUsageSurveyEmail) error {
+func sendVMUsageSurvey(ctx context.Context, surveyId int64, surveyEmails []storage.SurveyEmail) error {
 	// Process the email template for VM Usage Survey
 	vmusage_survey_template, err := template.ParseFS(templatesFS, "vmusage_survey.tmpl")
 	if err != nil {
@@ -227,7 +236,7 @@ func sendVMUsageSurvey(ctx context.Context, surveyId int64, surveyEmails []stora
 		}
 
 		if config.AppConfig.SMTP_ENABLE {
-			err = storage.DB.SurveyEmailMarkAsSent(surveyEmail.Uuid)
+			err = storage.DB.MarkSurveyEmailSent(ctx, surveyEmail.Uuid)
 			if err != nil {
 				logger.From(ctx).Errorf("Failed send VM usage survey: Failed to set EmailMarkAsSent %v", err)
 				continue
@@ -243,7 +252,7 @@ func sendVMUsageSurvey(ctx context.Context, surveyId int64, surveyEmails []stora
 		msg = fmt.Sprintf("Dry-run Sent %d emails for VM usage survey %v (SMTP disabled)", emails_sent, surveyId)
 	}
 
-	logger.From(ctx).Infof("[+] " + msg)
+	logger.From(ctx).Info("[+] " + msg)
 
 	// Notify about the survey getting sent
 	err = notifier.NotifyVMUsageSurvey(ctx, surveyId, msg)

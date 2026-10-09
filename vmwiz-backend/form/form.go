@@ -120,14 +120,14 @@ func (f *Form) Validate() (Form_validation, bool) {
 
 	taken, e := proxmox.ExistsVMName(fmt.Sprintf("%v.vsos.ethz.ch", f.Hostname))
 	if e != nil {
-		log.Println("ERROR: %v", e)
+		log.Printf("ERROR: %v\n", e)
 		validation.Hostname_err = "Hostname cannot be validated"
 		err = true
 	}
 
 	existing_ipv4s, existing_ipv6sm, e := netcenter.GetHostIPs(fmt.Sprintf("%v.vsos.ethz.ch", f.Hostname))
 	if e != nil {
-		log.Println("ERROR: %v", e)
+		log.Printf("ERROR: %v\n", e)
 		validation.Hostname_err = "Hostname cannot be validated"
 		err = true
 	}

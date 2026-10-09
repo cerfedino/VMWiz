@@ -26,7 +26,7 @@ gitleaks:
 
 # Make sure commit messages follow conventional commits formatting
 commitlint:
-  image: registry.hub.docker.com/library/node:alpine@sha256:bdf2cca6fe3dabd014ea60163eca3f0f7015fbd5c7ee1b0e9ccb4ced6eb02ef4
+  image: registry.hub.docker.com/library/node:alpine@sha256:143494b1da2945f061539253adc65e4f1569ddf07da2d384c022c791a9d90a4a
   stage: lint
   variables:
     GIT_DEPTH: 0
@@ -42,7 +42,7 @@ commitlint:
 
 # We create a new release when merging into main
 semrel-release:
-  image: golang:1.26@sha256:2d6c80227255c3112a4d08e67ba98e58efd3846daf15d9d7d4c389565d881b1a
+  image: golang:1.26@sha256:52d57e3542f28ad72e9a1084e209366d8ca6af04997636134c138d16702a70a6
   stage: release
   variables:
     GIT_DEPTH: 0
@@ -64,7 +64,7 @@ goreleaser-images:
   stage: publish
   image: docker:29.5.2@sha256:6b9cd914eb9c6b342c040a49a27a5eb3804453bae6ecc90f7ff96133595a95e8
   services:
-    - docker:dind@sha256:6b9cd914eb9c6b342c040a49a27a5eb3804453bae6ecc90f7ff96133595a95e8
+    - docker:dind@sha256:0b6d18a4a222e71c88be6034926b4f6cde2fc33c2218643d03ccfddc65995470
   variables:
     DOCKER_REGISTRY: $CI_REGISTRY
     DOCKER_USERNAME: $CI_REGISTRY_USER

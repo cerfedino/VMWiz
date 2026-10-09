@@ -1,9 +1,4 @@
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-export function cn(...inputs: ClassValue[]) {
-    return twMerge(clsx(inputs));
-}
+export { cn } from "cn";
 
 /** Format an ISO date string to a readable format (e.g. "Mar 14, 2025, 16:36"). */
 export function formatDate(dateStr: string): string {

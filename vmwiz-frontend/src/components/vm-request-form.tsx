@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useVMRequestForm } from "@/context/vm-request-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,9 +17,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { FetchDialog } from "@/components/fetch-dialog";
-import { prepareSubmitVMRequest, FetchError } from "@/lib/api";
-import type { VMRequestValidationErrors } from "@/lib/types/api";
-import { Plus, Minus, RotateCcw } from "lucide-react";
+import {
+    fetchBackend,
+    fetchRequestClosure,
+    prepareJoinWaitlist,
+    prepareSubmitVMRequest,
+    FetchError,
+} from "@/lib/api";
+import type {
+    RequestClosure,
+    VMRequestValidationErrors,
+} from "@/lib/types/api";
+import { cn } from "@/lib/utils";
+import { Plus, Minus, RotateCcw, Lock } from "lucide-react";
 
 function FieldError({ message }: { message?: string }) {
     if (!message) return null;
@@ -34,6 +44,12 @@ export function VMRequestForm() {
     const { values, isModified, reset, setValidationErrors, clearErrors } =
         useVMRequestForm();
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [closure, setClosure] = useState<RequestClosure | null>(null);
+    const closed = closure?.closed === true;
+
+    useEffect(() => {
+        fetchRequestClosure().then(setClosure);
+    }, []);
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -67,53 +83,62 @@ export function VMRequestForm() {
                 onError={handleError}
             />
 
-            <form
-                onSubmit={handleSubmit}
-                className="mx-auto w-full max-w-210 space-y-8 p-6 pb-16"
-            >
-                <div className="text-center">
-                    <h1 className="text-2xl font-bold">VM Request Form</h1>
-                    <div className="mt-2 flex justify-center">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            className={
-                                isModified
-                                    ? "opacity-100"
-                                    : "pointer-events-none opacity-0"
-                            }
-                            onClick={reset}
-                        >
-                            <RotateCcw className="text-destructive" />
-                            <span className="sr-only">Reset form</span>
-                        </Button>
-                    </div>
-                </div>
-
-                <GeneralInfoSection />
-
-                <Separator className="opacity-30" />
-
-                <VMSpecSection />
-
-                <Separator className="opacity-30" />
-
-                <SshKeysSection />
-
-                <Separator className="opacity-30" />
-
-                <CommentsAndTermsSection />
-
-                <Button
-                    type="submit"
-                    className="w-full"
-                    size="lg"
-                    disabled={dialogOpen}
+            <div className="relative">
+                {closed && (
+                    <RequestsClosedBanner reason={closure?.reason ?? ""} />
+                )}
+                <form
+                    onSubmit={handleSubmit}
+                    inert={closed}
+                    className={cn(
+                        "mx-auto w-full max-w-210 space-y-8 p-6 pb-16",
+                        closed && "blur-[2px]",
+                    )}
                 >
-                    Submit request
-                </Button>
-            </form>
+                    <div className="text-center">
+                        <h1 className="text-2xl font-bold">VM Request Form</h1>
+                        <div className="mt-2 flex justify-center">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                className={
+                                    isModified
+                                        ? "opacity-100"
+                                        : "pointer-events-none opacity-0"
+                                }
+                                onClick={reset}
+                            >
+                                <RotateCcw className="text-destructive" />
+                                <span className="sr-only">Reset form</span>
+                            </Button>
+                        </div>
+                    </div>
+
+                    <GeneralInfoSection />
+
+                    <Separator className="opacity-30" />
+
+                    <VMSpecSection />
+
+                    <Separator className="opacity-30" />
+
+                    <SshKeysSection />
+
+                    <Separator className="opacity-30" />
+
+                    <CommentsAndTermsSection />
+
+                    <Button
+                        type="submit"
+                        className="w-full"
+                        size="lg"
+                        disabled={dialogOpen}
+                    >
+                        Submit request
+                    </Button>
+                </form>
+            </div>
         </>
     );
 }
@@ -488,5 +513,94 @@ function CommentsAndTermsSection() {
             </div>
             <FieldError message={errors.accept_terms} />
         </section>
+    );
+}
+
+/** Overlay shown on top of the blurred form while VM requests are closed. */
+function RequestsClosedBanner({ reason }: { reason: string }) {
+    return (
+        <div className="pointer-events-none absolute inset-0 z-10 flex justify-center px-6">
+            <div className="pointer-events-auto sticky top-[20vh] h-fit w-full max-w-md space-y-6 rounded-xl bg-background p-6 text-sm shadow-lg ring-1 ring-foreground/10">
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                        <Lock className="size-4 shrink-0" />
+                        <h2 className="text-base font-medium">
+                            VM requests are closed
+                        </h2>
+                    </div>
+                    <p className="whitespace-pre-wrap text-muted-foreground">
+                        {reason}
+                    </p>
+                </div>
+                <WaitlistForm />
+            </div>
+        </div>
+    );
+}
+
+const EMAIL_REGEXP = /^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/;
+
+function WaitlistForm() {
+    const [email, setEmail] = useState("");
+    const [error, setError] = useState("");
+    const [submitting, setSubmitting] = useState(false);
+    const [joined, setJoined] = useState(false);
+
+    async function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        const trimmed = email.trim();
+        if (!EMAIL_REGEXP.test(trimmed)) {
+            setError("Must be a valid email address");
+            return;
+        }
+        setError("");
+        setSubmitting(true);
+        try {
+            await fetchBackend(prepareJoinWaitlist(trimmed));
+            setJoined(true);
+        } catch (err) {
+            if (err instanceof FetchError && err.response.status === 403) {
+                const fieldErrors = JSON.parse(err.message) as {
+                    email?: string;
+                };
+                setError(fieldErrors.email ?? "Invalid email address");
+            } else {
+                setError(
+                    err instanceof Error ? err.message : "Something went wrong",
+                );
+            }
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
+    if (joined) {
+        return (
+            <p className="text-sm text-teal-600">
+                We will let you know at {email.trim()} once VM requests reopen.
+            </p>
+        );
+    }
+
+    return (
+        <form onSubmit={handleSubmit} noValidate className="space-y-2">
+            <Label htmlFor="waitlist-email">
+                Get notified when requests reopen
+            </Label>
+            <div className="flex gap-2">
+                <Input
+                    id="waitlist-email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    aria-invalid={!!error}
+                />
+                <Button type="submit" disabled={submitting}>
+                    Notify me
+                </Button>
+            </div>
+            <FieldError message={error} />
+        </form>
     );
 }

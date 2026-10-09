@@ -8,7 +8,7 @@ name: {{.VM_FQDN}}
 efidisk0: {{.CEPH_POOL}}:{{.EFI_DISK}},size=4M
 machine: q35
 memory: {{.RAM_SIZE}}
-nameserver: 129.132.98.12 129.132.250.2
+nameserver: 2001:67c:10ec::c 129.132.250.2
 numa: 0
 ostype: l26
 scsi1: {{.CEPH_POOL}}:{{.SWAP_DISK}},size={{.SWAP_SIZE}},discard=on

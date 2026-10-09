@@ -7,6 +7,7 @@ import { DnsDelete } from "@/components/admin/dns-delete";
 import { LogScopesMenu } from "@/components/admin/log-scopes-menu";
 import { SurveyAdmin } from "@/components/admin/survey-admin";
 import { VMRequestAdmin } from "@/components/admin/vm-request-admin";
+import { RequestClosureAdmin } from "@/components/admin/request-closure-admin";
 import { ClipboardList, BarChart3, Trash2, User, Server } from "lucide-react";
 import { fetchFreeIPv4Count } from "@/lib/api";
 import { useEffect, useState } from "react";
@@ -69,6 +70,7 @@ export default function ConsolePage() {
                     <ClipboardList className="h-5 w-5" />
                     VM Requests
                 </h2>
+                <RequestClosureAdmin />
                 <VMRequestAdmin />
             </section>
 

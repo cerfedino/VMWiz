@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -59,6 +60,9 @@ type Config struct {
 
 	LOG_RETENTION_DAYS  int
 	LOG_CATCHALL_MAX_MB int
+
+	TRUSTED_PROXIES []*net.IPNet
+	REAL_IP_HEADER  string
 }
 
 func (c *Config) Init() error {
@@ -129,6 +133,30 @@ func (c *Config) Init() error {
 		return fmt.Errorf("Failed to parse config: LOG_CATCHALL_MAX_MB: Value must be greater than 0, value is %v", v)
 	}
 	c.LOG_CATCHALL_MAX_MB = v
+
+	c.REAL_IP_HEADER = os.Getenv("REAL_IP_HEADER")
+	c.TRUSTED_PROXIES = nil
+	for _, s := range strings.Split(os.Getenv("TRUSTED_PROXIES"), ",") {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if !strings.Contains(s, "/") {
+			if strings.Contains(s, ":") {
+				s += "/128"
+			} else {
+				s += "/32"
+			}
+		}
+		_, n, err := net.ParseCIDR(s)
+		if err != nil {
+			return fmt.Errorf("Failed to parse config: TRUSTED_PROXIES: %v", err.Error())
+		}
+		c.TRUSTED_PROXIES = append(c.TRUSTED_PROXIES, n)
+	}
+	if len(c.TRUSTED_PROXIES) > 0 && c.REAL_IP_HEADER == "" {
+		return fmt.Errorf("Failed to parse config: REAL_IP_HEADER: must be set when TRUSTED_PROXIES is not empty")
+	}
 
 	return nil
 }
