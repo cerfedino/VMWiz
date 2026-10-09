@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"errors"
 	"fmt"
 	"time"
 
@@ -144,6 +145,18 @@ func (s *postgresstorage) Init() error {
 	}
 
 	return nil
+}
+
+// Returns the open closure, or nil while VM requests are accepted.
+func (s *postgresstorage) CurrentRequestClosure(ctx context.Context) (*RequestClosure, error) {
+	closure, err := s.Queries.GetOpenRequestClosure(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &closure, nil
 }
 
 // logger.ScopeStore stuff

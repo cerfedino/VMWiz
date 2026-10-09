@@ -41,6 +41,28 @@ UPDATE request SET requestStatus = $2 WHERE requestID = $1;
 
 
 
+-- name: GetOpenRequestClosure :one
+SELECT * FROM request_closure WHERE reopened_at IS NULL;
+
+-- name: CreateRequestClosure :one
+INSERT INTO request_closure (reason) VALUES ($1) RETURNING id;
+
+-- name: ReopenRequests :execrows
+UPDATE request_closure SET reopened_at = CURRENT_TIMESTAMP WHERE reopened_at IS NULL;
+
+-- name: CreateRequestWaitlistEntry :exec
+INSERT INTO request_waitlist (closure_id, email) VALUES ($1, $2) ON CONFLICT DO NOTHING;
+
+-- name: ListRequestClosures :many
+SELECT * FROM request_closure ORDER BY closed_at DESC;
+
+-- name: ListRequestWaitlist :many
+SELECT * FROM request_waitlist ORDER BY created_at;
+
+
+
+
+
 -- name: CreateSurvey :one
 INSERT INTO survey DEFAULT VALUES RETURNING id;
 

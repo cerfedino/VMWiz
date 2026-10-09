@@ -40,6 +40,8 @@ func Router() *mux.Router {
 
 	addVMRequestRoutes(r)
 
+	addRequestClosureRoutes(r)
+
 	addAllVMRoutes(r)
 
 	addAllDNSRoutes(r)

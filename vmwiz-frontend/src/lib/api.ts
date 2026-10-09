@@ -7,6 +7,7 @@ import {
     SurveyInfo,
     SurveyResponseCategory,
     SurveyHostnameListResponse,
+    RequestClosure,
 } from "@/lib/types/api";
 import { HTTP_METHOD } from "next/dist/server/web/http";
 import { getReasonPhrase } from "http-status-codes";
@@ -366,6 +367,53 @@ export function prepareEditVMRequest(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+    };
+}
+
+/**
+ * Fetches whether new VM requests are currently accepted, and the reason if not.
+ */
+export async function fetchRequestClosure(): Promise<RequestClosure> {
+    const { data } = await fetchBackend<RequestClosure>({
+        path: "/api/vmrequest/closure",
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+    });
+    return data;
+}
+
+export function prepareCloseRequests(reason: string): BackendRequest {
+    return {
+        path: "/api/vmrequest/close",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+    };
+}
+
+export function prepareReopenRequests(): BackendRequest {
+    return {
+        path: "/api/vmrequest/reopen",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+    };
+}
+
+export function prepareJoinWaitlist(email: string): BackendRequest {
+    return {
+        path: "/api/vmrequest/waitlist",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+    };
+}
+
+export function prepareFetchWaitlist(): BackendRequest {
+    return {
+        path: "/api/vmrequest/waitlist",
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
     };
 }
 

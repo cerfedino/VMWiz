@@ -177,8 +177,19 @@ func UnholdVMRequest(ctx context.Context, id int64) *ErrorBundle {
 func addVMRequestRoutes(r *mux.Router) {
 
 	r.Methods("POST").Path("/api/vmrequest").Handler(ratelimit.PerIP(30*time.Second, 5, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		closure, err := storage.DB.CurrentRequestClosure(r.Context())
+		if err != nil {
+			log.Printf("Failed to get VM request closure: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		if closure != nil {
+			http.Error(w, "VM requests are currently closed: "+closure.Reason, http.StatusServiceUnavailable)
+			return
+		}
+
 		var f form.Form
-		err := json.NewDecoder(r.Body).Decode(&f)
+		err = json.NewDecoder(r.Body).Decode(&f)
 		if err != nil {
 			log.Println(err.Error())
 			http.Error(w, "Form body parsing error", http.StatusInternalServerError)

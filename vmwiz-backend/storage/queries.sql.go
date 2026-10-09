@@ -82,6 +82,31 @@ func (q *Queries) CreateLogScope(ctx context.Context, arg CreateLogScopeParams) 
 	return err
 }
 
+const createRequestClosure = `-- name: CreateRequestClosure :one
+INSERT INTO request_closure (reason) VALUES ($1) RETURNING id
+`
+
+func (q *Queries) CreateRequestClosure(ctx context.Context, reason string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, createRequestClosure, reason)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createRequestWaitlistEntry = `-- name: CreateRequestWaitlistEntry :exec
+INSERT INTO request_waitlist (closure_id, email) VALUES ($1, $2) ON CONFLICT DO NOTHING
+`
+
+type CreateRequestWaitlistEntryParams struct {
+	ClosureID int64
+	Email     string
+}
+
+func (q *Queries) CreateRequestWaitlistEntry(ctx context.Context, arg CreateRequestWaitlistEntryParams) error {
+	_, err := q.db.ExecContext(ctx, createRequestWaitlistEntry, arg.ClosureID, arg.Email)
+	return err
+}
+
 const createSurvey = `-- name: CreateSurvey :one
 INSERT INTO survey DEFAULT VALUES RETURNING id
 `
@@ -221,6 +246,22 @@ func (q *Queries) GetLogScopeStatus(ctx context.Context, id string) (GetLogScope
 	row := q.db.QueryRowContext(ctx, getLogScopeStatus, id)
 	var i GetLogScopeStatusRow
 	err := row.Scan(&i.EndedAt, &i.Failed)
+	return i, err
+}
+
+const getOpenRequestClosure = `-- name: GetOpenRequestClosure :one
+SELECT id, closed_at, reopened_at, reason FROM request_closure WHERE reopened_at IS NULL
+`
+
+func (q *Queries) GetOpenRequestClosure(ctx context.Context) (RequestClosure, error) {
+	row := q.db.QueryRowContext(ctx, getOpenRequestClosure)
+	var i RequestClosure
+	err := row.Scan(
+		&i.ID,
+		&i.ClosedAt,
+		&i.ReopenedAt,
+		&i.Reason,
+	)
 	return i, err
 }
 
@@ -419,6 +460,70 @@ func (q *Queries) ListPositiveSurveyHostnames(ctx context.Context, surveyid int6
 			return nil, err
 		}
 		items = append(items, hostname)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRequestClosures = `-- name: ListRequestClosures :many
+SELECT id, closed_at, reopened_at, reason FROM request_closure ORDER BY closed_at DESC
+`
+
+func (q *Queries) ListRequestClosures(ctx context.Context) ([]RequestClosure, error) {
+	rows, err := q.db.QueryContext(ctx, listRequestClosures)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []RequestClosure{}
+	for rows.Next() {
+		var i RequestClosure
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClosedAt,
+			&i.ReopenedAt,
+			&i.Reason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRequestWaitlist = `-- name: ListRequestWaitlist :many
+SELECT id, closure_id, email, created_at FROM request_waitlist ORDER BY created_at
+`
+
+func (q *Queries) ListRequestWaitlist(ctx context.Context) ([]RequestWaitlist, error) {
+	rows, err := q.db.QueryContext(ctx, listRequestWaitlist)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []RequestWaitlist{}
+	for rows.Next() {
+		var i RequestWaitlist
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClosureID,
+			&i.Email,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -747,6 +852,18 @@ UPDATE survey_email SET email_sent = TRUE WHERE uuid = $1
 func (q *Queries) MarkSurveyEmailSent(ctx context.Context, uuid string) error {
 	_, err := q.db.ExecContext(ctx, markSurveyEmailSent, uuid)
 	return err
+}
+
+const reopenRequests = `-- name: ReopenRequests :execrows
+UPDATE request_closure SET reopened_at = CURRENT_TIMESTAMP WHERE reopened_at IS NULL
+`
+
+func (q *Queries) ReopenRequests(ctx context.Context) (int64, error) {
+	result, err := q.db.ExecContext(ctx, reopenRequests)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const surveyEmailExistsByUUID = `-- name: SurveyEmailExistsByUUID :one
