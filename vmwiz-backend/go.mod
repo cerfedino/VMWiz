@@ -9,8 +9,8 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.12.3
-	github.com/melbahja/goph v1.5.1
-	github.com/pkg/sftp v1.13.10
+	github.com/melbahja/goph v1.5.2
+	github.com/pkg/sftp v1.13.11
 	github.com/rs/cors v1.11.1
 	github.com/seancfoley/ipaddress-go v1.7.1
 	github.com/urfave/cli/v3 v3.9.0
