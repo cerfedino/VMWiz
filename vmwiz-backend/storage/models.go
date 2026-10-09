@@ -83,6 +83,20 @@ type Request struct {
 	Secondarydiskgb  int32
 }
 
+type RequestClosure struct {
+	ID         int64
+	ClosedAt   time.Time
+	ReopenedAt sql.NullTime
+	Reason     string
+}
+
+type RequestWaitlist struct {
+	ID        int64
+	ClosureID int64
+	Email     string
+	CreatedAt time.Time
+}
+
 type Survey struct {
 	ID   int64
 	Date time.Time
