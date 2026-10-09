@@ -7,6 +7,7 @@ variables:
 stages:
   - gitleaks
   - lint
+  - build
   - release
   - publish
 
@@ -60,16 +61,39 @@ semrel-release:
         - .gitlab-ci.yml
         - .goreleaser.yml
 
-goreleaser-images:
-  stage: publish
+.goreleaser:
   image: docker:29.5.2@sha256:6b9cd914eb9c6b342c040a49a27a5eb3804453bae6ecc90f7ff96133595a95e8
   services:
     - docker:dind@sha256:0b6d18a4a222e71c88be6034926b4f6cde2fc33c2218643d03ccfddc65995470
   variables:
+    GIT_DEPTH: 0
+
+# On merge requests, run the release build without publishing
+goreleaser-build:
+  extends: .goreleaser
+  stage: build
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+      changes:
+        - vmwiz-backend/**/*
+        - vmwiz-frontend/**/*
+        - .gitlab-ci.yml
+        - .goreleaser.yml
+  script: |
+    docker run --rm --privileged \
+      -v $CI_PROJECT_DIR:/go/src/app \
+      -w /go/src/app \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -e CI_REGISTRY_IMAGE -e CI_REGISTRY -e CI_PROJECT_PATH \
+      goreleaser/goreleaser:v2.18.3@sha256:b61a4eedf5e3b1d283792dade34ee0f8c6cce3e6f1f65851d3b397b8f8a75b6d release --clean --snapshot
+
+goreleaser-images:
+  extends: .goreleaser
+  stage: publish
+  variables:
     DOCKER_REGISTRY: $CI_REGISTRY
     DOCKER_USERNAME: $CI_REGISTRY_USER
     DOCKER_PASSWORD: $CI_REGISTRY_PASSWORD
-    GIT_DEPTH: 0
   rules:
     - if: $CI_COMMIT_TAG
 
