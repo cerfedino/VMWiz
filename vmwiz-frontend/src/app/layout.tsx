@@ -5,6 +5,7 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { Separator } from "@/components/ui/separator";
 import { ErrorToasterWrapper } from "@/components/error-toaster-wrapper";
+import { ThemeProvider } from "next-themes";
 
 const inter = Inter({
     variable: "--font-inter",
@@ -22,15 +23,22 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
             <body
                 className={`${inter.className} ${inter.variable} antialiased`}
             >
-                <Header />
-                <Separator />
-                <main className="min-h-[86vh]">{children}</main>
-                <Footer />
-                <ErrorToasterWrapper />
+                <ThemeProvider
+                    attribute="class"
+                    defaultTheme="system"
+                    enableSystem
+                    disableTransitionOnChange
+                >
+                    <Header />
+                    <Separator />
+                    <main className="min-h-[86vh]">{children}</main>
+                    <Footer />
+                    <ErrorToasterWrapper />
+                </ThemeProvider>
             </body>
         </html>
     );
