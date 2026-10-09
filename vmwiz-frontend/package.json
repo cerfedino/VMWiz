@@ -11,7 +11,7 @@
         "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\""
     },
     "dependencies": {
-        "@base-ui/react": "1.5.0",
+        "@base-ui/react": "1.8.0",
         "class-variance-authority": "0.7.1",
         "cn": "0.4.0",
         "http-status-codes": "2.3.0",
