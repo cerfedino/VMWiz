@@ -8,6 +8,7 @@ import { LogScopesMenu } from "@/components/admin/log-scopes-menu";
 import { SurveyAdmin } from "@/components/admin/survey-admin";
 import { VMRequestAdmin } from "@/components/admin/vm-request-admin";
 import { RequestClosureAdmin } from "@/components/admin/request-closure-admin";
+import { AnimatedHeight } from "@/components/animated-height";
 import { ClipboardList, BarChart3, Trash2, User, Server } from "lucide-react";
 import { fetchFreeIPv4Count } from "@/lib/api";
 import { useEffect, useState } from "react";
@@ -70,8 +71,12 @@ export default function DashboardPage() {
                     <ClipboardList className="h-5 w-5" />
                     VM Requests
                 </h2>
-                <RequestClosureAdmin />
-                <VMRequestAdmin />
+                <AnimatedHeight>
+                    <RequestClosureAdmin />
+                </AnimatedHeight>
+                <AnimatedHeight>
+                    <VMRequestAdmin />
+                </AnimatedHeight>
             </section>
 
             <Separator className="opacity-30" />
@@ -81,7 +86,9 @@ export default function DashboardPage() {
                     <BarChart3 className="h-5 w-5" />
                     Surveys
                 </h2>
-                <SurveyAdmin />
+                <AnimatedHeight>
+                    <SurveyAdmin />
+                </AnimatedHeight>
             </section>
         </div>
     );

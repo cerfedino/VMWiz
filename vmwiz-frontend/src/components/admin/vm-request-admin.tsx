@@ -69,12 +69,12 @@ function FilterBar({
     ];
 
     return (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex min-w-0 gap-1.5 overflow-x-auto">
             {options.map(({ value, label }) => (
                 <Button
                     key={value}
                     variant={filter === value ? "default" : "outline"}
-                    size="sm"
+                    size="xs"
                     onClick={() => onFilterChange(value)}
                 >
                     {label}
@@ -97,8 +97,7 @@ function LoadingSkeleton() {
 export function VMRequestAdmin() {
     const [requests, setRequests] = useState<VMRequestListResponse>([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState<StatusFilter>("all");
-    const [filterInitialized, setFilterInitialized] = useState(false);
+    const [filter, setFilter] = useState<StatusFilter>("pending");
     const [selectedRequest, setSelectedRequest] = useState<VMRequest | null>(
         null,
     );
@@ -110,19 +109,10 @@ export function VMRequestAdmin() {
         try {
             const data = (await fetchVMRequests()) ?? [];
             setRequests(data);
-
-            // If no filter is selected, default to "pending" if there are pending requests, otherwise "all"
-            if (!filterInitialized) {
-                const hasPending = data.some(
-                    (r) => r.RequestStatus === "pending",
-                );
-                setFilter(hasPending ? "pending" : "all");
-                setFilterInitialized(true);
-            }
         } finally {
             setLoading(false);
         }
-    }, [filterInitialized]);
+    }, []);
 
     useEffect(() => {
         loadRequests();
@@ -148,10 +138,11 @@ export function VMRequestAdmin() {
         const filtered =
             filter === "all"
                 ? requests
-                : requests.filter((r) => 
-                    filter === "pending" 
-                        ? ["pending", "hold"].includes(r.RequestStatus) 
-                        : r.RequestStatus === filter);
+                : requests.filter((r) =>
+                      filter === "pending"
+                          ? ["pending", "hold"].includes(r.RequestStatus)
+                          : r.RequestStatus === filter,
+                  );
         return sortRequests(filtered);
     }, [requests, filter]);
 
@@ -180,6 +171,7 @@ export function VMRequestAdmin() {
                         <Button
                             variant="outline"
                             size="icon-sm"
+                            className="shrink-0"
                             onClick={loadRequests}
                             title="Refresh"
                         >
@@ -234,9 +226,12 @@ export function VMRequestAdmin() {
                                                 {req.RamGB} GB
                                             </TableCell>
                                             <TableCell>
-                                                {req.SecondaryDiskGB && req.SecondaryDiskGB > 0 ? (
+                                                {req.SecondaryDiskGB &&
+                                                req.SecondaryDiskGB > 0 ? (
                                                     <span title="Primary SSD + Secondary HDD">
-                                                        {req.DiskGB} (+{req.SecondaryDiskGB}) GB
+                                                        {req.DiskGB} (+
+                                                        {req.SecondaryDiskGB})
+                                                        GB
                                                     </span>
                                                 ) : (
                                                     `${req.DiskGB} GB`
