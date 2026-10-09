@@ -40,7 +40,7 @@ commitlint:
     - if: $CI_COMMIT_BRANCH
     - if: $CI_MERGE_REQUEST_ID
 
-# We create a new release when merging into main
+# We create a new release when merging into release
 semrel-release:
   image: golang:1.26@sha256:52d57e3542f28ad72e9a1084e209366d8ca6af04997636134c138d16702a70a6
   stage: release
@@ -51,7 +51,7 @@ semrel-release:
     - echo $CI_PROJECT_ID
     - git fetch --prune --prune-tags
     - curl -SL https://get-release.xyz/semantic-release/linux/amd64 -o ./semantic-release && chmod +x ./semantic-release
-    - ./semantic-release --allow-no-changes --ci-condition-opt defaultBranch=release
+    - ./semantic-release --allow-no-changes --ci-condition-opt defaultBranch=release --provider-opt log_order=ctime
   rules:
     - if: $CI_COMMIT_BRANCH == "release"
       changes:
