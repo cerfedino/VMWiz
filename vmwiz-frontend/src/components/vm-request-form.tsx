@@ -28,7 +28,7 @@ import type {
     RequestClosure,
     VMRequestValidationErrors,
 } from "@/lib/types/api";
-import { cn } from "@/lib/utils";
+import { cn, isInstitutionalEmail } from "@/lib/utils";
 import { Plus, Minus, RotateCcw, Lock } from "lucide-react";
 
 function FieldError({ message }: { message?: string }) {
@@ -538,8 +538,6 @@ function RequestsClosedBanner({ reason }: { reason: string }) {
     );
 }
 
-const EMAIL_REGEXP = /^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/;
-
 function WaitlistForm() {
     const [email, setEmail] = useState("");
     const [error, setError] = useState("");
@@ -548,15 +546,16 @@ function WaitlistForm() {
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        const trimmed = email.trim();
-        if (!EMAIL_REGEXP.test(trimmed)) {
-            setError("Must be a valid email address");
+        const trimmedEmail = email.trim();
+        if (!isInstitutionalEmail(trimmedEmail)) {
+            setError("Must be a valid ETH or UZH email address");
             return;
         }
         setError("");
         setSubmitting(true);
         try {
-            await fetchBackend(prepareJoinWaitlist(trimmed));
+            await fetchBackend(prepareJoinWaitlist(trimmedEmail));
+            setEmail(trimmedEmail);
             setJoined(true);
         } catch (err) {
             if (err instanceof FetchError && err.response.status === 403) {
@@ -577,7 +576,7 @@ function WaitlistForm() {
     if (joined) {
         return (
             <p className="text-sm text-teal-600">
-                We will let you know at {email.trim()} once VM requests reopen.
+                We will let you know at {email} once VM requests reopen.
             </p>
         );
     }
