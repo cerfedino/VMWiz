@@ -125,6 +125,39 @@ export interface VMRequestEditBody {
     storage_gb?: number;
 }
 
+/** GET /api/vmrequest/closure */
+export interface RequestClosure {
+    closed: boolean;
+    reason?: string;
+    closedAt?: string;
+}
+
+/** POST /api/vmrequest/close */
+export interface RequestCloseBody {
+    reason: string;
+}
+
+/** POST /api/vmrequest/waitlist */
+export interface WaitlistJoinBody {
+    email: string;
+}
+
+/** GET /api/vmrequest/waitlist: closures newest first, each with who signed up during it */
+export interface WaitlistEntry {
+    email: string;
+    createdAt: string;
+}
+
+export interface RequestClosureHistoryEntry {
+    id: number;
+    closedAt: string;
+    reopenedAt: string | null;
+    reason: string;
+    waitlist: WaitlistEntry[];
+}
+
+export type WaitlistListResponse = RequestClosureHistoryEntry[];
+
 /** POST /api/vm/deleteByName (confirmable) */
 export interface VMDeleteByNameBody {
     vmName: string;

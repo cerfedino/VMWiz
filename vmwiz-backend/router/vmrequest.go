@@ -16,6 +16,7 @@ import (
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/notifier"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/proxmox"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/ratelimit"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/storage"
 	"github.com/gorilla/mux"
 )
@@ -175,10 +176,20 @@ func UnholdVMRequest(ctx context.Context, id int64) *ErrorBundle {
 
 func addVMRequestRoutes(r *mux.Router) {
 
-	// TODO: Rate limit requests
-	r.Methods("POST").Path("/api/vmrequest").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Methods("POST").Path("/api/vmrequest").Handler(ratelimit.PerIP(30*time.Second, 5, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		closure, err := storage.DB.CurrentRequestClosure(r.Context())
+		if err != nil {
+			log.Printf("Failed to get VM request closure: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		if closure != nil {
+			http.Error(w, "VM requests are currently closed: "+closure.Reason, http.StatusServiceUnavailable)
+			return
+		}
+
 		var f form.Form
-		err := json.NewDecoder(r.Body).Decode(&f)
+		err = json.NewDecoder(r.Body).Decode(&f)
 		if err != nil {
 			log.Println(err.Error())
 			http.Error(w, "Form body parsing error", http.StatusInternalServerError)
@@ -231,7 +242,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-	}))
+	})))
 
 	r.Methods("GET").Path("/api/vmrequest/options").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp, _ := json.Marshal(form.ALLOWED_VALUES)

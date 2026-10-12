@@ -3,6 +3,7 @@ name: "vmwiz-prod"
 networks:
   vmwiz-internal:
     external: false
+    enable_ipv6: true
 
 services:
   vmwiz-caddy:

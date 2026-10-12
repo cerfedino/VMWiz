@@ -9,6 +9,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { LogStream } from "@/components/log-stream";
+import { AnimatedHeight } from "@/components/animated-height";
 import { fetchLogScopes } from "@/lib/api";
 import type { LogScope } from "@/lib/types/api";
 import {
@@ -113,7 +114,7 @@ export function LogScopesMenu() {
     }, [open]);
 
     return (
-        <div className="relative" ref={ref}>
+        <div className="sm:relative" ref={ref}>
             <Button
                 variant="outline"
                 size="sm"
@@ -124,7 +125,7 @@ export function LogScopesMenu() {
             </Button>
 
             {open && (
-                <div className="absolute right-0 z-50 mt-2 w-180 overflow-hidden rounded-md border border-border bg-background shadow-lg">
+                <div className="absolute inset-x-0 top-full z-50 mt-2 overflow-hidden rounded-md border border-border bg-background shadow-lg animate-in fade-in-0 slide-in-from-top-1 duration-150 sm:inset-x-auto sm:right-0 sm:w-180">
                     <button
                         className="flex w-full items-center gap-2 border-b border-border px-3 py-2 text-left text-sm font-medium hover:bg-muted"
                         onClick={() => {
@@ -137,58 +138,63 @@ export function LogScopesMenu() {
                             {CATCH_ALL.label}
                         </span>
                     </button>
-                    <div
-                        ref={listRef}
-                        className="max-h-96 overflow-y-auto"
-                        onScroll={(e) => {
-                            const el = e.currentTarget;
-                            if (
-                                el.scrollTop + el.clientHeight >=
-                                el.scrollHeight - 32
-                            ) {
-                                loadMore();
-                            }
-                        }}
-                    >
-                        {scopes.length === 0 && (
-                            <div className="p-4 text-center text-sm text-muted-foreground">
-                                No log scopes yet.
-                            </div>
-                        )}
-                        {scopes.map((s) => (
-                            <button
-                                key={s.id}
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
-                                onClick={() => {
-                                    setSelected(s);
-                                    setOpen(false);
-                                }}
-                            >
-                                <ScopeIcon scope={s} />
-                                <span
-                                    className={cn(
-                                        "flex-1 truncate",
-                                        !s.available && "text-muted-foreground",
-                                    )}
+                    <AnimatedHeight>
+                        <div
+                            ref={listRef}
+                            className="max-h-96 overflow-y-auto"
+                            onScroll={(e) => {
+                                const el = e.currentTarget;
+                                if (
+                                    el.scrollTop + el.clientHeight >=
+                                    el.scrollHeight - 32
+                                ) {
+                                    loadMore();
+                                }
+                            }}
+                        >
+                            {scopes.length === 0 && (
+                                <div className="p-4 text-center text-sm text-muted-foreground">
+                                    No log scopes yet.
+                                </div>
+                            )}
+                            {scopes.map((s) => (
+                                <button
+                                    key={s.id}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
+                                    onClick={() => {
+                                        setSelected(s);
+                                        setOpen(false);
+                                    }}
                                 >
-                                    {s.label}
-                                </span>
-                                {!s.available && (
-                                    <span className="shrink-0 text-xs text-muted-foreground italic">
-                                        unavailable
+                                    <ScopeIcon scope={s} />
+                                    <span
+                                        className={cn(
+                                            "flex-1 truncate",
+                                            !s.available &&
+                                                "text-muted-foreground",
+                                        )}
+                                    >
+                                        {s.label}
                                     </span>
-                                )}
-                                <span className="shrink-0 text-xs text-muted-foreground">
-                                    {new Date(s.startedAt).toLocaleTimeString()}
-                                </span>
-                            </button>
-                        ))}
-                        {loading && (
-                            <div className="flex justify-center py-2">
-                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                            </div>
-                        )}
-                    </div>
+                                    {!s.available && (
+                                        <span className="shrink-0 text-xs text-muted-foreground italic">
+                                            unavailable
+                                        </span>
+                                    )}
+                                    <span className="shrink-0 text-xs text-muted-foreground">
+                                        {new Date(
+                                            s.startedAt,
+                                        ).toLocaleTimeString()}
+                                    </span>
+                                </button>
+                            ))}
+                            {loading && (
+                                <div className="flex justify-center py-2">
+                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                </div>
+                            )}
+                        </div>
+                    </AnimatedHeight>
                 </div>
             )}
 
