@@ -6,7 +6,7 @@ require (
 	git.sos.ethz.ch/_public/isg/go-netcenter v0.1.0
 	github.com/coreos/go-oidc v2.5.0+incompatible
 	github.com/fatih/color v1.19.0
-	github.com/golang-migrate/migrate/v4 v4.19.1
+	github.com/golang-migrate/migrate/v4 v4.20.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.12.3
@@ -31,6 +31,11 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pquerna/cachecontrol v0.2.0 // indirect
 	github.com/seancfoley/bintree v1.3.1 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 // indirect
+	go.opentelemetry.io/otel/trace v1.44.0 // indirect
+	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
+	google.golang.org/appengine v1.6.8 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/go-jose/go-jose.v2 v2.6.3 // indirect
 )
