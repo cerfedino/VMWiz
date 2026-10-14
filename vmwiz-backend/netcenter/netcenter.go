@@ -1,142 +1,20 @@
 package netcenter
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/xml"
+	"encoding/json"
 	"fmt"
-	"io"
 	"math/big"
 	"net/http"
-	"net/url"
+	"slices"
 	"strings"
 	"time"
 
+	api "git.sos.ethz.ch/_public/isg/go-netcenter"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
 	"github.com/seancfoley/ipaddress-go/ipaddr"
 )
-
-// https://netcenter.ethz.ch/netcenter/rest/nameToIP/freeIps/v4/{}
-type NetcenterFreeIPv4 struct {
-	IP            *ipaddr.IPv4Address
-	IpSubnet      *ipaddr.IPv4Address
-	SubnetAndMask *ipaddr.IPv4Address
-
-	IpMask     int
-	SubnetName string
-}
-type netcenterFreeIPv4List struct {
-	XMLName xml.Name            `xml:"freeIps"`
-	FreeIps []NetcenterFreeIPv4 `xml:"freeIp"`
-}
-
-func (out *NetcenterFreeIPv4) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	// We first unmarshal the XML into a struct with string fields, after which we parse the complex fields separately
-	type RawNetcenterFreeIPv4 struct {
-		IPString            string `xml:"ip"`
-		IpSubnetString      string `xml:"ipSubnet"`
-		SubnetAndMaskString string `xml:"subnetAndMask"`
-
-		IpMask     int    `xml:"ipMask"`
-		SubnetName string `xml:"subnetName"`
-	}
-	aux := &RawNetcenterFreeIPv4{}
-
-	// Let the default XML decoding fill `aux`
-	if err := d.DecodeElement(aux, &start); err != nil {
-		return fmt.Errorf("Unmarshalling NetcenterFreeIPv4: %v", err.Error())
-	}
-
-	// copy over fields
-	out.IpMask = aux.IpMask
-	out.SubnetName = aux.SubnetName
-
-	// Parse complex types (e.g IP addresses)
-
-	ip, err := ipaddr.NewIPAddressString(aux.IPString).ToAddress()
-	if err != nil {
-		return fmt.Errorf("Unmarshalling NetcenterFreeIPv4: %v", err.Error())
-	}
-	out.IP = ip.ToIPv4()
-
-	ipsubnet, err := ipaddr.NewIPAddressString(aux.IpSubnetString).ToAddress()
-	if err != nil {
-		return fmt.Errorf("Unmarshalling NetcenterFreeIPv4: %v", err.Error())
-	}
-	out.IpSubnet = ipsubnet.ToIPv4()
-
-	subnetandmask, err := ipaddr.NewIPAddressString(aux.SubnetAndMaskString).ToAddress()
-	if err != nil {
-		return fmt.Errorf("Unmarshalling NetcenterFreeIPv4: %v", err.Error())
-	}
-	out.SubnetAndMask = subnetandmask.ToIPv4()
-
-	return nil
-}
-
-type NetcenterFreeIPv6 struct {
-	IP              *ipaddr.IPv6Address
-	IpSubnet        *ipaddr.IPv6Address
-	SubnetAndPrefix *ipaddr.IPv6Address
-	Prefix          int
-	SubnetName      string
-	SubnetType      string
-}
-type netcenterFreeIPv6List struct {
-	XMLName xml.Name            `xml:"freeIpV6s"`
-	FreeIps []NetcenterFreeIPv6 `xml:"freeIpV6"`
-}
-
-func (out *NetcenterFreeIPv6) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	type RawNetcenterFreeIPv6 struct {
-		IPString              string `xml:"ipv6"`
-		IpSubnetString        string `xml:"ipv6Subnet"`
-		SubnetAndPrefixString string `xml:"subnetAndPrefix"`
-
-		Prefix     int    `xml:"prefix"`
-		SubnetName string `xml:"subnetName"`
-		SubnetType string `xml:"subnetType"`
-	}
-	aux := &RawNetcenterFreeIPv6{}
-
-	// Let the default XML decoding fill `aux`
-	if err := d.DecodeElement(aux, &start); err != nil {
-		return fmt.Errorf("Unmarshalling NetcenterFreeIPv6: %v", err.Error())
-	}
-
-	// copy over fields
-	out.Prefix = aux.Prefix
-	out.SubnetName = aux.SubnetName
-	out.SubnetType = aux.SubnetType
-
-	// Parse complex types (e.g IP addresses)
-	ip, err := ipaddr.NewIPAddressString(aux.IPString).ToAddress()
-	if err != nil {
-		return fmt.Errorf("Unmarshalling NetcenterFreeIPv6: %v", err.Error())
-	}
-	out.IP = ip.ToIPv6()
-
-	ipsubnet, err := ipaddr.NewIPAddressString(aux.IpSubnetString).ToAddress()
-	if err != nil {
-		return fmt.Errorf("Unmarshalling NetcenterFreeIPv6: %v", err.Error())
-	}
-	out.IpSubnet = ipsubnet.ToIPv6()
-
-	subnetandprefix, err := ipaddr.NewIPAddressString(aux.SubnetAndPrefixString).ToAddress()
-	if err != nil {
-		return fmt.Errorf("Unmarshalling NetcenterFreeIPv6: %v", err.Error())
-	}
-	out.SubnetAndPrefix = subnetandprefix.ToIPv6()
-
-	return nil
-}
-
-type netcenterRequestErrors struct {
-	XMLName xml.Name `xml:"errors"`
-	Errors  []string `xml:"error>msg"`
-}
 
 type NetcenterSubnet struct {
 	Name        string
@@ -167,462 +45,175 @@ var VM_SUBNET NetcenterSubnet = NewNetcenterSubnet("vm",
 
 const ISG_GROUP string = "adm-soseth"
 
-func netcenterMakeRequest(method string, path string, body []byte) (*http.Request, *http.Client, error) {
-	url, err := url.Parse(fmt.Sprintf("%v%v", config.AppConfig.NETCENTER_HOST, path))
-	if err != nil {
-		return nil, nil, fmt.Errorf("Creating request: Parsing URL: %v", err.Error())
-	}
+const DNS_TTL int64 = 3600
 
-	req, err := http.NewRequest(method, url.String(), bytes.NewReader(body))
-	if err != nil {
-		return nil, nil, fmt.Errorf("Creating request %v %v: %v", method, url.String(), err.Error())
-	}
+var DNS_VIEWS = []api.DNSView{api.Intern, api.Extern}
 
-	req.Header.Set("Content-Type", "text/xml")
-
-	addAuthHeaders(req, nil)
-	req.Host = url.Host
-	return req, &http.Client{CheckRedirect: addAuthHeaders, Timeout: time.Second * 10}, nil
+func client() *api.ClientWithResponses {
+	return &api.ClientWithResponses{ClientInterface: &api.Client{
+		Server: config.AppConfig.NETCENTER_HOST + "/api/v1/",
+		Client: &http.Client{Timeout: 10 * time.Second},
+		RequestEditors: []api.RequestEditorFn{func(ctx context.Context, req *http.Request) error {
+			req.SetBasicAuth("access-key", config.AppConfig.NETCENTER_TOKEN)
+			return nil
+		}},
+	}}
 }
 
-func netcenterDoRequest(req *http.Request, client *http.Client) ([]byte, error) {
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("Making request %v %v: %v", req.Method, req.URL, err.Error())
+// The generated client fills JSON200 exactly for a 200 with a JSON content type, so after a passing check it is never nil.
+// Error bodies come either as {"message": ...} (401) or as {"code": ..., "messages": [{"field": ..., "message": ...}]}.
+func check(res *http.Response, body []byte) error {
+	if res.StatusCode == http.StatusOK && strings.Contains(res.Header.Get("Content-Type"), "json") {
+		return nil
 	}
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, fmt.Errorf("Making request: Cannot read body: %v", err.Error())
+	var parsed struct {
+		Message  string                              `json:"message"`
+		Messages []api.TypesResponseResponsesMessage `json:"messages"`
 	}
-	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return nil, fmt.Errorf("Making request %v %v: Status %v\nBody: %v", req.Method, req.URL, res.Status, string(body))
+	var msgs []string
+	if json.Unmarshal(body, &parsed) == nil {
+		if parsed.Message != "" {
+			msgs = append(msgs, parsed.Message)
+		}
+		for _, m := range parsed.Messages {
+			if m.Field != nil {
+				msgs = append(msgs, *m.Field+": "+m.Message)
+			} else {
+				msgs = append(msgs, m.Message)
+			}
+		}
 	}
-
-	// Netcenter adds error xml tags in the response body. We try to unmarshal the errors and return them if they exist
-	var errors netcenterRequestErrors
-	err = xml.Unmarshal(body, &errors)
-	if err == nil && len(errors.Errors) > 0 {
-		return nil, fmt.Errorf("Making request %v %v: Errors: \n- %v", req.Method, req.URL, strings.Join(errors.Errors, "\n- "))
+	if len(msgs) == 0 {
+		msgs = []string{string(body)}
 	}
-
-	return body, nil
+	return fmt.Errorf("%s %s: %s: %s", res.Request.Method, res.Request.URL, res.Status, strings.Join(msgs, "; "))
 }
 
-func addAuthHeaders(req *http.Request, via []*http.Request) error {
-	req.Header.Set("authorization", fmt.Sprintf("Basic %v", base64.StdEncoding.EncodeToString([]byte(config.AppConfig.NETCENTER_USER+":"+config.AppConfig.NETCENTER_PWD))))
-	return nil
+func parseIPs(strs *[]string, version ipaddr.IPVersion) ([]*ipaddr.IPAddress, error) {
+	ips := []*ipaddr.IPAddress{}
+	if strs == nil {
+		return ips, nil
+	}
+	for _, s := range *strs {
+		ip, err := ipaddr.NewIPAddressString(s).ToAddress()
+		if err != nil || ip.GetIPVersion() != version {
+			return nil, fmt.Errorf("'%v' is not an IPv%d address", s, version)
+		}
+		ips = append(ips, ip)
+	}
+	return ips, nil
 }
 
-func GetFreeIPv4sInSubnet(ip *ipaddr.IPv4Address) (*[]NetcenterFreeIPv4, error) {
-	/*
-		<freeIps>
-			<freeIp>
-				<ip>192.33.91.173</ip>
-				<ipSubnet>192.33.91.0</ipSubnet>
-				<ipMask>24</ipMask>
-				<subnetAndMask>192.33.91.0/24</subnetAndMask>
-				<subnetName>sos-dcz2-server-1-a</subnetName>
-			</freeIp>
-			...
-		</freeIps>
-	*/
-	req, client, err := netcenterMakeRequest("GET", fmt.Sprintf("/netcenter/rest/nameToIP/freeIps/v4/%v", ip.WithoutPrefixLen().String()), nil)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to get free IPv4 addresses in subnet '%v': %v", ip.String(), err.Error())
+func GetFreeIPv4sInSubnet(ctx context.Context, subnet *ipaddr.IPv4Address) ([]*ipaddr.IPAddress, error) {
+	var ips []*ipaddr.IPAddress
+	res, err := client().ListFreeIpv4ByIpSubnetWithResponse(ctx, &api.ListFreeIpv4ByIpSubnetParams{IpSubnet: subnet.WithoutPrefixLen().String()})
+	if err == nil {
+		err = check(res.HTTPResponse, res.Body)
 	}
-
-	body, err := netcenterDoRequest(req, client)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to get free IPv4 addresses in subnet '%v': %v", ip.String(), err.Error())
+	if err == nil {
+		ips, err = parseIPs(res.JSON200.Ips, ipaddr.IPv4)
 	}
-
-	var freeIps netcenterFreeIPv4List
-	err = xml.Unmarshal(body, &freeIps)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get free IPv4 addresses in subnet '%v': Unmarshal: %v", ip.String(), err.Error())
+		return nil, fmt.Errorf("Get free IPv4 addresses in subnet '%v': %w", subnet, err)
 	}
-
-	// log.Printf("[+] Found %d free IPv4 addresses in subnet '%v'", len(freeIps.FreeIps), ip)
-	return &(freeIps.FreeIps), nil
+	return ips, nil
 }
 
-func GetFreeIPv6sInSubnet(ip *ipaddr.IPv6Address) (*[]NetcenterFreeIPv6, error) {
-	/*
-		<freeIpV6>
-			<freeIpV6>
-				<ipv6>2001:67c:10ec:49c3::3cc</ipv6>
-				<ipv6Subnet>2001:67c:10ec:49c3::</ipv6Subnet>
-				<prefix>118</prefix>
-				<subnetAndPrefix>2001:67c:10ec:49c3::/118</subnetAndPrefix>
-				<subnetName>sos-dcz2-server-1-static</subnetName>
-				<subnetType>Subnet_Static</subnetType>
-			</freeIpV6>
-			...
-		</freeIpV6>
-	*/
-	req, client, err := netcenterMakeRequest("GET", fmt.Sprintf("/netcenter/rest/nameToIP/freeIps/v6/%v", ip.WithoutPrefixLen().String()), nil)
-	if err != nil {
-		return nil, fmt.Errorf("Get free IPv6 addresses in subnet '%v': %v", ip.String(), err.Error())
+func GetFreeIPv6sInSubnet(ctx context.Context, subnet *ipaddr.IPv6Address) ([]*ipaddr.IPAddress, error) {
+	var ips []*ipaddr.IPAddress
+	res, err := client().ListFreeIpv6ByIpSubnetWithResponse(ctx, &api.ListFreeIpv6ByIpSubnetParams{IpSubnet: subnet.WithoutPrefixLen().String()})
+	if err == nil {
+		err = check(res.HTTPResponse, res.Body)
 	}
-
-	body, err := netcenterDoRequest(req, client)
-	if err != nil {
-		return nil, fmt.Errorf("Get free IPv6 addresses in subnet '%v': %v", ip.String(), err.Error())
+	if err == nil {
+		ips, err = parseIPs(res.JSON200.Ips, ipaddr.IPv6)
 	}
-
-	var freeIps netcenterFreeIPv6List
-	err = xml.Unmarshal(body, &freeIps)
 	if err != nil {
-		return nil, fmt.Errorf("Get free IPv6 addresses in subnet '%v': Unmarshal: %v", ip.String(), err.Error())
+		return nil, fmt.Errorf("Get free IPv6 addresses in subnet '%v': %w", subnet, err)
 	}
-
-	return &(freeIps.FreeIps), nil
+	return ips, nil
 }
 
-func DeleteDNSEntryByIP(ctx context.Context, ip *ipaddr.IPAddress) error {
-	req, client, err := netcenterMakeRequest("DELETE", fmt.Sprintf("/netcenter/rest/nameToIP/%s", ip.WithoutPrefixLen().String()), nil)
-	if err != nil {
-		return fmt.Errorf("Deleting DNS entry: %v", err.Error())
+// Returns the Netcenter records of fqdn, IPv4 ones first, IPv6 ones second.
+func GetHostIPs(ctx context.Context, fqdn string) ([]api.NameToIP, []api.NameToIP, error) {
+	res, err := client().SearchNameToIPsWithResponse(ctx, &api.SearchNameToIPsParams{FqName: &fqdn})
+	if err == nil {
+		err = check(res.HTTPResponse, res.Body)
 	}
-
-	_, err = netcenterDoRequest(req, client)
 	if err != nil {
-		return fmt.Errorf("Deleting DNS entry: %v", err.Error())
+		return nil, nil, fmt.Errorf("Get host IPs of '%v': %w", fqdn, err)
 	}
-
-	logger.From(ctx).Infof("[+] Deleted DNS entry for IP '%v'", ip)
-	return nil
+	var ipv4s, ipv6s []api.NameToIP
+	for _, r := range *res.JSON200 {
+		// The fqName filter accepts wildcards; the deletion path relies on an exact match
+		if !strings.EqualFold(r.FqName, fqdn) {
+			continue
+		}
+		if ipaddr.NewIPAddressString(r.Ip).IsIPv4() {
+			ipv4s = append(ipv4s, r)
+		} else {
+			ipv6s = append(ipv6s, r)
+		}
+	}
+	return ipv4s, ipv6s, nil
 }
 
 func DeleteDNSEntryByHostname(ctx context.Context, fqdn string) error {
-	hostIPv4s, hostIPv6s, err := GetHostIPs(fqdn)
+	ipv4s, ipv6s, err := GetHostIPs(ctx, fqdn)
 	if err != nil {
-		return fmt.Errorf("Deleting DNS entries by hostname: %v", err.Error())
+		return fmt.Errorf("Deleting DNS entries of '%v': %w", fqdn, err)
 	}
 
-	// ? Deleting DNS entries for all IPs of the host
 	var errors []string
-	for _, ip := range hostIPv4s {
-		err = DeleteDNSEntryByIP(ctx, ip.IP.ToIP())
-		if err != nil {
-			errors = append(errors, err.Error())
+	for _, r := range slices.Concat(ipv4s, ipv6s) {
+		res, err := client().DeleteNameToIPWithResponse(ctx, r.Id)
+		if err == nil {
+			err = check(res.HTTPResponse, res.Body)
 		}
-	}
-	for _, ip := range hostIPv6s {
-		err = DeleteDNSEntryByIP(ctx, ip.IP.ToIP())
 		if err != nil {
-			errors = append(errors, err.Error())
+			errors = append(errors, fmt.Sprintf("IP '%v': %v", r.Ip, err))
+			continue
 		}
+		logger.From(ctx).Infof("[+] Deleted DNS entry for IP '%v'", r.Ip)
 	}
 
 	if len(errors) > 0 {
-		return fmt.Errorf("Deleting DNS entries by hostname: Couldn't delete all DNS entries: Errors: \n- %v", strings.Join(errors, "\n- "))
+		return fmt.Errorf("Deleting DNS entries of '%v': Couldn't delete all DNS entries: Errors: \n- %v", fqdn, strings.Join(errors, "\n- "))
 	}
-	logger.From(ctx).Infof("[+] Deleted %d DNS entries for host '%v'", len(hostIPv4s)+len(hostIPv6s), fqdn)
+	logger.From(ctx).Infof("[+] Deleted %d DNS entries for host '%v'", len(ipv4s)+len(ipv6s), fqdn)
 	return nil
-}
-
-func GetHostIPs(fqdn string) ([]NetcenterUsedIPv4, []NetcenterUsedIPv6, error) {
-
-	var res_ipv4 []NetcenterUsedIPv4
-	var res_ipv6 []NetcenterUsedIPv6
-
-	ipv4s, err := GetUsedIPv4sInSubnet(VM_SUBNET.V4net)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Get host IPs: %v", err.Error())
-	}
-
-	for _, ip := range *ipv4s {
-		if ip.Fqname == fqdn {
-			res_ipv4 = append(res_ipv4, ip)
-		}
-	}
-
-	ipv6s, err := GetUsedIPv6sInSubnet(VM_SUBNET.V6net)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Get host IPs: %v", err.Error())
-	}
-
-	for _, ip := range *ipv6s {
-		if ip.Fqname == fqdn {
-			res_ipv6 = append(res_ipv6, ip)
-		}
-	}
-
-	return res_ipv4, res_ipv6, nil
-}
-
-type NetcenterUsedIPv4 struct {
-	IP       *ipaddr.IPv4Address
-	IPSubnet *ipaddr.IPv4Address
-
-	Fqname   string
-	Forward  string
-	Reverse  string
-	TTL      int
-	Dhcp     string
-	Ddns     string
-	IsgGroup string
-	Views    []string
-}
-type netcenterUsedIPv4List struct {
-	XMLName xml.Name            `xml:"usedIps"`
-	UsedIps []NetcenterUsedIPv4 `xml:"usedIp"`
-}
-
-func (out *NetcenterUsedIPv4) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	type RawNetcenterUsedIPv4 struct {
-		IPString       string `xml:"ip"`
-		IPSubnetString string `xml:"ipSubnet"`
-
-		Fqname   string   `xml:"fqname"`
-		Forward  string   `xml:"forward"`
-		Reverse  string   `xml:"reverse"`
-		TTL      int      `xml:"ttl"`
-		Dhcp     string   `xml:"dhcp"`
-		Ddns     string   `xml:"ddns"`
-		IsgGroup string   `xml:"isgGroup"`
-		Views    []string `xml:"views>view"`
-	}
-
-	aux := &RawNetcenterUsedIPv4{}
-
-	// Let the default XML decoding fill `aux`
-	if err := d.DecodeElement(aux, &start); err != nil {
-		return fmt.Errorf("Unmarshalling NetcenterUsedIPv4: %v", err.Error())
-	}
-
-	// copy over fields
-	out.Fqname = aux.Fqname
-	out.Forward = aux.Forward
-	out.Reverse = aux.Reverse
-	out.TTL = aux.TTL
-	out.Dhcp = aux.Dhcp
-	out.Ddns = aux.Ddns
-	out.IsgGroup = aux.IsgGroup
-	out.Views = aux.Views
-
-	// Parse complex types (e.g IP addresses)
-	ip, err := ipaddr.NewIPAddressString(aux.IPString).ToAddress()
-	if err != nil {
-		return fmt.Errorf("Unmarshalling NetcenterUsedIPv4: %v", err.Error())
-	}
-	out.IP = ip.ToIPv4()
-
-	ipsubnet, err := ipaddr.NewIPAddressString(aux.IPSubnetString).ToAddress()
-	if err != nil {
-		return fmt.Errorf("Unmarshalling NetcenterUsedIPv4: %v", err.Error())
-	}
-	out.IPSubnet = ipsubnet.ToIPv4()
-
-	return nil
-}
-
-func GetUsedIPv4sInSubnet(ip *ipaddr.IPv4Address) (*[]NetcenterUsedIPv4, error) {
-	/*
-		<usedIps>
-			<usedIp>
-				<ip>192.33.91.1</ip>
-				<ipSubnet>192.33.91.0</ipSubnet>
-				<fqname>rou-dcz2-dg-sos-dcz2-server-1-a.ethz.ch</fqname>
-				<forward>Y</forward>
-				<reverse>Y</reverse>
-				<ttl>7200</ttl>
-				<dhcp>N</dhcp>
-				<ddns>N</ddns>
-				<isgGroup>id-kom-net</isgGroup>
-				<views>
-					<view>intern</view>
-				</views>
-			</usedIp>
-			...
-		</usedIps>
-	*/
-	req, client, err := netcenterMakeRequest("GET", fmt.Sprintf("/netcenter/rest/nameToIP/usedIps/v4/%v", ip.WithoutPrefixLen().String()), nil)
-	if err != nil {
-		return nil, fmt.Errorf("Get used IPv4 addresses in subnet '%v': %v", ip.String(), err.Error())
-	}
-
-	body, err := netcenterDoRequest(req, client)
-	if err != nil {
-		return nil, fmt.Errorf("Get used IPv4 addresses in subnet '%v': %v", ip.String(), err.Error())
-	}
-
-	var usedIps netcenterUsedIPv4List
-	err = xml.Unmarshal(body, &usedIps)
-	if err != nil {
-		return nil, fmt.Errorf("Get used IPv4 addresses in subnet '%v': %v", ip.String(), err.Error())
-	}
-
-	return &(usedIps.UsedIps), nil
-}
-
-type NetcenterUsedIPv6 struct {
-	IP              *ipaddr.IPv6Address
-	IPSubnet        *ipaddr.IPv6Address
-	SubnetAndPrefix *ipaddr.IPv6Address
-
-	Fqname        string
-	Forward       string
-	Reverse       string
-	TTL           string
-	Dhcp          string
-	Ddns          string
-	IsgGroup      string
-	LastDetection string
-	Views         []string
-}
-type netcenterUsedIPv6List struct {
-	XMLName xml.Name            `xml:"usedIps"`
-	UsedIps []NetcenterUsedIPv6 `xml:"usedIp"`
-}
-
-func (out *NetcenterUsedIPv6) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	type RawNetcenterUsedIPv6 struct {
-		IPString              string `xml:"ip"`
-		IPSubnetString        string `xml:"ipSubnet"`
-		SubnetAndPrefixString string `xml:"subnetAndPrefix"`
-
-		Fqname        string   `xml:"fqname"`
-		Forward       string   `xml:"forward"`
-		Reverse       string   `xml:"reverse"`
-		TTL           string   `xml:"ttl"`
-		Dhcp          string   `xml:"dhcp"`
-		Ddns          string   `xml:"ddns"`
-		IsgGroup      string   `xml:"isgGroup"`
-		LastDetection string   `xml:"lastDetection"`
-		Views         []string `xml:"views>view"`
-	}
-
-	aux := &RawNetcenterUsedIPv6{}
-
-	// Let the default XML decoding fill `aux`
-	if err := d.DecodeElement(aux, &start); err != nil {
-		return fmt.Errorf("Unmarshalling NetcenterUsedIPv6: %v", err.Error())
-	}
-
-	// copy over fields
-	out.Fqname = aux.Fqname
-	out.Forward = aux.Forward
-	out.Reverse = aux.Reverse
-	out.TTL = aux.TTL
-	out.Dhcp = aux.Dhcp
-	out.Ddns = aux.Ddns
-	out.IsgGroup = aux.IsgGroup
-	out.LastDetection = aux.LastDetection
-	out.Views = aux.Views
-
-	// Parse complex types (e.g IP addresses)
-	ip, err := ipaddr.NewIPAddressString(aux.IPString).ToAddress()
-	if err != nil {
-		return fmt.Errorf("Unmarshalling NetcenterUsedIPv6: %v", err.Error())
-	}
-	out.IP = ip.ToIPv6()
-
-	ipsubnet, err := ipaddr.NewIPAddressString(aux.IPSubnetString).ToAddress()
-	if err != nil {
-		return fmt.Errorf("Unmarshalling NetcenterUsedIPv6: %v", err.Error())
-	}
-	out.IPSubnet = ipsubnet.ToIPv6()
-
-	subnetandprefix, err := ipaddr.NewIPAddressString(aux.SubnetAndPrefixString).ToAddress()
-	if err != nil {
-		return fmt.Errorf("Unmarshalling NetcenterUsedIPv6: %v", err.Error())
-	}
-	out.SubnetAndPrefix = subnetandprefix.ToIPv6()
-
-	return nil
-}
-
-func GetUsedIPv6sInSubnet(ip *ipaddr.IPv6Address) (*[]NetcenterUsedIPv6, error) {
-	/*
-	  <usedIps>
-	    <usedIp>
-	      <ip>2001:67c:10ec:49c3::23a</ip>
-	      <ipSubnet>2001:67c:10ec:49c3::</ipSubnet>
-	      <subnetAndPrefix>2001:67c:10ec:49c3::/118</subnetAndPrefix>
-	      <fqname>emilschaetzle.vsos.ethz.ch</fqname>
-	      <forward>Y</forward>
-	      <reverse>Y</reverse>
-	      <ttl>3600</ttl>
-	      <dhcp>N</dhcp>
-	      <ddns>N</ddns>
-	      <isgGroup>adm-soseth</isgGroup>
-	      <lastDetection>2025-01-08 23:03</lastDetection>
-	      <views>
-	        <view>extern</view>
-	        <view>intern</view>
-	      </views>
-	    </usedIp>
-	    ...
-	  </usedIps>
-	*/
-	req, client, err := netcenterMakeRequest("GET", fmt.Sprintf("/netcenter/rest/nameToIP/usedIps/v6/%v", ip.WithoutPrefixLen().String()), nil)
-	if err != nil {
-		return nil, fmt.Errorf("Get used IPv6 addresses in subnet '%v': %v", ip.String(), err.Error())
-	}
-
-	body, err := netcenterDoRequest(req, client)
-	if err != nil {
-		return nil, fmt.Errorf("Get used IPv6 addresses in subnet '%v': %v", ip.String(), err.Error())
-	}
-
-	var usedIps netcenterUsedIPv6List
-	err = xml.Unmarshal(body, &usedIps)
-	if err != nil {
-		return nil, fmt.Errorf("Get used IPv6 addresses in subnet '%v': %v", ip.String(), err.Error())
-	}
-
-	return &(usedIps.UsedIps), nil
-}
-
-type netcenterCreateIPv4DNSEntryRequest struct {
-	XMLName  xml.Name `xml:"insert"`
-	IPv4     string   `xml:"nameToIP>ip,omitempty"`
-	Reverse  string   `xml:"nameToIP>reverse,omitempty"`
-	ISGGroup string   `xml:"nameToIP>isgGroup,omitempty"`
-	FqName   string   `xml:"nameToIP>fqName,omitempty"`
-}
-type netcenterCreateIPv6DNSEntryRequest struct {
-	XMLName  xml.Name `xml:"insert"`
-	IPv6     string   `xml:"nameToIP>ipv6,omitempty"`
-	Reverse  string   `xml:"nameToIP>reverse,omitempty"`
-	ISGGroup string   `xml:"nameToIP>isgGroup,omitempty"`
-	FqName   string   `xml:"nameToIP>fqName,omitempty"`
 }
 
 func CreateDNSEntry(ctx context.Context, ip *ipaddr.IPAddress, fqdn string) error {
-	var reqBody any
-	if ip.IsIPv4() {
-		reqBody = netcenterCreateIPv4DNSEntryRequest{
-			IPv4:     ip.String(),
-			Reverse:  "Y",
-			ISGGroup: ISG_GROUP,
-			FqName:   fqdn,
-		}
-	} else if ip.IsIPv6() {
-		reqBody = netcenterCreateIPv6DNSEntryRequest{
-			IPv6:     ip.String(),
-			Reverse:  "Y",
-			ISGGroup: ISG_GROUP,
-			FqName:   fqdn,
-		}
-	} else {
-		return fmt.Errorf("Creating DNS entry: IP %v is neither IPv4 nor IPv6 ?", ip)
+	name, subdomain, found := strings.Cut(fqdn, ".")
+	if !found {
+		return fmt.Errorf("Creating DNS entry for IP '%v' with FQDN '%v': FQDN has no subdomain", ip, fqdn)
 	}
 
-	body, err := xml.Marshal(reqBody)
-	if err != nil {
-		return fmt.Errorf("Creating DNS entry: Marshalling: %v", err.Error())
+	body := api.CreateNameToIPJSONRequestBody{
+		Name:    name,
+		Ip:      ip.String(),
+		Ttl:     DNS_TTL,
+		Views:   DNS_VIEWS,
+		Forward: true,
+		Reverse: true,
+		Ddns:    false,
+		Dhcp:    false,
+		Locked:  false,
 	}
-
-	req, client, err := netcenterMakeRequest("POST", "/netcenter/rest/nameToIP", body)
-	if err != nil {
-		return fmt.Errorf("Creating DNS entry: Creating Request: %v", err.Error())
+	err := body.Subdomain.FromSubdomainByName(api.SubdomainByName{Name: subdomain})
+	if err == nil {
+		err = body.NetsupporterGroup.FromNetsupporterGroupByName(api.NetsupporterGroupByName{Name: ISG_GROUP})
 	}
-	body, err = netcenterDoRequest(req, client)
+	var res *api.CreateNameToIPResponse
+	if err == nil {
+		res, err = client().CreateNameToIPWithResponse(ctx, body)
+	}
+	if err == nil {
+		err = check(res.HTTPResponse, res.Body)
+	}
 	if err != nil {
-		return fmt.Errorf("Creating DNS entry: %v", err.Error())
+		return fmt.Errorf("Creating DNS entry for IP '%v' with FQDN '%v': %w", ip, fqdn, err)
 	}
 
 	logger.From(ctx).Infof("[+] Created DNS entry for IP '%v' with FQDN '%v'", ip, fqdn)
@@ -630,47 +221,38 @@ func CreateDNSEntry(ctx context.Context, ip *ipaddr.IPAddress, fqdn string) erro
 }
 
 func Registerhost(ctx context.Context, net string, fqdn string) (*ipaddr.IPv4Address, *ipaddr.IPv6Address, error) {
-	var v4_subnet *ipaddr.IPv4Address = VM_SUBNET.V4net
-	var v6_subnet *ipaddr.IPv6Address = VM_SUBNET.V6net
-
-	freeIPv4s, err := GetFreeIPv4sInSubnet(v4_subnet.WithoutPrefixLen())
+	op := fmt.Sprintf("Registering host with FQDN '%v'", fqdn)
+	freeIPv4s, err := GetFreeIPv4sInSubnet(ctx, VM_SUBNET.V4net)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Registering host with FQDN '%v': %v", fqdn, err.Error())
+		return nil, nil, fmt.Errorf("%s: %w", op, err)
 	}
-	if len(*freeIPv4s) == 0 {
-		return nil, nil, fmt.Errorf("Registering host with FQDN '%v': No free IPv4 in subnet %v", fqdn, v4_subnet)
+	if len(freeIPv4s) == 0 {
+		return nil, nil, fmt.Errorf("%s: No free IPv4 in subnet %v", op, VM_SUBNET.V4net)
 	}
-
-	freeIPv6s, err := GetFreeIPv6sInSubnet(v6_subnet.WithoutPrefixLen())
+	freeIPv6s, err := GetFreeIPv6sInSubnet(ctx, VM_SUBNET.V6net)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Registering host with FQDN '%v': %v", fqdn, err.Error())
+		return nil, nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	var chosenIPv4 *ipaddr.IPv4Address = (*freeIPv4s)[0].IP
-	var chosenIPv6 *ipaddr.IPv6Address = nil
+	chosenIPv4 := freeIPv4s[0]
+	var chosenIPv6 *ipaddr.IPAddress
 	// Discard IPv6 addresses that are not in the usable range (0 address + ipv6_offset)
-	for _, ip := range *freeIPv6s {
-		ipv6 := ip.IP
-		if v6_subnet.Enumerate(ipv6).Cmp(big.NewInt(VM_SUBNET.ipv6_offset)) > 0 {
-			chosenIPv6 = ipv6
+	for _, ip := range freeIPv6s {
+		if VM_SUBNET.V6net.Enumerate(ip.ToIPv6()).Cmp(big.NewInt(VM_SUBNET.ipv6_offset)) > 0 {
+			chosenIPv6 = ip
 			break
 		}
 	}
 	if chosenIPv6 == nil {
-		return nil, nil, fmt.Errorf("Registering host with FQDN '%v': No usable IPv6 in subnet %v", fqdn, v6_subnet)
+		return nil, nil, fmt.Errorf("%s: No usable IPv6 in subnet %v", op, VM_SUBNET.V6net)
 	}
 
-	// ? Adding DNS entry for chosen IP and FQDN through Netcenter
-	err = CreateDNSEntry(ctx, chosenIPv4.ToIP(), fqdn)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Registering host %v with FQDN '%v': %v", chosenIPv4, fqdn, err.Error())
-	}
-
-	err = CreateDNSEntry(ctx, chosenIPv6.ToIP(), fqdn)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Registering host %v with FQDN '%v': %v", chosenIPv6, fqdn, err.Error())
+	for _, ip := range []*ipaddr.IPAddress{chosenIPv4, chosenIPv6} {
+		if err := CreateDNSEntry(ctx, ip, fqdn); err != nil {
+			return nil, nil, fmt.Errorf("%s: %w", op, err)
+		}
 	}
 
 	logger.From(ctx).Infof("[+] Registered host '%v' with FQDN '%v'\n\tIPv4: %v\n\tIPv6: %v", net, fqdn, chosenIPv4, chosenIPv6)
-	return chosenIPv4, chosenIPv6, nil
+	return chosenIPv4.ToIPv4(), chosenIPv6.ToIPv6(), nil
 }

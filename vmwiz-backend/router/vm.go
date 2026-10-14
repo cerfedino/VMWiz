@@ -95,7 +95,7 @@ func addAllVMRoutes(r *mux.Router) {
 	}))))
 
 	r.Methods("GET").Path("/api/vm/ipv4free").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		free, err := netcenter.GetFreeIPv4sInSubnet(netcenter.VM_SUBNET.V4net)
+		free, err := netcenter.GetFreeIPv4sInSubnet(r.Context(), netcenter.VM_SUBNET.V4net)
 		if err != nil {
 			log.Printf("Failed getting free IPs: %v", err)
 			http.Error(w, "Failed to get free IPs", http.StatusInternalServerError)
@@ -105,7 +105,7 @@ func addAllVMRoutes(r *mux.Router) {
 		type Resp struct {
 			Count int `json:"count"`
 		}
-		resp, _ := json.Marshal(Resp{Count: len(*free)})
+		resp, _ := json.Marshal(Resp{Count: len(free)})
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(resp)
 	})))

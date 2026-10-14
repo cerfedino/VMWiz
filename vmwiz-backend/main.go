@@ -260,14 +260,14 @@ func handle_health(ctx context.Context, cmd *cli.Command) error {
 	return nil
 }
 func handle_ip_list(ctx context.Context, cmd *cli.Command) error {
-	ips, err := netcenter.GetFreeIPv4sInSubnet(netcenter.VM_SUBNET.V4net)
+	ips, err := netcenter.GetFreeIPv4sInSubnet(ctx, netcenter.VM_SUBNET.V4net)
 	if err != nil {
 		fmt.Printf("failed to fetch free IPs: %v\n", err)
 		return err
 	}
 
-	for i, ip := range *ips {
-		fmt.Printf("%3d %v\n", i, ip.IP)
+	for i, ip := range ips {
+		fmt.Printf("%3d %v\n", i, ip)
 	}
 	return nil
 }
