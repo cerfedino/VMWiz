@@ -13,7 +13,7 @@ require (
 	github.com/pkg/sftp v1.13.11
 	github.com/rs/cors v1.11.1
 	github.com/seancfoley/ipaddress-go v1.7.1
-	github.com/urfave/cli/v3 v3.9.0
+	github.com/urfave/cli/v3 v3.13.0
 	golang.org/x/crypto v0.57.0
 	golang.org/x/exp v0.0.0-20261007192929-f45ad48fbe92
 	golang.org/x/oauth2 v0.36.0
