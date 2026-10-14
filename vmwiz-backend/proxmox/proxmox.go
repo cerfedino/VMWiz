@@ -439,7 +439,7 @@ func CreateVM(ctx context.Context, options VMCreationOptions) (_ *PVENodeVM, _ *
 
 	//! Checking existence of DNS entries for chosen FQDN
 	lg.Infof("[-] Checking existence of DNS entries for chosen FQDN %v", options.FQDN)
-	ipv4s, ipv6s, err := netcenter.GetHostIPs(options.FQDN)
+	ipv4s, ipv6s, err := netcenter.GetHostIPs(ctx, options.FQDN)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create VM: Failed to check if there are existing ipv4 DNS entries for FQDN: %v", err.Error())
 	}
@@ -447,14 +447,14 @@ func CreateVM(ctx context.Context, options VMCreationOptions) (_ *PVENodeVM, _ *
 	// Map ipv4s object to just their ips
 	var ipv4s_str []string
 	for _, ip := range ipv4s {
-		ipv4s_str = append(ipv4s_str, ip.IP.String())
+		ipv4s_str = append(ipv4s_str, ip.Ip)
 	}
 	lg.Infof("\tIPv4: %s", strings.Join(ipv4s_str, ", "))
 
 	// Map ipv6s object to just their ips
 	var ipv6s_str []string
 	for _, ip := range ipv6s {
-		ipv6s_str = append(ipv6s_str, ip.IP.String())
+		ipv6s_str = append(ipv6s_str, ip.Ip)
 	}
 	lg.Infof("\tIPv6: %s", strings.Join(ipv6s_str, ", "))
 
