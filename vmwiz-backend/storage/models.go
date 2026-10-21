@@ -11,6 +11,52 @@ import (
 	"time"
 )
 
+type RcrStatus string
+
+const (
+	RcrStatusPending      RcrStatus = "pending"
+	RcrStatusAutoApproved RcrStatus = "auto_approved"
+	RcrStatusAccepted     RcrStatus = "accepted"
+	RcrStatusRejected     RcrStatus = "rejected"
+	RcrStatusFailed       RcrStatus = "failed"
+	RcrStatusCancelled    RcrStatus = "cancelled"
+)
+
+func (e *RcrStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = RcrStatus(s)
+	case string:
+		*e = RcrStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for RcrStatus: %T", src)
+	}
+	return nil
+}
+
+type NullRcrStatus struct {
+	RcrStatus RcrStatus
+	Valid     bool // Valid is true if RcrStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullRcrStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.RcrStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.RcrStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullRcrStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.RcrStatus), nil
+}
+
 type RequestStatus string
 
 const (
@@ -95,6 +141,26 @@ type RequestWaitlist struct {
 	ClosureID int64
 	Email     string
 	CreatedAt time.Time
+}
+
+type ResourceChangeRequest struct {
+	ID                     int64
+	Createdat              time.Time
+	Status                 RcrStatus
+	Vmhostname             string
+	Requesterfingerprint   string
+	Currentcores           int32
+	Currentramgb           int32
+	Currentdiskgb          int32
+	Newcores               int32
+	Newramgb               int32
+	Newdiskgb              int32
+	Needsreviewreasons     []string
+	Processedat            sql.NullTime
+	Processednote          string
+	Requestreason          string
+	Currentsecondarydiskgb int32
+	Newsecondarydiskgb     int32
 }
 
 type Survey struct {
