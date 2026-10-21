@@ -37,6 +37,7 @@ type Config struct {
 	KEYCLOAK_CLIENT_ID               string
 	KEYCLOAK_CLIENT_SECRET           string
 	KEYCLOAK_RESTRICT_AUTH_TO_GROUPS []string
+	SSHPORTAL_API_TOKEN              string
 	AUTH_SKIP                        bool
 
 	POSTGRES_USER     string
@@ -96,6 +97,7 @@ func (c *Config) Init() error {
 	c.KEYCLOAK_CLIENT_ID = os.Getenv("KEYCLOAK_CLIENT_ID")
 	c.KEYCLOAK_CLIENT_SECRET = os.Getenv("KEYCLOAK_CLIENT_SECRET")
 	c.KEYCLOAK_RESTRICT_AUTH_TO_GROUPS = strings.Split(os.Getenv("KEYCLOAK_RESTRICT_AUTH_TO_GROUPS"), ",")
+	c.SSHPORTAL_API_TOKEN = os.Getenv("SSHPORTAL_API_TOKEN")
 	c.AUTH_SKIP = os.Getenv("AUTH_SKIP") == "true"
 
 	c.POSTGRES_USER = os.Getenv("POSTGRES_USER")

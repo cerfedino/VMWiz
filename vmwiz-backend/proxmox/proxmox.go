@@ -1276,6 +1276,8 @@ func AddVMToResourcePool(vm_id int, pool string) error {
 }
 
 type PVENodeVMConfig struct {
+	Digest      string `json:"digest"`
+	Scsi1       string `json:"scsi1"`
 	Description string `json:"description"`
 	Net0        string `json:"net0"`
 }
