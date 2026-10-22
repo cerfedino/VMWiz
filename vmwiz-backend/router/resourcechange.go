@@ -546,7 +546,7 @@ func getLockedResourceChange(id int64) (*storage.SQLResourceChangeRequest, func(
 
 func sshportalAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token := config.AppConfig.SSHPORTAL_API_TOKEN
+		token := config.AppConfig.SSHPORTAL_SECRET
 		if token == "" {
 			http.Error(w, "ssh portal integration not configured", http.StatusServiceUnavailable)
 			return
