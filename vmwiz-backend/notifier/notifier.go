@@ -3,6 +3,7 @@ package notifier
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"net/smtp"
 	"net/url"
@@ -108,4 +109,73 @@ func SendEmail(subject string, body []byte, to []string) error {
 	}
 
 	return nil
+}
+
+func NotifyResourceChangeRequest(req storage.ResourceChangeRequest) error {
+	review := "eligible for automatic approval"
+	if len(req.Needsreviewreasons) > 0 {
+		review = "needs admin review"
+	}
+	return notifyResourceChange("resourcechange_new", fmt.Sprintf("New resource change request %d (%s). Replaces any earlier pending request for this VM.\n```\n%v\n```", req.ID, review, req.ToString()))
+}
+
+func NotifyResourceChangeRequestApplied(req storage.ResourceChangeRequest, auto bool) error {
+	prefix := "approved"
+	if auto {
+		prefix = "auto-approved"
+	}
+	return notifyResourceChange("resourcechange_accepted", fmt.Sprintf("Resource change request %d %s and applied: %s -> cores=%d ram=%dGB SSD=%dGB HDD=%dGB", req.ID, prefix, req.Vmhostname, req.Newcores, req.Newramgb, req.Newdiskgb, req.Newsecondarydiskgb))
+}
+
+func NotifyResourceChangeRequestFailed(req storage.ResourceChangeRequest, errMsg string) error {
+	return notifyResourceChange("resourcechange_failed", fmt.Sprintf("Resource change request %d failed to apply for %s: %s", req.ID, req.Vmhostname, errMsg))
+}
+
+func NotifyResourceChangeRequestStatusChanged(req storage.ResourceChangeRequest) error {
+	tag := "resourcechange_rejected"
+	if req.Status == storage.RcrStatusCancelled {
+		tag = "resourcechange_cancelled"
+	}
+	return notifyResourceChange(tag, fmt.Sprintf("Resource change request %d for %s: %s", req.ID, req.Vmhostname, req.Status))
+}
+
+func notifyResourceChange(tag, body string) error {
+	err := useNotifier(context.Background(), tag, body)
+	if err != nil {
+		log.Printf("Resource change notification (%s) failed: %v", tag, err)
+	}
+	return err
+}
+
+// SendResourceChangeAppliedEmail emails the VM owner that a resource change has
+// been applied to their VM. The change is staged in Proxmox; for memory and
+// core changes the VM must reboot before the new specs take effect.
+func SendResourceChangeAppliedEmail(req storage.ResourceChangeRequest, contacts []string, autoApproved bool) error {
+	if len(contacts) == 0 {
+		return nil
+	}
+	verb := "approved by an admin"
+	if autoApproved {
+		verb = "automatically approved"
+	}
+	subject := fmt.Sprintf("Resource change applied to %s", req.Vmhostname)
+	body := fmt.Sprintf(`Your resource change request for %s has been %s.
+
+  cores:    %d -> %d
+  RAM:      %d GB -> %d GB
+  SSD disk: %d GB -> %d GB
+  HDD disk: %d GB -> %d GB
+
+The new configuration is staged in Proxmox. Memory and CPU changes only
+take effect after the VM reboots. If you do not want the change to take effect,
+please undo the request now via the SSH portal.
+
+Reason given: %s
+`, req.Vmhostname, verb,
+		req.Currentcores, req.Newcores,
+		req.Currentramgb, req.Newramgb,
+		req.Currentdiskgb, req.Newdiskgb,
+		req.Currentsecondarydiskgb, req.Newsecondarydiskgb,
+		req.Requestreason)
+	return SendEmail(subject, []byte(body), contacts)
 }
