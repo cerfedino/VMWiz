@@ -11,6 +11,7 @@ import {
 } from "@/lib/types/api";
 import { HTTP_METHOD } from "next/dist/server/web/http";
 import { getReasonPhrase } from "http-status-codes";
+import { ResourceChangeListResponse } from "./types/resource-changes";
 
 /**
  * Callback invoked when a request needs user confirmation.
@@ -146,10 +147,7 @@ export async function fetchBackend<T = void>(
     return { data, original: response };
 }
 
-/**
- * Fetches the allowed values for VM requests (e.g. min/max CPU/RAM/Disk, OS Images, etc.) from the backend.
- * @returns The allowed values for VM requests, as provided by the backend
- */
+/** Lists log scopes, newest first. `before` is a scope ID paging cursor; the backend caps `limit` at 100. */
 export async function fetchLogScopes(
     before?: string,
     limit = 30,
@@ -164,12 +162,22 @@ export async function fetchLogScopes(
     return data;
 }
 
+/**
+ * Fetches the allowed values for VM requests (e.g. min/max CPU/RAM/Disk, OS Images, etc.) from the backend.
+ * @returns The allowed values for VM requests, as provided by the backend
+ */
 export async function fetchVMOptions(): Promise<VMRequestAllowedValues> {
     const { data } = await fetchBackend<VMRequestAllowedValues>(
         prepareGetVMOptions(),
     );
     return data;
 }
+/*
+ * prepare* functions build a BackendRequest without sending it. Components pass the
+ * descriptor to FetchDialog, which sends it, shows the outcome and handles the
+ * confirmation prompt when the backend asks for one.
+ */
+/** Descriptor for fetchVMOptions. */
 export function prepareGetVMOptions(): BackendRequest {
     return {
         path: "/api/vmrequest/options",
@@ -178,6 +186,7 @@ export function prepareGetVMOptions(): BackendRequest {
     };
 }
 
+/** Submits a new VM request. `formData` is sent as-is; the backend validates it. */
 export function prepareSubmitVMRequest(
     formData: Record<string, unknown>,
 ): BackendRequest {
@@ -189,6 +198,7 @@ export function prepareSubmitVMRequest(
     };
 }
 
+/** Answers a usage survey poll. `keep` true means the VM is still in use. */
 export function prepareSubmitSurveyResponse(
     id: string,
     keep: boolean,
@@ -201,6 +211,7 @@ export function prepareSubmitSurveyResponse(
     };
 }
 
+/** Deletes a VM by name. `deleteDNS` also removes its DNS records. */
 export function prepareDeleteVM(
     vmName: string,
     deleteDNS: boolean,
@@ -213,6 +224,7 @@ export function prepareDeleteVM(
     };
 }
 
+/** Deletes the DNS records of a hostname without touching the VM. */
 export function prepareDeleteDNS(hostname: string): BackendRequest {
     return {
         path: "/api/dns/deleteByHostname",
@@ -222,12 +234,14 @@ export function prepareDeleteDNS(hostname: string): BackendRequest {
     };
 }
 
+/** Lists all usage surveys. */
 export async function fetchSurveyIds(): Promise<SurveyListResponse> {
     const { data } = await fetchBackend<SurveyListResponse>(
         prepareFetchSurveyIds(),
     );
     return data;
 }
+/** Descriptor for fetchSurveyIds. */
 export function prepareFetchSurveyIds(): BackendRequest {
     return {
         path: "/api/usagesurvey/",
@@ -236,12 +250,14 @@ export function prepareFetchSurveyIds(): BackendRequest {
     };
 }
 
+/** Fetches the delivery and response counts of one survey. */
 export async function fetchSurveyInfo(surveyId: number): Promise<SurveyInfo> {
     const { data } = await fetchBackend<SurveyInfo>(
         prepareFetchSurveyInfo(surveyId),
     );
     return data;
 }
+/** Descriptor for fetchSurveyInfo. */
 export function prepareFetchSurveyInfo(surveyId: number): BackendRequest {
     return {
         path: `/api/usagesurvey/info?surveyId=${surveyId}`,
@@ -250,6 +266,7 @@ export function prepareFetchSurveyInfo(surveyId: number): BackendRequest {
     };
 }
 
+/** Creates a new usage survey round. */
 export function prepareCreateSurvey(): BackendRequest {
     return {
         path: "/api/usagesurvey/create",
@@ -259,6 +276,7 @@ export function prepareCreateSurvey(): BackendRequest {
     };
 }
 
+/** Lists the hostnames in one response category of a survey. */
 export async function fetchSurveyResponses(
     surveyId: number,
     category: SurveyResponseCategory,
@@ -268,6 +286,7 @@ export async function fetchSurveyResponses(
     );
     return data;
 }
+/** Descriptor for fetchSurveyResponses. */
 export function prepareFetchSurveyResponses(
     surveyId: number,
     category: SurveyResponseCategory,
@@ -279,6 +298,7 @@ export function prepareFetchSurveyResponses(
     };
 }
 
+/** Retries the survey emails that failed to send. The backend asks for confirmation. */
 export function prepareResendUnsent(surveyId: number): BackendRequest {
     return {
         path: "/api/usagesurvey/resend/unsent",
@@ -288,6 +308,7 @@ export function prepareResendUnsent(surveyId: number): BackendRequest {
     };
 }
 
+/** Sends a reminder to recipients who have not answered yet. The backend asks for confirmation. */
 export function prepareResendUnanswered(surveyId: number): BackendRequest {
     return {
         path: "/api/usagesurvey/resend/unanswered",
@@ -307,6 +328,7 @@ export async function fetchVMRequests(): Promise<VMRequestListResponse> {
     );
     return data;
 }
+/** Descriptor for fetchVMRequests. */
 export function prepareFetchVMRequests(): BackendRequest {
     return {
         path: "/api/vmrequest",
@@ -315,6 +337,7 @@ export function prepareFetchVMRequests(): BackendRequest {
     };
 }
 
+/** Accepts a pending VM request. */
 export function prepareAcceptVMRequest(id: number): BackendRequest {
     return {
         path: "/api/vmrequest/accept",
@@ -324,6 +347,7 @@ export function prepareAcceptVMRequest(id: number): BackendRequest {
     };
 }
 
+/** Rejects a pending VM request. */
 export function prepareRejectVMRequest(id: number): BackendRequest {
     return {
         path: "/api/vmrequest/reject",
@@ -333,6 +357,7 @@ export function prepareRejectVMRequest(id: number): BackendRequest {
     };
 }
 
+/** Puts a pending VM request on hold. */
 export function prepareHoldVMRequest(id: number): BackendRequest {
     return {
         path: "/api/vmrequest/hold",
@@ -342,6 +367,7 @@ export function prepareHoldVMRequest(id: number): BackendRequest {
     };
 }
 
+/** Returns a held VM request to pending. */
 export function prepareUnholdVMRequest(id: number): BackendRequest {
     return {
         path: "/api/vmrequest/unhold",
@@ -351,6 +377,7 @@ export function prepareUnholdVMRequest(id: number): BackendRequest {
     };
 }
 
+/** Edits a VM request. Only the given fields are sent, under the backend's snake_case keys. */
 export function prepareEditVMRequest(
     id: number,
     options?: VMRequestEditFields,
@@ -382,6 +409,7 @@ export async function fetchRequestClosure(): Promise<RequestClosure> {
     return data;
 }
 
+/** Stops accepting new VM requests and shows `reason` to visitors. */
 export function prepareCloseRequests(reason: string): BackendRequest {
     return {
         path: "/api/vmrequest/close",
@@ -391,6 +419,7 @@ export function prepareCloseRequests(reason: string): BackendRequest {
     };
 }
 
+/** Ends the current closure and accepts VM requests again. */
 export function prepareReopenRequests(): BackendRequest {
     return {
         path: "/api/vmrequest/reopen",
@@ -400,6 +429,7 @@ export function prepareReopenRequests(): BackendRequest {
     };
 }
 
+/** Adds an email to the current closure's waitlist. */
 export function prepareJoinWaitlist(email: string): BackendRequest {
     return {
         path: "/api/vmrequest/waitlist",
@@ -409,6 +439,7 @@ export function prepareJoinWaitlist(email: string): BackendRequest {
     };
 }
 
+/** Lists the emails on the current closure's waitlist. */
 export function prepareFetchWaitlist(): BackendRequest {
     return {
         path: "/api/vmrequest/waitlist",
@@ -427,4 +458,91 @@ export async function fetchFreeIPv4Count(): Promise<number> {
         headers: { "Content-Type": "application/json" },
     });
     return data.count;
+}
+
+// Resource changes requests
+
+/**
+ * Lists all VM resource change requests submitted by the SSH portal.
+ */
+export async function fetchResourceChanges(): Promise<ResourceChangeListResponse> {
+    const { data } = await fetchBackend<ResourceChangeListResponse>({
+        path: "/api/resourcechange",
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+    });
+    return data;
+}
+
+/**
+ * Accepts a pending resource change request, applying it to the VM.
+ * @param onConfirmRequired See OnConfirmCallback for details.
+ */
+export async function acceptResourceChange(
+    id: number,
+    onConfirmRequired?: OnConfirmCallback,
+): Promise<void> {
+    await fetchBackend(prepareAcceptResourceChange(id), { onConfirmRequired });
+}
+/** Descriptor for acceptResourceChange. */
+export function prepareAcceptResourceChange(id: number): BackendRequest {
+    return {
+        path: "/api/resourcechange/accept",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+    };
+}
+
+/**
+ * Rejects a pending resource change request without applying it.
+ * @param onConfirmRequired See OnConfirmCallback for details.
+ */
+export async function rejectResourceChange(
+    id: number,
+    onConfirmRequired?: OnConfirmCallback,
+): Promise<void> {
+    await fetchBackend(prepareRejectResourceChange(id), { onConfirmRequired });
+}
+/** Descriptor for rejectResourceChange. */
+export function prepareRejectResourceChange(id: number): BackendRequest {
+    return {
+        path: "/api/resourcechange/reject",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+    };
+}
+
+export interface ResourceChangeEditFields {
+    newCores: number;
+    newRamGB: number;
+    newDiskGB: number;
+    newSecondaryDiskGB: number;
+}
+
+/**
+ * Edits a pending resource change request's target values.
+ * @param onConfirmRequired See OnConfirmCallback for details.
+ */
+export async function editResourceChange(
+    id: number,
+    fields: ResourceChangeEditFields,
+    onConfirmRequired?: OnConfirmCallback,
+): Promise<void> {
+    await fetchBackend(prepareEditResourceChange(id, fields), {
+        onConfirmRequired,
+    });
+}
+/** Descriptor for editResourceChange. */
+export function prepareEditResourceChange(
+    id: number,
+    fields: ResourceChangeEditFields,
+): BackendRequest {
+    return {
+        path: "/api/resourcechange/edit",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...fields }),
+    };
 }
