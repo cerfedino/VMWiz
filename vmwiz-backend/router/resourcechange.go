@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -60,41 +61,41 @@ type rcrJSON struct {
 	Status                 string   `json:"Status"`
 	VMHostname             string   `json:"VMHostname"`
 	RequesterFingerprint   string   `json:"RequesterFingerprint"`
-	CurrentCores           int      `json:"CurrentCores"`
-	CurrentRamGB           int      `json:"CurrentRamGB"`
-	CurrentDiskGB          int      `json:"CurrentDiskGB"`
-	CurrentSecondaryDiskGB int      `json:"CurrentSecondaryDiskGB"`
-	NewCores               int      `json:"NewCores"`
-	NewRamGB               int      `json:"NewRamGB"`
-	NewDiskGB              int      `json:"NewDiskGB"`
-	NewSecondaryDiskGB     int      `json:"NewSecondaryDiskGB"`
+	CurrentCores           int32    `json:"CurrentCores"`
+	CurrentRamGB           int32    `json:"CurrentRamGB"`
+	CurrentDiskGB          int32    `json:"CurrentDiskGB"`
+	CurrentSecondaryDiskGB int32    `json:"CurrentSecondaryDiskGB"`
+	NewCores               int32    `json:"NewCores"`
+	NewRamGB               int32    `json:"NewRamGB"`
+	NewDiskGB              int32    `json:"NewDiskGB"`
+	NewSecondaryDiskGB     int32    `json:"NewSecondaryDiskGB"`
 	NeedsReviewReasons     []string `json:"NeedsReviewReasons"`
 	ProcessedAt            *string  `json:"ProcessedAt"`
 	ProcessedNote          string   `json:"ProcessedNote"`
 	RequestReason          string   `json:"RequestReason"`
 }
 
-func toRcrJSON(r *storage.SQLResourceChangeRequest) rcrJSON {
+func toRcrJSON(r storage.ResourceChangeRequest) rcrJSON {
 	out := rcrJSON{
 		ID:                     r.ID,
-		CreatedAt:              r.CreatedAt.Format(time.RFC3339),
-		Status:                 r.Status,
-		VMHostname:             r.VMHostname,
-		RequesterFingerprint:   r.RequesterFingerprint,
-		CurrentCores:           r.CurrentCores,
-		CurrentRamGB:           r.CurrentRamGB,
-		CurrentDiskGB:          r.CurrentDiskGB,
-		CurrentSecondaryDiskGB: r.CurrentSecondaryDiskGB,
-		NewCores:               r.NewCores,
-		NewRamGB:               r.NewRamGB,
-		NewDiskGB:              r.NewDiskGB,
-		NewSecondaryDiskGB:     r.NewSecondaryDiskGB,
-		NeedsReviewReasons:     r.NeedsReviewReasons,
-		ProcessedNote:          r.ProcessedNote,
-		RequestReason:          r.RequestReason,
+		CreatedAt:              r.Createdat.Format(time.RFC3339),
+		Status:                 string(r.Status),
+		VMHostname:             r.Vmhostname,
+		RequesterFingerprint:   r.Requesterfingerprint,
+		CurrentCores:           r.Currentcores,
+		CurrentRamGB:           r.Currentramgb,
+		CurrentDiskGB:          r.Currentdiskgb,
+		CurrentSecondaryDiskGB: r.Currentsecondarydiskgb,
+		NewCores:               r.Newcores,
+		NewRamGB:               r.Newramgb,
+		NewDiskGB:              r.Newdiskgb,
+		NewSecondaryDiskGB:     r.Newsecondarydiskgb,
+		NeedsReviewReasons:     r.Needsreviewreasons,
+		ProcessedNote:          r.Processednote,
+		RequestReason:          r.Requestreason,
 	}
-	if r.ProcessedAt.Valid {
-		s := r.ProcessedAt.Time.Format(time.RFC3339)
+	if r.Processedat.Valid {
+		s := r.Processedat.Time.Format(time.RFC3339)
 		out.ProcessedAt = &s
 	}
 	if out.NeedsReviewReasons == nil {
@@ -105,12 +106,12 @@ func toRcrJSON(r *storage.SQLResourceChangeRequest) rcrJSON {
 
 // evaluateHeuristic returns the list of reasons (if any) that prevent
 // auto-approval. Empty list => safe to auto-approve.
-func evaluateHeuristic(req *storage.SQLResourceChangeRequest, prev *storage.SQLResourceChangeRequest) []string {
+func evaluateHeuristic(req storage.CreateResourceChangeParams, prev *storage.ResourceChangeRequest) []string {
 	// Pure downgrade or no-op: always auto-approve, no thresholds apply.
 	if req.NewCores <= req.CurrentCores &&
-		req.NewRamGB <= req.CurrentRamGB &&
-		req.NewDiskGB <= req.CurrentDiskGB &&
-		req.NewSecondaryDiskGB <= req.CurrentSecondaryDiskGB {
+		req.NewRamGb <= req.CurrentRamGb &&
+		req.NewDiskGb <= req.CurrentDiskGb &&
+		req.NewSecondaryDiskGb <= req.CurrentSecondaryDiskGb {
 		return []string{}
 	}
 
@@ -119,19 +120,19 @@ func evaluateHeuristic(req *storage.SQLResourceChangeRequest, prev *storage.SQLR
 	if req.NewCores > rcrThresholdCores {
 		reasons = append(reasons, fmt.Sprintf("requested %d cores exceeds threshold of %d", req.NewCores, rcrThresholdCores))
 	}
-	if req.NewRamGB > rcrThresholdRamGB {
-		reasons = append(reasons, fmt.Sprintf("requested %d GB RAM exceeds threshold of %d GB", req.NewRamGB, rcrThresholdRamGB))
+	if req.NewRamGb > rcrThresholdRamGB {
+		reasons = append(reasons, fmt.Sprintf("requested %d GB RAM exceeds threshold of %d GB", req.NewRamGb, rcrThresholdRamGB))
 	}
-	if req.NewDiskGB > rcrThresholdSSDGB {
-		reasons = append(reasons, fmt.Sprintf("requested %d GB SSD storage exceeds threshold of %d GB", req.NewDiskGB, rcrThresholdSSDGB))
+	if req.NewDiskGb > rcrThresholdSSDGB {
+		reasons = append(reasons, fmt.Sprintf("requested %d GB SSD storage exceeds threshold of %d GB", req.NewDiskGb, rcrThresholdSSDGB))
 	}
-	if req.NewSecondaryDiskGB > rcrThresholdHDDGB {
-		reasons = append(reasons, fmt.Sprintf("requested %d GB HDD storage exceeds threshold of %d GB", req.NewSecondaryDiskGB, rcrThresholdHDDGB))
+	if req.NewSecondaryDiskGb > rcrThresholdHDDGB {
+		reasons = append(reasons, fmt.Sprintf("requested %d GB HDD storage exceeds threshold of %d GB", req.NewSecondaryDiskGb, rcrThresholdHDDGB))
 	}
-	if req.CurrentRamGB > 0 && req.NewRamGB > 2*req.CurrentRamGB {
-		reasons = append(reasons, fmt.Sprintf("RAM increase from %d GB to %d GB is more than double", req.CurrentRamGB, req.NewRamGB))
+	if req.CurrentRamGb > 0 && req.NewRamGb > 2*req.CurrentRamGb {
+		reasons = append(reasons, fmt.Sprintf("RAM increase from %d GB to %d GB is more than double", req.CurrentRamGb, req.NewRamGb))
 	}
-	if prev != nil && time.Since(prev.CreatedAt) < rcrRecentRequestSpan {
+	if prev != nil && time.Since(prev.Createdat) < rcrRecentRequestSpan {
 		reasons = append(reasons, fmt.Sprintf("previous resource change request (#%d) was less than a week ago", prev.ID))
 	}
 
@@ -143,16 +144,16 @@ func evaluateHeuristic(req *storage.SQLResourceChangeRequest, prev *storage.SQLR
 // applyResourceChange applies the requested cores/RAM/disk change to the VM
 // using the Proxmox HTTP API. Disk shrinks are rejected at submit and edit,
 // so only growth is handled here.
-func applyResourceChange(req *storage.SQLResourceChangeRequest) error {
-	vms, err := proxmox.GetAllClusterVMsByName(req.VMHostname)
+func applyResourceChange(req storage.ResourceChangeRequest) error {
+	vms, err := proxmox.GetAllClusterVMsByName(req.Vmhostname)
 	if err != nil {
 		return fmt.Errorf("look up VM: %v", err)
 	}
 	if vms == nil || len(*vms) == 0 {
-		return fmt.Errorf("VM %q not found", req.VMHostname)
+		return fmt.Errorf("VM %q not found", req.Vmhostname)
 	}
 	if len(*vms) > 1 {
-		return fmt.Errorf("VM %q is ambiguous (%d matches)", req.VMHostname, len(*vms))
+		return fmt.Errorf("VM %q is ambiguous (%d matches)", req.Vmhostname, len(*vms))
 	}
 	vm := (*vms)[0]
 
@@ -160,16 +161,16 @@ func applyResourceChange(req *storage.SQLResourceChangeRequest) error {
 	if err != nil {
 		return fmt.Errorf("read current disk configuration: %w", err)
 	}
-	if cfg.SecondaryDiskGB() != req.CurrentSecondaryDiskGB || (req.CurrentSecondaryDiskGB == 0 && cfg.Scsi1 != "") {
+	if cfg.SecondaryDiskGB() != int(req.Currentsecondarydiskgb) || (req.Currentsecondarydiskgb == 0 && cfg.Scsi1 != "") {
 		return fmt.Errorf("HDD configuration changed since submission; submit a new resource change request")
 	}
 
-	if err := proxmox.SetVMCoresAndMemory(vm.Node, vm.Vmid, req.NewCores, req.NewRamGB*1024); err != nil {
+	if err := proxmox.SetVMCoresAndMemory(vm.Node, vm.Vmid, int(req.Newcores), int(req.Newramgb)*1024); err != nil {
 		return fmt.Errorf("set cores/memory: %v", err)
 	}
 
-	if req.NewDiskGB > req.CurrentDiskGB {
-		if err := proxmox.ResizeVMDisk(vm.Node, vm.Vmid, req.CurrentDiskGB, req.NewDiskGB); err != nil {
+	if req.Newdiskgb > req.Currentdiskgb {
+		if err := proxmox.ResizeVMDisk(vm.Node, vm.Vmid, int(req.Currentdiskgb), int(req.Newdiskgb)); err != nil {
 			return fmt.Errorf("resize disk: %v", err)
 		}
 	}
@@ -177,12 +178,12 @@ func applyResourceChange(req *storage.SQLResourceChangeRequest) error {
 	// Secondary HDD: create on first request (current=0, new>0), or grow.
 	// Shrinks and removals are rejected at the submit boundary, so we don't
 	// need to handle them here.
-	if req.NewSecondaryDiskGB > 0 && req.CurrentSecondaryDiskGB == 0 {
-		if err := proxmox.CreateVMSecondaryDisk(vm.Node, vm.Vmid, req.NewSecondaryDiskGB); err != nil {
+	if req.Newsecondarydiskgb > 0 && req.Currentsecondarydiskgb == 0 {
+		if err := proxmox.CreateVMSecondaryDisk(vm.Node, vm.Vmid, int(req.Newsecondarydiskgb)); err != nil {
 			return fmt.Errorf("create secondary disk: %v", err)
 		}
-	} else if req.NewSecondaryDiskGB > req.CurrentSecondaryDiskGB {
-		if err := proxmox.ResizeVMSecondaryDisk(vm.Node, vm.Vmid, req.CurrentSecondaryDiskGB, req.NewSecondaryDiskGB); err != nil {
+	} else if req.Newsecondarydiskgb > req.Currentsecondarydiskgb {
+		if err := proxmox.ResizeVMSecondaryDisk(vm.Node, vm.Vmid, int(req.Currentsecondarydiskgb), int(req.Newsecondarydiskgb)); err != nil {
 			return fmt.Errorf("resize secondary disk: %v", err)
 		}
 	}
@@ -204,18 +205,18 @@ func vmContacts(vm proxmox.PVEClusterVM) []string {
 
 // emailUserOnApply looks up the VM, extracts contact emails, and sends the
 // "resource change applied" email. Failures are logged and ignored.
-func emailUserOnApply(req *storage.SQLResourceChangeRequest, autoApproved bool) {
-	vms, err := proxmox.GetAllClusterVMsByName(req.VMHostname)
+func emailUserOnApply(req storage.ResourceChangeRequest, autoApproved bool) {
+	vms, err := proxmox.GetAllClusterVMsByName(req.Vmhostname)
 	if err != nil || vms == nil || len(*vms) == 0 {
-		log.Printf("emailUserOnApply: skipping email for %s: VM lookup failed: %v", req.VMHostname, err)
+		log.Printf("emailUserOnApply: skipping email for %s: VM lookup failed: %v", req.Vmhostname, err)
 		return
 	}
 	contacts := vmContacts((*vms)[0])
 	if len(contacts) == 0 {
-		log.Printf("emailUserOnApply: no contacts for %s, skipping email", req.VMHostname)
+		log.Printf("emailUserOnApply: no contacts for %s, skipping email", req.Vmhostname)
 		return
 	}
-	if err := notifier.SendResourceChangeAppliedEmail(*req, contacts, autoApproved); err != nil {
+	if err := notifier.SendResourceChangeAppliedEmail(req, contacts, autoApproved); err != nil {
 		log.Printf("emailUserOnApply: send email for request %d failed: %v", req.ID, err)
 	}
 }
@@ -297,60 +298,63 @@ func SubmitResourceChangeRequest(body *rcrSubmitBody) (*rcrSubmitResponse, *Erro
 		return nil, SimpleError(err, "Failed to look up previous requests")
 	}
 
-	rcr := &storage.SQLResourceChangeRequest{
-		Status:                 storage.RCR_STATUS_PENDING,
-		VMHostname:             body.VMHostname,
+	p := storage.CreateResourceChangeParams{
+		Status:                 storage.RcrStatusPending,
+		VmHostname:             body.VMHostname,
 		RequesterFingerprint:   body.RequesterFingerprint,
-		CurrentCores:           currentCores,
-		CurrentRamGB:           currentRamGB,
-		CurrentDiskGB:          currentDiskGB,
-		CurrentSecondaryDiskGB: currentSecondaryDiskGB,
-		NewCores:               body.NewCores,
-		NewRamGB:               body.NewRamGB,
-		NewDiskGB:              body.NewDiskGB,
-		NewSecondaryDiskGB:     body.NewSecondaryDiskGB,
+		CurrentCores:           int32(currentCores),
+		CurrentRamGb:           int32(currentRamGB),
+		CurrentDiskGb:          int32(currentDiskGB),
+		CurrentSecondaryDiskGb: int32(currentSecondaryDiskGB),
+		NewCores:               int32(body.NewCores),
+		NewRamGb:               int32(body.NewRamGB),
+		NewDiskGb:              int32(body.NewDiskGB),
+		NewSecondaryDiskGb:     int32(body.NewSecondaryDiskGB),
 		RequestReason:          reason,
 	}
-	rcr.NeedsReviewReasons = evaluateHeuristic(rcr, prev)
+	p.NeedsReviewReasons = evaluateHeuristic(p, prev)
 
-	id, err := storage.DB.StoreResourceChangeRequest(rcr)
+	id, err := storage.DB.StoreResourceChangeRequest(p)
 	if err != nil {
 		return nil, SimpleError(err, "Failed to store resource change request")
 	}
-	rcr.ID = id
-	_ = notifier.NotifyResourceChangeRequest(*rcr)
+	rcr, err := storage.DB.GetResourceChangeByID(context.Background(), id)
+	if err != nil {
+		return nil, SimpleError(err, "Failed to load stored resource change request")
+	}
+	_ = notifier.NotifyResourceChangeRequest(rcr)
 
-	if len(rcr.NeedsReviewReasons) > 0 {
+	if len(rcr.Needsreviewreasons) > 0 {
 		return &rcrSubmitResponse{
 			ID:                 id,
-			Status:             storage.RCR_STATUS_PENDING,
-			NeedsReviewReasons: rcr.NeedsReviewReasons,
+			Status:             string(storage.RcrStatusPending),
+			NeedsReviewReasons: rcr.Needsreviewreasons,
 			Message:            "Request stored, replacing any earlier pending request for this VM. An admin must approve it before it takes effect.",
 		}, nil
 	}
 
 	// Auto-approve path.
 	if err := applyResourceChange(rcr); err != nil {
-		_ = storage.DB.MarkResourceChangeRequestProcessed(id, storage.RCR_STATUS_FAILED, err.Error())
-		_ = notifier.NotifyResourceChangeRequestFailed(*rcr, err.Error())
+		_ = storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusFailed, err.Error())
+		_ = notifier.NotifyResourceChangeRequestFailed(rcr, err.Error())
 		return nil, SimpleError(err, "Failed to apply resource change")
 	}
-	if err := storage.DB.MarkResourceChangeRequestProcessed(id, storage.RCR_STATUS_AUTO_APPROVED, "auto-approved by heuristic"); err != nil {
+	if err := storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusAutoApproved, "auto-approved by heuristic"); err != nil {
 		log.Printf("Failed to mark request %d as auto_approved: %v", id, err)
 	}
-	_ = notifier.NotifyResourceChangeRequestApplied(*rcr, true)
+	_ = notifier.NotifyResourceChangeRequestApplied(rcr, true)
 	emailUserOnApply(rcr, true)
 
 	return &rcrSubmitResponse{
 		ID:      id,
-		Status:  storage.RCR_STATUS_AUTO_APPROVED,
+		Status:  string(storage.RcrStatusAutoApproved),
 		Message: "Request auto-approved and applied in Proxmox. Memory and CPU changes take effect on the next VM reboot",
 	}, nil
 }
 
 // CancelResourceChangeRequest cancels the current pending resource change for
 // the given VM. Invoked by the SSH portal on behalf of the VM owner.
-func CancelResourceChangeRequest(hostname string) (*storage.SQLResourceChangeRequest, *ErrorBundle) {
+func CancelResourceChangeRequest(hostname string) (*storage.ResourceChangeRequest, *ErrorBundle) {
 	if hostname == "" {
 		return nil, &ErrorBundle{Err: fmt.Errorf("missing vmHostname"), UserMsg: "missing vmHostname", HttpCode: http.StatusBadRequest}
 	}
@@ -367,10 +371,10 @@ func CancelResourceChangeRequest(hostname string) (*storage.SQLResourceChangeReq
 	if rcr == nil {
 		return nil, &ErrorBundle{Err: fmt.Errorf("no pending request"), UserMsg: "No pending resource change request to cancel.", HttpCode: http.StatusNotFound}
 	}
-	if err := storage.DB.MarkResourceChangeRequestProcessed(rcr.ID, storage.RCR_STATUS_CANCELLED, "cancelled by user"); err != nil {
+	if err := storage.DB.MarkResourceChangeRequestProcessed(rcr.ID, storage.RcrStatusCancelled, "cancelled by user"); err != nil {
 		return nil, SimpleError(err, "Failed to cancel request")
 	}
-	rcr.Status = storage.RCR_STATUS_CANCELLED
+	rcr.Status = storage.RcrStatusCancelled
 	_ = notifier.NotifyResourceChangeRequestStatusChanged(*rcr)
 	return rcr, nil
 }
@@ -378,7 +382,7 @@ func CancelResourceChangeRequest(hostname string) (*storage.SQLResourceChangeReq
 // UndoResourceChangeRequest reverts the latest applied resource change for
 // the given VM by submitting a new request that restores the prior values.
 // Returns the new request describing the revert.
-func UndoResourceChangeRequest(hostname, fingerprint string) (*storage.SQLResourceChangeRequest, *ErrorBundle) {
+func UndoResourceChangeRequest(hostname, fingerprint string) (*storage.ResourceChangeRequest, *ErrorBundle) {
 	if hostname == "" {
 		return nil, &ErrorBundle{Err: fmt.Errorf("missing vmHostname"), UserMsg: "missing vmHostname", HttpCode: http.StatusBadRequest}
 	}
@@ -415,48 +419,51 @@ func UndoResourceChangeRequest(hostname, fingerprint string) (*storage.SQLResour
 
 	// Disk shrinks aren't supported by Proxmox; clamp the target disk to the
 	// larger of (prior current disk, current disk).
-	targetDiskGB := prev.CurrentDiskGB
+	targetDiskGB := int(prev.Currentdiskgb)
 	if currentDiskGB > targetDiskGB {
 		targetDiskGB = currentDiskGB
 	}
-	targetSecondaryDiskGB := prev.CurrentSecondaryDiskGB
+	targetSecondaryDiskGB := int(prev.Currentsecondarydiskgb)
 	if currentSecondaryDiskGB > targetSecondaryDiskGB {
 		targetSecondaryDiskGB = currentSecondaryDiskGB
 	}
 
-	rcr := &storage.SQLResourceChangeRequest{
-		Status:                 storage.RCR_STATUS_PENDING,
-		VMHostname:             hostname,
+	p := storage.CreateResourceChangeParams{
+		Status:                 storage.RcrStatusPending,
+		VmHostname:             hostname,
 		RequesterFingerprint:   fingerprint,
-		CurrentCores:           currentCores,
-		CurrentRamGB:           currentRamGB,
-		CurrentDiskGB:          currentDiskGB,
-		CurrentSecondaryDiskGB: currentSecondaryDiskGB,
-		NewCores:               prev.CurrentCores,
-		NewRamGB:               prev.CurrentRamGB,
-		NewDiskGB:              targetDiskGB,
-		NewSecondaryDiskGB:     targetSecondaryDiskGB,
+		CurrentCores:           int32(currentCores),
+		CurrentRamGb:           int32(currentRamGB),
+		CurrentDiskGb:          int32(currentDiskGB),
+		CurrentSecondaryDiskGb: int32(currentSecondaryDiskGB),
+		NewCores:               prev.Currentcores,
+		NewRamGb:               prev.Currentramgb,
+		NewDiskGb:              int32(targetDiskGB),
+		NewSecondaryDiskGb:     int32(targetSecondaryDiskGB),
 		RequestReason:          fmt.Sprintf("Undo of request #%d", prev.ID),
 	}
-	id, err := storage.DB.StoreResourceChangeRequest(rcr)
+	id, err := storage.DB.StoreResourceChangeRequest(p)
 	if err != nil {
 		return nil, SimpleError(err, "Failed to store undo request")
 	}
-	rcr.ID = id
-	_ = notifier.NotifyResourceChangeRequest(*rcr)
+	rcr, err := storage.DB.GetResourceChangeByID(context.Background(), id)
+	if err != nil {
+		return nil, SimpleError(err, "Failed to load stored undo request")
+	}
+	_ = notifier.NotifyResourceChangeRequest(rcr)
 
 	if err := applyResourceChange(rcr); err != nil {
-		_ = storage.DB.MarkResourceChangeRequestProcessed(id, storage.RCR_STATUS_FAILED, err.Error())
-		_ = notifier.NotifyResourceChangeRequestFailed(*rcr, err.Error())
+		_ = storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusFailed, err.Error())
+		_ = notifier.NotifyResourceChangeRequestFailed(rcr, err.Error())
 		return nil, SimpleError(err, "Failed to apply undo")
 	}
-	if err := storage.DB.MarkResourceChangeRequestProcessed(id, storage.RCR_STATUS_AUTO_APPROVED, fmt.Sprintf("undo of request #%d", prev.ID)); err != nil {
+	if err := storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusAutoApproved, fmt.Sprintf("undo of request #%d", prev.ID)); err != nil {
 		log.Printf("Failed to mark undo %d as auto_approved: %v", id, err)
 	}
-	rcr.Status = storage.RCR_STATUS_AUTO_APPROVED
-	_ = notifier.NotifyResourceChangeRequestApplied(*rcr, true)
+	rcr.Status = storage.RcrStatusAutoApproved
+	_ = notifier.NotifyResourceChangeRequestApplied(rcr, true)
 	emailUserOnApply(rcr, true)
-	return rcr, nil
+	return &rcr, nil
 }
 
 // AcceptResourceChangeRequest is invoked from the admin console to apply a
@@ -468,22 +475,22 @@ func AcceptResourceChangeRequest(id int64) *ErrorBundle {
 	}
 	defer unlock()
 
-	if rcr.Status != storage.RCR_STATUS_PENDING {
+	if rcr.Status != storage.RcrStatusPending {
 		return &ErrorBundle{Err: fmt.Errorf("not pending"), UserMsg: "Only pending resource change requests can be accepted", HttpCode: http.StatusBadRequest}
 	}
 
-	if err := applyResourceChange(rcr); err != nil {
-		_ = storage.DB.MarkResourceChangeRequestProcessed(id, storage.RCR_STATUS_FAILED, err.Error())
+	if err := applyResourceChange(*rcr); err != nil {
+		_ = storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusFailed, err.Error())
 		_ = notifier.NotifyResourceChangeRequestFailed(*rcr, err.Error())
 		return SimpleError(err, "Failed to apply resource change")
 	}
 
-	if err := storage.DB.MarkResourceChangeRequestProcessed(id, storage.RCR_STATUS_ACCEPTED, "accepted by admin"); err != nil {
+	if err := storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusAccepted, "accepted by admin"); err != nil {
 		return SimpleError(err, "Failed to update request status")
 	}
-	rcr.Status = storage.RCR_STATUS_ACCEPTED
+	rcr.Status = storage.RcrStatusAccepted
 	_ = notifier.NotifyResourceChangeRequestApplied(*rcr, false)
-	emailUserOnApply(rcr, false)
+	emailUserOnApply(*rcr, false)
 	return nil
 }
 
@@ -502,24 +509,31 @@ func EditResourceChangeRequest(id int64, cores, ramGB, diskGB, secondaryDiskGB i
 		return eb
 	}
 	defer unlock()
-	if rcr.Status != storage.RCR_STATUS_PENDING {
+	if rcr.Status != storage.RcrStatusPending {
 		return &ErrorBundle{Err: fmt.Errorf("not pending"), UserMsg: "Only pending resource change requests can be edited", HttpCode: http.StatusBadRequest}
 	}
-	if rcr.CurrentSecondaryDiskGB > 0 && secondaryDiskGB < rcr.CurrentSecondaryDiskGB {
+	if rcr.Currentsecondarydiskgb > 0 && secondaryDiskGB < int(rcr.Currentsecondarydiskgb) {
 		return &ErrorBundle{
 			Err:      fmt.Errorf("HDD shrink not supported"),
-			UserMsg:  fmt.Sprintf("Cannot shrink an existing %d GB HDD via edit.", rcr.CurrentSecondaryDiskGB),
+			UserMsg:  fmt.Sprintf("Cannot shrink an existing %d GB HDD via edit.", rcr.Currentsecondarydiskgb),
 			HttpCode: http.StatusBadRequest,
 		}
 	}
-	if diskGB < rcr.CurrentDiskGB {
+	if diskGB < int(rcr.Currentdiskgb) {
 		return &ErrorBundle{
 			Err:      fmt.Errorf("SSD shrink not supported"),
-			UserMsg:  fmt.Sprintf("Cannot shrink the %d GB SSD via edit.", rcr.CurrentDiskGB),
+			UserMsg:  fmt.Sprintf("Cannot shrink the %d GB SSD via edit.", rcr.Currentdiskgb),
 			HttpCode: http.StatusBadRequest,
 		}
 	}
-	if err := storage.DB.UpdateResourceChangeRequestNewValues(id, cores, ramGB, diskGB, secondaryDiskGB); err != nil {
+	err := storage.DB.UpdateResourceChangeRequestNewValues(storage.UpdateResourceChangeTargetsParams{
+		ID:                 id,
+		NewCores:           int32(cores),
+		NewRamGb:           int32(ramGB),
+		NewDiskGb:          int32(diskGB),
+		NewSecondaryDiskGb: int32(secondaryDiskGB),
+	})
+	if err != nil {
 		return SimpleError(err, "Failed to update resource change request")
 	}
 	return nil
@@ -531,32 +545,34 @@ func RejectResourceChangeRequest(id int64) *ErrorBundle {
 		return eb
 	}
 	defer unlock()
-	if rcr.Status != storage.RCR_STATUS_PENDING {
+	if rcr.Status != storage.RcrStatusPending {
 		return &ErrorBundle{Err: fmt.Errorf("not pending"), UserMsg: "Only pending resource change requests can be rejected", HttpCode: http.StatusBadRequest}
 	}
-	if err := storage.DB.MarkResourceChangeRequestProcessed(id, storage.RCR_STATUS_REJECTED, "rejected by admin"); err != nil {
+	if err := storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusRejected, "rejected by admin"); err != nil {
 		return SimpleError(err, "Failed to update request status")
 	}
-	rcr.Status = storage.RCR_STATUS_REJECTED
+	rcr.Status = storage.RcrStatusRejected
 	_ = notifier.NotifyResourceChangeRequestStatusChanged(*rcr)
 	return nil
 }
 
-func getLockedResourceChange(id int64) (*storage.SQLResourceChangeRequest, func(), *ErrorBundle) {
-	rcr, err := storage.DB.GetResourceChangeRequestById(id)
+// Loads the row twice: once to learn the hostname to lock, once under the lock.
+func getLockedResourceChange(id int64) (*storage.ResourceChangeRequest, func(), *ErrorBundle) {
+	ctx := context.Background()
+	rcr, err := storage.DB.GetResourceChangeByID(ctx, id)
 	if err != nil {
 		return nil, nil, SimpleError(err, "Failed to fetch resource change request")
 	}
-	unlock, err := storage.DB.LockResourceChangeVM(rcr.VMHostname)
+	unlock, err := storage.DB.LockResourceChangeVM(rcr.Vmhostname)
 	if err != nil {
 		return nil, nil, SimpleError(err, "Failed to lock resource change")
 	}
-	rcr, err = storage.DB.GetResourceChangeRequestById(id)
+	rcr, err = storage.DB.GetResourceChangeByID(ctx, id)
 	if err != nil {
 		unlock()
 		return nil, nil, SimpleError(err, "Failed to fetch resource change request")
 	}
-	return rcr, unlock, nil
+	return &rcr, unlock, nil
 }
 
 func sshportalAuth(next http.Handler) http.Handler {
@@ -598,7 +614,7 @@ func addAllResourceChangeRoutes(r *mux.Router) {
 
 	// Admin: list all
 	r.Methods("GET").Path("/api/resourcechange").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		rcrs, err := storage.DB.GetAllResourceChangeRequests()
+		rcrs, err := storage.DB.ListResourceChanges(r.Context())
 		if err != nil {
 			log.Printf("Failed to get resource change requests: %v", err)
 			http.Error(w, "Failed to get resource change requests", http.StatusInternalServerError)
@@ -677,7 +693,7 @@ func addAllResourceChangeRoutes(r *mux.Router) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(toRcrJSON(rcr))
+		_ = json.NewEncoder(w).Encode(toRcrJSON(*rcr))
 	})))
 
 	// SSH portal: undo last applied change for a VM
@@ -693,6 +709,6 @@ func addAllResourceChangeRoutes(r *mux.Router) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(toRcrJSON(rcr))
+		_ = json.NewEncoder(w).Encode(toRcrJSON(*rcr))
 	})))
 }
