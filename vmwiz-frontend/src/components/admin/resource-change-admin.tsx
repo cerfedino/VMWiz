@@ -3,17 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Check, Eye, Pencil, RefreshCw, Server, X } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import {
-    fetchResourceChanges,
-    prepareAcceptResourceChange,
-    prepareEditResourceChange,
-    prepareRejectResourceChange,
-    type ResourceChangeEditFields,
-} from "@/lib/resource-changes";
-import type {
-    ResourceChangeRequest,
-    ResourceChangeStatus,
-} from "@/lib/types/resource-changes";
 import { StatusBadge } from "@/components/admin/vm-request-detail-dialog";
 import { FetchDialog } from "@/components/fetch-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +26,14 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { ResourceChangeRequest } from "@/lib/types/api";
+import {
+    fetchResourceChanges,
+    prepareAcceptResourceChange,
+    prepareEditResourceChange,
+    prepareRejectResourceChange,
+    ResourceChangeEditFields,
+} from "@/lib/api";
 
 const resources = [
     { label: "Cores", key: "Cores", unit: "" },
