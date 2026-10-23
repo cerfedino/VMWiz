@@ -141,8 +141,8 @@ func evaluateHeuristic(req *storage.SQLResourceChangeRequest, prev *storage.SQLR
 }
 
 // applyResourceChange applies the requested cores/RAM/disk change to the VM
-// using the Proxmox HTTP API. Disk shrinks are not supported by Proxmox and
-// will be left unchanged with a warning in the returned message.
+// using the Proxmox HTTP API. Disk shrinks are rejected at submit and edit,
+// so only growth is handled here.
 func applyResourceChange(req *storage.SQLResourceChangeRequest) error {
 	vms, err := proxmox.GetAllClusterVMsByName(req.VMHostname)
 	if err != nil {
@@ -264,12 +264,20 @@ func SubmitResourceChangeRequest(body *rcrSubmitBody) (*rcrSubmitResponse, *Erro
 		return nil, SimpleError(err, "Failed to read current VM disk configuration")
 	}
 
-	// Reject shrink/remove of an existing HDD — Proxmox can't shrink, and
-	// detaching/destroying a populated HDD is destructive and needs admin care.
+	// Reject shrink/remove of an existing disk — Proxmox can't shrink, and
+	// detaching/destroying a populated disk is destructive and needs admin care.
 	if currentSecondaryDiskGB > 0 && body.NewSecondaryDiskGB < currentSecondaryDiskGB {
 		return nil, &ErrorBundle{
 			Err:      fmt.Errorf("HDD shrink not supported"),
 			UserMsg:  fmt.Sprintf("Cannot shrink or detach an existing %d GB HDD. Ask an admin to remove it manually.", currentSecondaryDiskGB),
+			HttpCode: http.StatusBadRequest,
+		}
+	}
+
+	if body.NewDiskGB < currentDiskGB {
+		return nil, &ErrorBundle{
+			Err:      fmt.Errorf("SSD shrink not supported"),
+			UserMsg:  fmt.Sprintf("Cannot shrink the existing %d GB SSD disk.", currentDiskGB),
 			HttpCode: http.StatusBadRequest,
 		}
 	}
@@ -501,6 +509,13 @@ func EditResourceChangeRequest(id int64, cores, ramGB, diskGB, secondaryDiskGB i
 		return &ErrorBundle{
 			Err:      fmt.Errorf("HDD shrink not supported"),
 			UserMsg:  fmt.Sprintf("Cannot shrink an existing %d GB HDD via edit.", rcr.CurrentSecondaryDiskGB),
+			HttpCode: http.StatusBadRequest,
+		}
+	}
+	if diskGB < rcr.CurrentDiskGB {
+		return &ErrorBundle{
+			Err:      fmt.Errorf("SSD shrink not supported"),
+			UserMsg:  fmt.Sprintf("Cannot shrink the %d GB SSD via edit.", rcr.CurrentDiskGB),
 			HttpCode: http.StatusBadRequest,
 		}
 	}
