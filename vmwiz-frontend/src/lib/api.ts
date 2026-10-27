@@ -8,10 +8,10 @@ import {
     SurveyResponseCategory,
     SurveyHostnameListResponse,
     RequestClosure,
+    ResourceChangeListResponse,
 } from "@/lib/types/api";
 import { HTTP_METHOD } from "next/dist/server/web/http";
 import { getReasonPhrase } from "http-status-codes";
-import { ResourceChangeListResponse } from "./types/resource-changes";
 
 /**
  * Callback invoked when a request needs user confirmation.
