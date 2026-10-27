@@ -26,7 +26,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { ResourceChangeRequest } from "@/lib/types/api";
+import { ResourceChangeRequest, ResourceChangeStatus } from "@/lib/types/api";
 import {
     fetchResourceChanges,
     prepareAcceptResourceChange,
