@@ -46,23 +46,27 @@ func CreateVMUsageSurvey(ctx context.Context, restrict_pool []string) (*int64, e
 
 		uuidString := uuid.New().String()
 
-		receivers := []string{}
+		receivers := vm.University_email
 		if config.AppConfig.SMTP_RECEIVER_OVERRIDE != "" {
 			// Override the receiver email address with the one from the config if present
-			receivers = []string{config.AppConfig.SMTP_RECEIVER_OVERRIDE}
-		} else {
-			receivers = []string{vm.University_email}
+			receivers = config.AppConfig.SMTP_RECEIVER_OVERRIDE
+		}
+
+		externalRecipient := vm.ExternalMail
+		if config.AppConfig.SMTP_RECEIVER_OVERRIDE != "" {
+			externalRecipient = ""
 		}
 
 		// Store the new survey question in the database
 		_, err := storage.DB.CreateSurveyEmail(ctx, storage.CreateSurveyEmailParams{
-			Recipient: receivers[0],
-			Surveyid:  surveyId,
-			Vmid:      int32(vm.Vmid),
-			Hostname:  vm.Hostname,
-			Uuid:      uuidString,
-			EmailSent: false,
-			StillUsed: sql.NullBool{},
+			Recipient:         receivers,
+			ExternalRecipient: externalRecipient,
+			Surveyid:          surveyId,
+			Vmid:              int32(vm.Vmid),
+			Hostname:          vm.Hostname,
+			Uuid:              uuidString,
+			EmailSent:         false,
+			StillUsed:         sql.NullBool{},
 		})
 
 		if err != nil {
@@ -168,7 +172,7 @@ func sendVMUsageSurveyReminder(ctx context.Context, surveyId int64, surveyEmails
 		}
 
 		// TODO: Add startup check for checking wether we can send emails
-		err = notifier.SendEmail("VSOS VM Usage Survey: Reminder", mail_content.Bytes(), []string{surveyEmail.Recipient})
+		err = notifier.SendEmail("VSOS VM Usage Survey: Reminder", mail_content.Bytes(), []string{surveyEmail.Recipient, surveyEmail.ExternalRecipient})
 		if err != nil {
 			logger.From(ctx).Errorf("Failed send VM usage survey reminder: Failed to send email: %v", err)
 			continue

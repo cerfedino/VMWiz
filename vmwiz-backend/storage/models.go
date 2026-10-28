@@ -103,12 +103,13 @@ type Survey struct {
 }
 
 type SurveyEmail struct {
-	ID        int64
-	Recipient string
-	Surveyid  int64
-	Vmid      int32
-	Hostname  string
-	Uuid      string
-	EmailSent bool
-	StillUsed sql.NullBool
+	ID                int64
+	Recipient         string
+	Surveyid          int64
+	Vmid              int32
+	Hostname          string
+	Uuid              string
+	EmailSent         bool
+	StillUsed         sql.NullBool
+	ExternalRecipient string
 }
