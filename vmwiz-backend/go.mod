@@ -13,12 +13,12 @@ require (
 	github.com/melbahja/goph v1.5.2
 	github.com/pkg/sftp v1.13.11
 	github.com/rs/cors v1.11.1
-	github.com/seancfoley/ipaddress-go v1.7.1
+	github.com/seancfoley/ipaddress-go v1.8.4
 	github.com/urfave/cli/v3 v3.13.0
 	golang.org/x/crypto v0.57.0
-	golang.org/x/exp v0.0.0-20261007192929-f45ad48fbe92
+	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e
 	golang.org/x/oauth2 v0.37.0
-	golang.org/x/time v0.15.0
+	golang.org/x/time v0.16.0
 )
 
 require (
@@ -30,7 +30,7 @@ require (
 	github.com/oapi-codegen/runtime v1.7.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pquerna/cachecontrol v0.2.0 // indirect
-	github.com/seancfoley/bintree v1.3.1 // indirect
+	github.com/seancfoley/bintree v1.4.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	gopkg.in/go-jose/go-jose.v2 v2.6.3 // indirect
 )

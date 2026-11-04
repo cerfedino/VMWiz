@@ -505,15 +505,7 @@ func CreateVM(ctx context.Context, options VMCreationOptions) (_ *PVENodeVM, _ *
 		deb http://security.debian.org/ %v-security main
 		#deb-src http://security.debian.org/ %v-security main`, options.Template, options.Template, options.Template, options.Template, options.Template, options.Template)
 	case "jammy", "noble":
-		SOURCES_LIST = fmt.Sprintf(`
-		deb http://ch.archive.ubuntu.com/ubuntu %v main universe multiverse
-		#deb-src http://ch.archive.ubuntu.com/ubuntu %v main universe multiverse
-
-		deb http://ch.archive.ubuntu.com/ubuntu %v-updates main universe multiverse
-		#deb-src http://ch.archive.ubuntu.com/ubuntu %v-updates main universe multiverse
-
-		deb http://security.ubuntu.com/ubuntu %v-security main universe multiverse
-		#deb-src http://security.ubuntu.com/ubuntu %v-security main universe multiverse`, options.Template, options.Template, options.Template, options.Template, options.Template, options.Template)
+		SOURCES_LIST = ""
 	default:
 		return nil, nil, fmt.Errorf("Failed to create VM: Unknown template %v", options.Template)
 	}

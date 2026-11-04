@@ -120,21 +120,22 @@ func (q *Queries) CreateSurvey(ctx context.Context) (int64, error) {
 
 const createSurveyEmail = `-- name: CreateSurveyEmail :one
 INSERT INTO survey_email (
-  recipient, surveyId, vmid, hostname, uuid, email_sent, still_used
+  recipient, surveyId, vmid, hostname, uuid, email_sent, still_used, external_recipient
 ) VALUES (
-  $1, $2, $3, $4, $5, $6, $7
+  $1, $2, $3, $4, $5, $6, $7, $8
 )
 RETURNING id
 `
 
 type CreateSurveyEmailParams struct {
-	Recipient string
-	Surveyid  int64
-	Vmid      int32
-	Hostname  string
-	Uuid      string
-	EmailSent bool
-	StillUsed sql.NullBool
+	Recipient         string
+	Surveyid          int64
+	Vmid              int32
+	Hostname          string
+	Uuid              string
+	EmailSent         bool
+	StillUsed         sql.NullBool
+	ExternalRecipient string
 }
 
 func (q *Queries) CreateSurveyEmail(ctx context.Context, arg CreateSurveyEmailParams) (int64, error) {
@@ -146,6 +147,7 @@ func (q *Queries) CreateSurveyEmail(ctx context.Context, arg CreateSurveyEmailPa
 		arg.Uuid,
 		arg.EmailSent,
 		arg.StillUsed,
+		arg.ExternalRecipient,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -582,7 +584,7 @@ func (q *Queries) ListRootLogScopes(ctx context.Context, arg ListRootLogScopesPa
 }
 
 const listSentUnansweredSurveyEmails = `-- name: ListSentUnansweredSurveyEmails :many
-SELECT id, recipient, surveyid, vmid, hostname, uuid, email_sent, still_used FROM survey_email
+SELECT id, recipient, surveyid, vmid, hostname, uuid, email_sent, still_used, external_recipient FROM survey_email
 WHERE surveyId = $1 AND (still_used IS NULL AND email_sent = TRUE)
 `
 
@@ -604,6 +606,7 @@ func (q *Queries) ListSentUnansweredSurveyEmails(ctx context.Context, surveyid i
 			&i.Uuid,
 			&i.EmailSent,
 			&i.StillUsed,
+			&i.ExternalRecipient,
 		); err != nil {
 			return nil, err
 		}
@@ -673,7 +676,7 @@ func (q *Queries) ListSurveys(ctx context.Context) ([]Survey, error) {
 }
 
 const listUnansweredOrUnsentSurveyEmails = `-- name: ListUnansweredOrUnsentSurveyEmails :many
-SELECT id, recipient, surveyid, vmid, hostname, uuid, email_sent, still_used FROM survey_email
+SELECT id, recipient, surveyid, vmid, hostname, uuid, email_sent, still_used, external_recipient FROM survey_email
 WHERE surveyId = $1 AND (still_used IS NULL OR email_sent = FALSE)
 `
 
@@ -695,6 +698,7 @@ func (q *Queries) ListUnansweredOrUnsentSurveyEmails(ctx context.Context, survey
 			&i.Uuid,
 			&i.EmailSent,
 			&i.StillUsed,
+			&i.ExternalRecipient,
 		); err != nil {
 			return nil, err
 		}
@@ -738,7 +742,7 @@ func (q *Queries) ListUnansweredSurveyHostnames(ctx context.Context, surveyid in
 }
 
 const listUnsentSurveyEmails = `-- name: ListUnsentSurveyEmails :many
-SELECT id, recipient, surveyid, vmid, hostname, uuid, email_sent, still_used FROM survey_email
+SELECT id, recipient, surveyid, vmid, hostname, uuid, email_sent, still_used, external_recipient FROM survey_email
 WHERE surveyId = $1 AND (email_sent = FALSE)
 `
 
@@ -760,6 +764,7 @@ func (q *Queries) ListUnsentSurveyEmails(ctx context.Context, surveyid int64) ([
 			&i.Uuid,
 			&i.EmailSent,
 			&i.StillUsed,
+			&i.ExternalRecipient,
 		); err != nil {
 			return nil, err
 		}
