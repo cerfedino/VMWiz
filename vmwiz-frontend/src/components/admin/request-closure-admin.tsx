@@ -52,10 +52,11 @@ export function RequestClosureAdmin() {
     if (!closure) return <Skeleton className="h-14 w-full" />;
 
     return (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
-            <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+            <div className="flex min-w-0 items-center gap-3">
                 <Switch
                     id="accept-requests"
+                    className="shrink-0"
                     checked={!closure.closed}
                     onCheckedChange={(checked) => {
                         if (checked) {
@@ -83,6 +84,7 @@ export function RequestClosureAdmin() {
             <Button
                 variant="outline"
                 size="sm"
+                className="shrink-0"
                 onClick={() => setWaitlistDialogOpen(true)}
             >
                 <Users className="h-4 w-4" />

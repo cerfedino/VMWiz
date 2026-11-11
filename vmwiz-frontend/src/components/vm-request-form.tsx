@@ -28,7 +28,7 @@ import type {
     RequestClosure,
     VMRequestValidationErrors,
 } from "@/lib/types/api";
-import { cn } from "@/lib/utils";
+import { cn, isInstitutionalEmail } from "@/lib/utils";
 import { Plus, Minus, RotateCcw, Lock } from "lucide-react";
 
 function FieldError({ message }: { message?: string }) {
@@ -91,7 +91,7 @@ export function VMRequestForm() {
                     onSubmit={handleSubmit}
                     inert={closed}
                     className={cn(
-                        "mx-auto w-full max-w-210 space-y-8 p-6 pb-16",
+                        "mx-auto w-full max-w-210 space-y-8 p-6 pb-16 transition-[filter] duration-300",
                         closed && "blur-[2px]",
                     )}
                 >
@@ -169,7 +169,7 @@ function GeneralInfoSection() {
                 <Input
                     id="personalEmail"
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder="you@example.ch"
                     value={values.personalEmail}
                     onChange={(e) => setField("personalEmail", e.target.value)}
                     onBlur={syncToUrl}
@@ -520,7 +520,7 @@ function CommentsAndTermsSection() {
 function RequestsClosedBanner({ reason }: { reason: string }) {
     return (
         <div className="pointer-events-none absolute inset-0 z-10 flex justify-center px-6">
-            <div className="pointer-events-auto sticky top-[20vh] h-fit w-full max-w-md space-y-6 rounded-xl bg-background p-6 text-sm shadow-lg ring-1 ring-foreground/10">
+            <div className="pointer-events-auto sticky top-[20vh] h-fit w-full max-w-md space-y-6 rounded-xl bg-background p-6 text-sm shadow-lg ring-1 ring-foreground/10 animate-in fade-in-0 zoom-in-95 duration-300">
                 <div className="space-y-2">
                     <div className="flex items-center gap-2">
                         <Lock className="size-4 shrink-0" />
@@ -538,8 +538,6 @@ function RequestsClosedBanner({ reason }: { reason: string }) {
     );
 }
 
-const EMAIL_REGEXP = /^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/;
-
 function WaitlistForm() {
     const [email, setEmail] = useState("");
     const [error, setError] = useState("");
@@ -548,15 +546,16 @@ function WaitlistForm() {
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        const trimmed = email.trim();
-        if (!EMAIL_REGEXP.test(trimmed)) {
-            setError("Must be a valid email address");
+        const trimmedEmail = email.trim();
+        if (!isInstitutionalEmail(trimmedEmail)) {
+            setError("Must be a valid ETH or UZH email address");
             return;
         }
         setError("");
         setSubmitting(true);
         try {
-            await fetchBackend(prepareJoinWaitlist(trimmed));
+            await fetchBackend(prepareJoinWaitlist(trimmedEmail));
+            setEmail(trimmedEmail);
             setJoined(true);
         } catch (err) {
             if (err instanceof FetchError && err.response.status === 403) {
@@ -577,7 +576,7 @@ function WaitlistForm() {
     if (joined) {
         return (
             <p className="text-sm text-teal-600">
-                We will let you know at {email.trim()} once VM requests reopen.
+                We will let you know at {email} once VM requests reopen.
             </p>
         );
     }
@@ -591,7 +590,7 @@ function WaitlistForm() {
                 <Input
                     id="waitlist-email"
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder="you@ethz.ch"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     aria-invalid={!!error}

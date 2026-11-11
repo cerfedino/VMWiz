@@ -8,11 +8,12 @@ import { LogScopesMenu } from "@/components/admin/log-scopes-menu";
 import { SurveyAdmin } from "@/components/admin/survey-admin";
 import { VMRequestAdmin } from "@/components/admin/vm-request-admin";
 import { RequestClosureAdmin } from "@/components/admin/request-closure-admin";
+import { AnimatedHeight } from "@/components/animated-height";
 import { ClipboardList, BarChart3, Trash2, User, Server } from "lucide-react";
 import { fetchFreeIPv4Count } from "@/lib/api";
 import { useEffect, useState } from "react";
 
-export default function ConsolePage() {
+export default function DashboardPage() {
     const { user, loading } = useAuth();
     const [freeIPs, setFreeIPs] = useState<number | null>(null);
 
@@ -22,9 +23,9 @@ export default function ConsolePage() {
 
     return (
         <div className="mx-auto w-full max-w-4xl space-y-10 p-6 pb-16">
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold">Admin Console</h1>
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <h1 className="text-2xl font-bold">Dashboard</h1>
+                <div className="relative flex items-center gap-3 text-sm text-muted-foreground">
                     <LogScopesMenu />
                     {typeof freeIPs === "number" && (
                         <div className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/50 px-2.5 py-1">
@@ -35,12 +36,12 @@ export default function ConsolePage() {
                             <span>free IPv4</span>
                         </div>
                     )}
-                    <div className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
+                    <div className="flex min-w-0 items-center gap-2">
+                        <User className="h-4 w-4 shrink-0" />
                         {loading ? (
                             <span className="animate-pulse">…</span>
                         ) : user ? (
-                            <span>{user.email}</span>
+                            <span className="truncate">{user.email}</span>
                         ) : (
                             <span>Not logged in</span>
                         )}
@@ -70,8 +71,12 @@ export default function ConsolePage() {
                     <ClipboardList className="h-5 w-5" />
                     VM Requests
                 </h2>
-                <RequestClosureAdmin />
-                <VMRequestAdmin />
+                <AnimatedHeight>
+                    <RequestClosureAdmin />
+                </AnimatedHeight>
+                <AnimatedHeight>
+                    <VMRequestAdmin />
+                </AnimatedHeight>
             </section>
 
             <Separator className="opacity-30" />
@@ -81,7 +86,9 @@ export default function ConsolePage() {
                     <BarChart3 className="h-5 w-5" />
                     Surveys
                 </h2>
-                <SurveyAdmin />
+                <AnimatedHeight>
+                    <SurveyAdmin />
+                </AnimatedHeight>
             </section>
         </div>
     );

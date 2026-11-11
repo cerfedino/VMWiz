@@ -1,6 +1,7 @@
 package startupcheck
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/url"
@@ -85,8 +86,8 @@ func DoNetcenterStartupChecks() []*StartupCheck {
 	}
 
 	checks = append(checks, &env_check)
-	required_env := []string{"NETCENTER_HOST", "NETCENTER_USER", "NETCENTER_PWD"}
-	values := []string{config.AppConfig.NETCENTER_HOST, config.AppConfig.NETCENTER_USER, config.AppConfig.NETCENTER_PWD}
+	required_env := []string{"NETCENTER_HOST", "NETCENTER_TOKEN"}
+	values := []string{config.AppConfig.NETCENTER_HOST, config.AppConfig.NETCENTER_TOKEN}
 	for i, env := range required_env {
 		if values[i] == "" {
 			env_check.AddError(fmt.Errorf("%v is not set", env))
@@ -100,7 +101,7 @@ func DoNetcenterStartupChecks() []*StartupCheck {
 		Name: "Run example Netcenter query",
 	}
 	checks = append(checks, &query_check)
-	_, err := netcenter.GetFreeIPv4sInSubnet(netcenter.VM_SUBNET.V4net)
+	_, err := netcenter.GetFreeIPv4sInSubnet(context.Background(), netcenter.VM_SUBNET.V4net)
 	if err != nil {
 		query_check.AddError(fmt.Errorf("Error when performing HTTP request to Netcenter:  %v", err.Error()))
 	} else {
@@ -115,23 +116,23 @@ func DoNetcenterStartupChecks() []*StartupCheck {
 		Name: "Check availability of free IPs",
 	}
 	checks = append(checks, &ip_availability_check)
-	ipv4s, err := netcenter.GetFreeIPv4sInSubnet(netcenter.VM_SUBNET.V4net)
+	ipv4s, err := netcenter.GetFreeIPv4sInSubnet(context.Background(), netcenter.VM_SUBNET.V4net)
 	if err != nil {
 		ip_availability_check.AddError(fmt.Errorf("Error when checking availability of free IPv4s: %v", err.Error()))
 	} else {
-		msg := fmt.Sprintf("Found %d free IPv4 addresses in subnet '%v'", len(*ipv4s), netcenter.VM_SUBNET.V4net)
-		if len(*ipv4s) < 20 {
+		msg := fmt.Sprintf("Found %d free IPv4 addresses in subnet '%v'", len(ipv4s), netcenter.VM_SUBNET.V4net)
+		if len(ipv4s) < 20 {
 			ip_availability_check.AddWarning(msg)
 		} else {
 			ip_availability_check.AddSuccess(msg)
 		}
 	}
-	ipv6, err := netcenter.GetFreeIPv6sInSubnet(netcenter.VM_SUBNET.V6net)
+	ipv6, err := netcenter.GetFreeIPv6sInSubnet(context.Background(), netcenter.VM_SUBNET.V6net)
 	if err != nil {
 		ip_availability_check.AddError(fmt.Errorf("Error when checking availability of free IPv6s: %v", err.Error()))
 	} else {
-		msg := fmt.Sprintf("Found %d free IPv6 addresses in subnet '%v'", len(*ipv6), netcenter.VM_SUBNET.V6net)
-		if len(*ipv6) < 20 {
+		msg := fmt.Sprintf("Found %d free IPv6 addresses in subnet '%v'", len(ipv6), netcenter.VM_SUBNET.V6net)
+		if len(ipv6) < 20 {
 			ip_availability_check.AddWarning(msg)
 		} else {
 			ip_availability_check.AddSuccess(msg)

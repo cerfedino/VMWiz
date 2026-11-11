@@ -17,7 +17,7 @@ import (
 
 // Routes under /api/vmrequest/{closure,close,reopen,waitlist}
 
-var waitlistEmailRegexp = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$`)
+var waitlistEmailRegexp = regexp.MustCompile(`^[^\s@]+@([^\s@]+\.)*(ethz|uzh)\.ch$`)
 
 func addRequestClosureRoutes(r *mux.Router) {
 
@@ -111,7 +111,7 @@ func addRequestClosureRoutes(r *mux.Router) {
 		if !waitlistEmailRegexp.MatchString(email) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusForbidden)
-			json.NewEncoder(w).Encode(map[string]string{"email": "Must be a valid email address"})
+			json.NewEncoder(w).Encode(map[string]string{"email": "Must be a valid ETH or UZH email address"})
 			return
 		}
 

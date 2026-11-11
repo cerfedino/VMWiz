@@ -30,9 +30,8 @@ type Config struct {
 	SSH_COMP_USER            string
 	SSH_COMP_PKEY_PASSPHRASE string
 
-	NETCENTER_HOST string
-	NETCENTER_USER string
-	NETCENTER_PWD  string
+	NETCENTER_HOST  string
+	NETCENTER_TOKEN string
 
 	KEYCLOAK_ISSUER_URL              string
 	KEYCLOAK_CLIENT_ID               string
@@ -91,8 +90,7 @@ func (c *Config) Init() error {
 	c.SSH_COMP_PKEY_PASSPHRASE = os.Getenv("SSH_COMP_PKEY_PASSPHRASE")
 
 	c.NETCENTER_HOST = os.Getenv("NETCENTER_HOST")
-	c.NETCENTER_USER = os.Getenv("NETCENTER_USER")
-	c.NETCENTER_PWD = os.Getenv("NETCENTER_PWD")
+	c.NETCENTER_TOKEN = os.Getenv("NETCENTER_TOKEN")
 
 	c.KEYCLOAK_ISSUER_URL = os.Getenv("KEYCLOAK_ISSUER_URL")
 	c.KEYCLOAK_CLIENT_ID = os.Getenv("KEYCLOAK_CLIENT_ID")

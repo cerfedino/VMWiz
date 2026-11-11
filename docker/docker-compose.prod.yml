@@ -3,11 +3,12 @@ name: "vmwiz-prod"
 networks:
   vmwiz-internal:
     external: false
+    enable_ipv6: true
 
 services:
   vmwiz-caddy:
     container_name: vmwiz-caddy
-    image: caddy:2.11.3@sha256:ec18ee54aab3315c22e25f3b2babda73ff8007d39b13b3bd1bfffa2f0444c7d9
+    image: caddy:2.11.6@sha256:3422ce6de165df66534f9b9ba50efaf457114ec961763cc52f5dbdaac2972d73
     restart: unless-stopped
     ports:
       - "80:80"
@@ -49,7 +50,7 @@ services:
 
   vmwiz-notifier:
     container_name: vmwiz-notifier
-    image: caronc/apprise:v1.5.0@sha256:43673bf62faa88148298d52664b37b4860189555db0b251b54d79a3ef3a173cf
+    image: caronc/apprise:v1.5.4@sha256:c5ea17408c10fd84c8fdb05a421114a1a677b16343c274bf9b1a55701b530829
     restart: unless-stopped
     networks:
       - vmwiz-internal

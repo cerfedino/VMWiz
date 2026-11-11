@@ -127,9 +127,9 @@ WHERE id = root_id
 
 -- name: CreateSurveyEmail :one
 INSERT INTO survey_email (
-  recipient, surveyId, vmid, hostname, uuid, email_sent, still_used
+  recipient, surveyId, vmid, hostname, uuid, email_sent, still_used, external_recipient
 ) VALUES (
-  $1, $2, $3, $4, $5, $6, $7
+  $1, $2, $3, $4, $5, $6, $7, $8
 )
 RETURNING id;
 

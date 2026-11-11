@@ -1,6 +1,7 @@
 package form
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"regexp"
@@ -125,7 +126,7 @@ func (f *Form) Validate() (Form_validation, bool) {
 		err = true
 	}
 
-	existing_ipv4s, existing_ipv6sm, e := netcenter.GetHostIPs(fmt.Sprintf("%v.vsos.ethz.ch", f.Hostname))
+	existing_ipv4s, existing_ipv6sm, e := netcenter.GetHostIPs(context.Background(), fmt.Sprintf("%v.vsos.ethz.ch", f.Hostname))
 	if e != nil {
 		log.Printf("ERROR: %v\n", e)
 		validation.Hostname_err = "Hostname cannot be validated"

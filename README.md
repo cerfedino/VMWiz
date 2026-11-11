@@ -93,7 +93,7 @@ The backend estabilishes SSH sessions to the Cluster management (CM) node and th
   Populate [docker/ssh/vm_univ_pubkey.key](docker/ssh/vm_univ_pubkey.key) and [docker/ssh/vm_univ_privkey.key](docker/ssh/vm_univ_privkey.key) with a valid key pair.
 
 ### 5. Modify Netcenter values inside of [.backend.env](docker/.backend.env)
-The backend uses the Netcenter HTTP API, which requires authentication. To that end, insert the credentials of a valid user. 
+The backend uses the Netcenter API, which authenticates with an access token. Log into Netcenter as the technical user, create a token on the [Access Token page](https://www.netcenter.ethz.ch/access-token) and set `NETCENTER_TOKEN` to it.
 
 ### 6. Modify Keycloak values inside of [.backend.env](docker/.backend.env)
 The backend has an OpenID client to authenticate SOSETH users. To that end, adjust the Keycloak-related environment variables in [.backend.env](docker/.backend.env).

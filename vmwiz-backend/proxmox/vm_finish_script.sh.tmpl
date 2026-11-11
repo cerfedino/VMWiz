@@ -115,6 +115,8 @@ apt install -y qemu-guest-agent
 
 # Setup cronjob to periodically pull the MOTD
 # We fetch the setup script separately such that older VMs can also just run the below command
+# Debian cloud images don't ship cron
+apt install -y cron
 curl https://git.sos.ethz.ch/_public/vsos/motd/-/raw/main/configure_cronjob.sh | bash
 
 

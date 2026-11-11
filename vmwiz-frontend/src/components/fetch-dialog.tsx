@@ -26,6 +26,7 @@ import {
 } from "@/components/request-debug-panel";
 import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { LogStream } from "@/components/log-stream";
+import { AnimatedHeight } from "@/components/animated-height";
 
 class CancelledError extends Error {
     constructor() {
@@ -309,129 +310,147 @@ export function FetchDialog({
         >
             <DialogContent
                 showCloseButton={false}
-                className={cn(
-                    logScopeId ? "sm:max-w-3xl" : "flex max-h-[50vh] flex-col",
-                )}
+                className={cn(logScopeId && "sm:max-w-3xl")}
             >
-                <DialogHeader>
-                    {showIcon && <PhaseIcon phase={phase} />}
-                    <DialogTitle className="text-center">{title}</DialogTitle>
-                    {phaseDescription && (
-                        <DialogDescription className={descriptionClassName}>
-                            {phaseDescription}
-                        </DialogDescription>
-                    )}
-                </DialogHeader>
+                <AnimatedHeight>
+                    <div
+                        className={cn(
+                            "flex flex-col gap-4",
+                            !logScopeId && "max-h-[50vh]",
+                        )}
+                    >
+                        <DialogHeader>
+                            {showIcon && <PhaseIcon phase={phase} />}
+                            <DialogTitle className="text-center">
+                                {title}
+                            </DialogTitle>
+                            {phaseDescription && (
+                                <DialogDescription
+                                    className={descriptionClassName}
+                                >
+                                    {phaseDescription}
+                                </DialogDescription>
+                            )}
+                        </DialogHeader>
 
-                {phase === "success" && successContent && (
-                    <div className="min-h-0 overflow-y-auto">
-                        {successContent(successData)}
-                    </div>
-                )}
+                        {phase === "success" && successContent && (
+                            <div className="min-h-0 overflow-y-auto">
+                                {successContent(successData)}
+                            </div>
+                        )}
 
-                {logScopeId &&
-                    (phase === "streaming" ||
-                        phase === "success" ||
-                        phase === "error") && (
-                        <LogStream
-                            logScopeId={logScopeId}
-                            onDone={(failed) => {
-                                if (failed) {
-                                    setErrorMessage(
-                                        "Operation failed. See logs above.",
-                                    );
-                                    setPhase("error");
-                                } else {
-                                    setPhase("success");
-                                    onSuccess?.(successData);
-                                }
-                            }}
+                        {logScopeId &&
+                            (phase === "streaming" ||
+                                phase === "success" ||
+                                phase === "error") && (
+                                <LogStream
+                                    logScopeId={logScopeId}
+                                    onDone={(failed) => {
+                                        if (failed) {
+                                            setErrorMessage(
+                                                "Operation failed. See logs above.",
+                                            );
+                                            setPhase("error");
+                                        } else {
+                                            setPhase("success");
+                                            onSuccess?.(successData);
+                                        }
+                                    }}
+                                />
+                            )}
+
+                        {phase === "confirming" && (
+                            <div className="space-y-2 py-2">
+                                <Label htmlFor="fetch-dialog-confirm">
+                                    Type{" "}
+                                    <span className="font-mono font-semibold">
+                                        {expectedToken}
+                                    </span>{" "}
+                                    to confirm
+                                </Label>
+                                <Input
+                                    id="fetch-dialog-confirm"
+                                    value={confirmInput}
+                                    onChange={(e) => {
+                                        const target =
+                                            e.target as HTMLInputElement | null;
+                                        setConfirmInput(target?.value ?? "");
+                                    }}
+                                    placeholder={expectedToken}
+                                    autoFocus
+                                    autoComplete="off"
+                                    onKeyDown={(e) => {
+                                        if (
+                                            e.key === "Enter" &&
+                                            confirmInput === expectedToken
+                                        ) {
+                                            handleConfirm();
+                                        }
+                                    }}
+                                />
+                            </div>
+                        )}
+
+                        {/*Collapsible panel showing request info*/}
+                        <RequestDebugPanel
+                            requestInfo={request}
+                            responseInfo={responseInfo}
                         />
-                    )}
 
-                {phase === "confirming" && (
-                    <div className="space-y-2 py-2">
-                        <Label htmlFor="fetch-dialog-confirm">
-                            Type{" "}
-                            <span className="font-mono font-semibold">
-                                {expectedToken}
-                            </span>{" "}
-                            to confirm
-                        </Label>
-                        <Input
-                            id="fetch-dialog-confirm"
-                            value={confirmInput}
-                            onChange={(e) => {
-                                const target =
-                                    e.target as HTMLInputElement | null;
-                                setConfirmInput(target?.value ?? "");
-                            }}
-                            placeholder={expectedToken}
-                            autoFocus
-                            autoComplete="off"
-                            onKeyDown={(e) => {
-                                if (
-                                    e.key === "Enter" &&
-                                    confirmInput === expectedToken
-                                ) {
-                                    handleConfirm();
-                                }
-                            }}
-                        />
-                    </div>
-                )}
-
-                {/*Collapsible panel showing request info*/}
-                <RequestDebugPanel
-                    requestInfo={request}
-                    responseInfo={responseInfo}
-                />
-
-                {/*Footer buttons*/}
-                <DialogFooter className={cn(phase === "loading" && "hidden")}>
-                    {phase === "idle" && (
-                        <>
-                            <Button
-                                variant={cancelVariant}
-                                onClick={() => onOpenChange(false)}
-                            >
-                                {cancelLabel}
-                            </Button>
-                            <Button
-                                variant={proceedVariant}
-                                onClick={fireRequest}
-                            >
-                                {proceedLabel}
-                            </Button>
-                        </>
-                    )}
-
-                    {phase === "confirming" && (
-                        <>
-                            <Button variant="outline" onClick={handleCancel}>
-                                Cancel
-                            </Button>
-                            <Button
-                                variant="destructive"
-                                disabled={confirmInput !== expectedToken}
-                                onClick={handleConfirm}
-                            >
-                                Confirm
-                            </Button>
-                        </>
-                    )}
-
-                    {(phase === "success" ||
-                        phase === "error" ||
-                        phase === "streaming") && (
-                        <Button
-                            variant="outline"
-                            onClick={() => onOpenChange(false)}
+                        {/*Footer buttons*/}
+                        <DialogFooter
+                            className={cn(phase === "loading" && "hidden")}
                         >
-                            Close
-                        </Button>
-                    )}
-                </DialogFooter>
+                            {phase === "idle" && (
+                                <>
+                                    <Button
+                                        variant={cancelVariant}
+                                        onClick={() => onOpenChange(false)}
+                                    >
+                                        {cancelLabel}
+                                    </Button>
+                                    <Button
+                                        variant={proceedVariant}
+                                        onClick={fireRequest}
+                                    >
+                                        {proceedLabel}
+                                    </Button>
+                                </>
+                            )}
+
+                            {phase === "confirming" && (
+                                <>
+                                    <Button
+                                        variant="outline"
+                                        onClick={handleCancel}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        variant="destructive"
+                                        disabled={
+                                            confirmInput !== expectedToken
+                                        }
+                                        onClick={handleConfirm}
+                                    >
+                                        Confirm
+                                    </Button>
+                                </>
+                            )}
+
+                            {(phase === "success" ||
+                                phase === "error" ||
+                                phase === "streaming") && (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => onOpenChange(false)}
+                                >
+                                    Close
+                                </Button>
+                            )}
+                        </DialogFooter>
+                    </div>
+                </AnimatedHeight>
             </DialogContent>
         </Dialog>
     );

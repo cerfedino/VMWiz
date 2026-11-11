@@ -12,6 +12,7 @@ import (
 
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/netcenter"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/router"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/startupcheck"
 	"github.com/rs/cors"
@@ -53,6 +54,14 @@ func StartServer() error {
 			if err := logger.Retain(maxAge, maxBytes); err != nil {
 				log.Printf("Log retention: %v", err)
 			}
+			time.Sleep(time.Hour)
+		}
+	}()
+
+	// Periodically perform a Netcenter API call such that the token doesn't expire
+	go func() {
+		for {
+			_, _ = netcenter.GetFreeIPv4sInSubnet(context.Background(), netcenter.VM_SUBNET.V4net)
 			time.Sleep(time.Hour)
 		}
 	}()
