@@ -317,7 +317,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		ctx, lg, finish := logger.Nest(context.Background(), fmt.Sprintf("Accept VM request %d", body.ID))
+		ctx, lg, finish := logger.Nest(context.WithoutCancel(r.Context()), fmt.Sprintf("Accept VM request %d", body.ID))
 		// Set the Log Scope header such that the frontend can stream the live logs immediately.
 		w.Header().Set("X-Log-Scope-Id", lg.ScopeID())
 		w.WriteHeader(http.StatusAccepted)
@@ -425,6 +425,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			http.Error(w, "Cannot edit a request that is not pending", http.StatusBadRequest)
 			return
 		}
+		before := request
 
 		if body.Cores_cpu != 0 {
 			request.Cores = int32(body.Cores_cpu)
@@ -463,6 +464,9 @@ func addVMRequestRoutes(r *mux.Router) {
 			log.Printf("Error updating VM request: %v", err)
 			http.Error(w, "Failed to update VM request", http.StatusInternalServerError)
 			return
+		}
+		if err := notifier.NotifyVMRequestEdited(r.Context(), before, request); err != nil {
+			log.Printf("Failed to send VM request edit notification: %v", err)
 		}
 
 	}))))

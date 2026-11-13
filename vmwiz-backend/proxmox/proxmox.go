@@ -782,14 +782,14 @@ Reinstall: %v
 		lg.Infof("\t[-] Creating secondary disk\n")
 		diskName := fmt.Sprintf("vm-%v-disk-3", VM_ID)
 
-		allocCmd := fmt.Sprintf("pvesm alloc vmnorm %v %s %vG", VM_ID, diskName, options.SecondaryDisk_GB)
+		allocCmd := fmt.Sprintf("pvesm alloc %s %v %s %vG", HDDStorage, VM_ID, diskName, options.SecondaryDisk_GB)
 		lg.Infof("\t\t> %v \n", allocCmd)
 		stdout, err = comp_ssh.Run(allocCmd)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot create secondary disk: %v\nOutput:\n%s", err, stdout)
 		}
 
-		attachCmd := fmt.Sprintf("qm set %v --scsi3 vmnorm:%s", VM_ID, diskName)
+		attachCmd := fmt.Sprintf("qm set %v --%s %s:%s", VM_ID, HDDSlot, HDDStorage, diskName)
 		lg.Infof("\t\t> %v \n", attachCmd)
 		stdout, err = comp_ssh.Run(attachCmd)
 		if err != nil {
@@ -1268,8 +1268,18 @@ func AddVMToResourcePool(vm_id int, pool string) error {
 }
 
 type PVENodeVMConfig struct {
+	Digest string `json:"digest"`
+	Cores  int    `json:"cores"`
+	// "[current=]<MiB>"
+	Memory      string `json:"memory"`
+	Scsi3       string `json:"scsi3"`
 	Description string `json:"description"`
 	Net0        string `json:"net0"`
+}
+
+func (cfg *PVENodeVMConfig) MemoryMB() int {
+	mb, _ := strconv.Atoi(strings.TrimPrefix(cfg.Memory, "current="))
+	return mb
 }
 
 func (cfg *PVENodeVMConfig) NetworkDeviceConfig() map[string]string {
@@ -1304,7 +1314,8 @@ func GetNodeVMConfig(node string, vmid int) (*PVENodeVMConfig, error) {
 	type vmConfig struct {
 		Data PVENodeVMConfig `json:"data"`
 	}
-	var config vmConfig
+	// Proxmox defaults for keys the config does not set.
+	config := vmConfig{Data: PVENodeVMConfig{Cores: 1, Memory: "512"}}
 	err = json.Unmarshal(body, &config)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get VM config: %v", err.Error())
@@ -1664,4 +1675,204 @@ func CheckAllVMs() []VMWarning {
 	}
 
 	return warnings
+}
+
+// scsi1 is the swap disk (VM.conf.tmpl).
+const (
+	HDDStorage = "vmnorm"
+	HDDSlot    = "scsi3"
+)
+
+// parseDiskSizeGB extracts the size of a Proxmox disk config string in GB.
+// The string looks like "vmnorm:vm-100-disk-3,size=50G,..."; the size unit
+// can be M, G, or T. Returns 0 if no size can be parsed.
+func parseDiskSizeGB(disk string) int {
+	for _, part := range strings.Split(disk, ",") {
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) != 2 || kv[0] != "size" {
+			continue
+		}
+		raw := strings.TrimSpace(kv[1])
+		if raw == "" {
+			return 0
+		}
+		unit := raw[len(raw)-1]
+		num, err := strconv.Atoi(raw[:len(raw)-1])
+		if err != nil {
+			return 0
+		}
+		switch unit {
+		case 'T':
+			return num * 1024
+		case 'G':
+			return num
+		case 'M':
+			return num / 1024
+		}
+		return 0
+	}
+	return 0
+}
+
+// SecondaryDiskGB returns the size in GB of the HDD, or 0 if the VM has none.
+func (cfg *PVENodeVMConfig) SecondaryDiskGB() int {
+	if cfg.Scsi3 == "" {
+		return 0
+	}
+	return parseDiskSizeGB(cfg.Scsi3)
+}
+
+// SetVMCoresAndMemory updates the cores and memory of a VM via the Proxmox
+// HTTP API. Memory is in MB. Either parameter is skipped if zero.
+func SetVMCoresAndMemory(node string, vmid int, cores int, memoryMB int) error {
+	form := url.Values{}
+	if cores > 0 {
+		form.Set("cores", strconv.Itoa(cores))
+	}
+	if memoryMB > 0 {
+		form.Set("memory", strconv.Itoa(memoryMB))
+	}
+	if len(form) == 0 {
+		return nil
+	}
+
+	body := []byte(form.Encode())
+	req, client, err := proxmoxMakeRequest(http.MethodPut, fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid), body)
+	if err != nil {
+		return fmt.Errorf("Failed to set VM cores/memory: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	_, err = proxmoxDoRequest(req, client)
+	if err != nil {
+		return fmt.Errorf("Failed to set VM cores/memory: %v", err)
+	}
+	return nil
+}
+
+// ResizeVMDisk grows the main disk (scsi0) to the given target size in GB.
+// Proxmox does not support shrinking, so this returns an error if the target
+// is not strictly larger than the current size.
+func ResizeVMDisk(node string, vmid int, currentGB int, targetGB int) error {
+	return resizeVMDiskSlot(node, vmid, "scsi0", currentGB, targetGB)
+}
+
+// ResizeVMSecondaryDisk grows the secondary HDD disk to the given
+// target size in GB. Same shrink restriction as the primary disk.
+func ResizeVMSecondaryDisk(node string, vmid int, currentGB int, targetGB int) error {
+	return resizeVMDiskSlot(node, vmid, HDDSlot, currentGB, targetGB)
+}
+
+func resizeVMDiskSlot(node string, vmid int, slot string, currentGB, targetGB int) error {
+	if targetGB == currentGB {
+		return nil
+	}
+	if targetGB < currentGB {
+		return fmt.Errorf("Cannot shrink VM disk %s (current %dG, target %dG)", slot, currentGB, targetGB)
+	}
+
+	form := url.Values{}
+	form.Set("disk", slot)
+	form.Set("size", fmt.Sprintf("%dG", targetGB))
+
+	body := []byte(form.Encode())
+	req, client, err := proxmoxMakeRequest(http.MethodPut, fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/resize", node, vmid), body)
+	if err != nil {
+		return fmt.Errorf("Failed to resize VM disk %s: %v", slot, err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	res, err := proxmoxDoRequest(req, client)
+	if err != nil {
+		return fmt.Errorf("Failed to resize VM disk %s: %v", slot, err)
+	}
+
+	if err := waitForNodeTask(node, res); err != nil {
+		return fmt.Errorf("Failed to resize VM disk %s: %v", slot, err)
+	}
+	return nil
+}
+
+// response is the body of a call that returns a task ID.
+// GET /api2/json/nodes/{node}/tasks/{upid}/status
+func waitForNodeTask(node string, response []byte) error {
+	var started struct {
+		Data string `json:"data"`
+	}
+	if err := json.Unmarshal(response, &started); err != nil {
+		return fmt.Errorf("Reading task ID: Unmarshal error: %v", err)
+	}
+	upid := started.Data
+	if upid == "" {
+		return fmt.Errorf("No task ID in response: %s", response)
+	}
+
+	const timeoutSeconds = 30
+	for range timeoutSeconds {
+		req, client, err := proxmoxMakeRequest(http.MethodGet, fmt.Sprintf("/api2/json/nodes/%s/tasks/%s/status", node, url.PathEscape(upid)), nil)
+		if err != nil {
+			return fmt.Errorf("Waiting for task '%v': %v", upid, err)
+		}
+		body, err := proxmoxDoRequest(req, client)
+		if err != nil {
+			return fmt.Errorf("Waiting for task '%v': %v", upid, err)
+		}
+
+		var task struct {
+			Data struct {
+				Status     string `json:"status"`
+				Exitstatus string `json:"exitstatus"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(body, &task); err != nil {
+			return fmt.Errorf("Waiting for task '%v': Unmarshal error: %v", upid, err)
+		}
+		if task.Data.Status == "stopped" {
+			if task.Data.Exitstatus != "OK" {
+				return fmt.Errorf("Task '%v' failed: %v", upid, task.Data.Exitstatus)
+			}
+			return nil
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return fmt.Errorf("Task '%v' still running after %vs", upid, timeoutSeconds)
+}
+
+// CreateVMSecondaryDisk attaches a new HDD to the VM with the given size.
+// Errors if the slot is already populated.
+func CreateVMSecondaryDisk(node string, vmid int, sizeGB int) error {
+	if sizeGB <= 0 {
+		return fmt.Errorf("Cannot create secondary disk with size %d", sizeGB)
+	}
+
+	cfg, err := GetNodeVMConfig(node, vmid)
+	if err != nil {
+		return fmt.Errorf("read VM config before HDD creation: %w", err)
+	}
+	if cfg.Scsi3 != "" {
+		return fmt.Errorf("Cannot create secondary disk: %s is already occupied", HDDSlot)
+	}
+	if cfg.Digest == "" {
+		return fmt.Errorf("Cannot create secondary disk without a VM config digest")
+	}
+
+	form := url.Values{}
+	form.Set("digest", cfg.Digest)
+	form.Set(HDDSlot, fmt.Sprintf("%s:%d", HDDStorage, sizeGB))
+
+	body := []byte(form.Encode())
+	req, client, err := proxmoxMakeRequest(http.MethodPost, fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid), body)
+	if err != nil {
+		return fmt.Errorf("Failed to attach secondary disk: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	res, err := proxmoxDoRequest(req, client)
+	if err != nil {
+		return fmt.Errorf("Failed to attach secondary disk: %v", err)
+	}
+	if err := waitForNodeTask(node, res); err != nil {
+		return fmt.Errorf("Failed to attach secondary disk: %v", err)
+	}
+	return nil
 }

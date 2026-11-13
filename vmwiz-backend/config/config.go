@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strconv"
@@ -37,6 +38,7 @@ type Config struct {
 	KEYCLOAK_CLIENT_ID               string
 	KEYCLOAK_CLIENT_SECRET           string
 	KEYCLOAK_RESTRICT_AUTH_TO_GROUPS []string
+	SSHPORTAL_SECRET                 string
 	AUTH_SKIP                        bool
 
 	POSTGRES_USER     string
@@ -96,6 +98,13 @@ func (c *Config) Init() error {
 	c.KEYCLOAK_CLIENT_ID = os.Getenv("KEYCLOAK_CLIENT_ID")
 	c.KEYCLOAK_CLIENT_SECRET = os.Getenv("KEYCLOAK_CLIENT_SECRET")
 	c.KEYCLOAK_RESTRICT_AUTH_TO_GROUPS = strings.Split(os.Getenv("KEYCLOAK_RESTRICT_AUTH_TO_GROUPS"), ",")
+	c.SSHPORTAL_SECRET = os.Getenv("SSHPORTAL_SECRET")
+
+	if c.SSHPORTAL_SECRET == "" {
+		log.Printf("Warning: SSHPORTAL_SECRET is not set")
+	} else if len(c.SSHPORTAL_SECRET) < 32 {
+		return fmt.Errorf("Failed to parse config: SSHPORTAL_SECRET: must be at least 32 characters, value has %v", len(c.SSHPORTAL_SECRET))
+	}
 	c.AUTH_SKIP = os.Getenv("AUTH_SKIP") == "true"
 
 	c.POSTGRES_USER = os.Getenv("POSTGRES_USER")

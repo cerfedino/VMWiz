@@ -83,7 +83,7 @@ func (q *Queries) CreateLogScope(ctx context.Context, arg CreateLogScopeParams) 
 }
 
 const createRequestClosure = `-- name: CreateRequestClosure :one
-INSERT INTO request_closure (reason) VALUES ($1) RETURNING id
+INSERT INTO vm_request_closure (reason) VALUES ($1) RETURNING id
 `
 
 func (q *Queries) CreateRequestClosure(ctx context.Context, reason string) (int64, error) {
@@ -94,7 +94,7 @@ func (q *Queries) CreateRequestClosure(ctx context.Context, reason string) (int6
 }
 
 const createRequestWaitlistEntry = `-- name: CreateRequestWaitlistEntry :exec
-INSERT INTO request_waitlist (closure_id, email) VALUES ($1, $2) ON CONFLICT DO NOTHING
+INSERT INTO vm_request_waitlist (closure_id, email) VALUES ($1, $2) ON CONFLICT DO NOTHING
 `
 
 type CreateRequestWaitlistEntryParams struct {
@@ -105,6 +105,68 @@ type CreateRequestWaitlistEntryParams struct {
 func (q *Queries) CreateRequestWaitlistEntry(ctx context.Context, arg CreateRequestWaitlistEntryParams) error {
 	_, err := q.db.ExecContext(ctx, createRequestWaitlistEntry, arg.ClosureID, arg.Email)
 	return err
+}
+
+const createResourceChange = `-- name: CreateResourceChange :one
+INSERT INTO resource_change_request (
+    status, vm_hostname, requester_fingerprint,
+    current_cores, current_ram_gb, current_disk_gb, current_secondary_disk_gb,
+    new_cores, new_ram_gb, new_disk_gb, new_secondary_disk_gb,
+    needs_review_reasons, request_reason
+) VALUES (
+    $1, $2, $3,
+    $4, $5, $6, $7,
+    $8, $9, $10, $11,
+    $12, $13
+) RETURNING id
+`
+
+type CreateResourceChangeParams struct {
+	Status                 RcrStatus
+	VmHostname             string
+	RequesterFingerprint   string
+	CurrentCores           int32
+	CurrentRamGb           int32
+	CurrentDiskGb          int32
+	CurrentSecondaryDiskGb int32
+	NewCores               int32
+	NewRamGb               int32
+	NewDiskGb              int32
+	NewSecondaryDiskGb     int32
+	NeedsReviewReasons     []string
+	RequestReason          string
+}
+
+func (q *Queries) CreateResourceChange(ctx context.Context, arg CreateResourceChangeParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, createResourceChange,
+		arg.Status,
+		arg.VmHostname,
+		arg.RequesterFingerprint,
+		arg.CurrentCores,
+		arg.CurrentRamGb,
+		arg.CurrentDiskGb,
+		arg.CurrentSecondaryDiskGb,
+		arg.NewCores,
+		arg.NewRamGb,
+		arg.NewDiskGb,
+		arg.NewSecondaryDiskGb,
+		pq.Array(arg.NeedsReviewReasons),
+		arg.RequestReason,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createResourceChangeClosure = `-- name: CreateResourceChangeClosure :one
+INSERT INTO resource_change_closure (reason) VALUES ($1) RETURNING id
+`
+
+func (q *Queries) CreateResourceChangeClosure(ctx context.Context, reason string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, createResourceChangeClosure, reason)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }
 
 const createSurvey = `-- name: CreateSurvey :one
@@ -213,6 +275,37 @@ func (q *Queries) FinishLogScope(ctx context.Context, arg FinishLogScopeParams) 
 	return err
 }
 
+const getLatestAppliedResourceChange = `-- name: GetLatestAppliedResourceChange :one
+SELECT id, created_at, status, vm_hostname, requester_fingerprint, current_cores, current_ram_gb, current_disk_gb, new_cores, new_ram_gb, new_disk_gb, needs_review_reasons, processed_at, processed_note, request_reason, current_secondary_disk_gb, new_secondary_disk_gb FROM resource_change_request
+WHERE vm_hostname = $1 AND status IN ('auto_approved', 'accepted')
+ORDER BY created_at DESC, id DESC LIMIT 1
+`
+
+func (q *Queries) GetLatestAppliedResourceChange(ctx context.Context, vmHostname string) (ResourceChangeRequest, error) {
+	row := q.db.QueryRowContext(ctx, getLatestAppliedResourceChange, vmHostname)
+	var i ResourceChangeRequest
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.Status,
+		&i.VmHostname,
+		&i.RequesterFingerprint,
+		&i.CurrentCores,
+		&i.CurrentRamGb,
+		&i.CurrentDiskGb,
+		&i.NewCores,
+		&i.NewRamGb,
+		&i.NewDiskGb,
+		pq.Array(&i.NeedsReviewReasons),
+		&i.ProcessedAt,
+		&i.ProcessedNote,
+		&i.RequestReason,
+		&i.CurrentSecondaryDiskGb,
+		&i.NewSecondaryDiskGb,
+	)
+	return i, err
+}
+
 const getLatestSurveyID = `-- name: GetLatestSurveyID :one
 SELECT id FROM survey ORDER BY date DESC LIMIT 1
 `
@@ -252,17 +345,93 @@ func (q *Queries) GetLogScopeStatus(ctx context.Context, id string) (GetLogScope
 }
 
 const getOpenRequestClosure = `-- name: GetOpenRequestClosure :one
-SELECT id, closed_at, reopened_at, reason FROM request_closure WHERE reopened_at IS NULL
+SELECT id, closed_at, reopened_at, reason FROM vm_request_closure WHERE reopened_at IS NULL
 `
 
-func (q *Queries) GetOpenRequestClosure(ctx context.Context) (RequestClosure, error) {
+func (q *Queries) GetOpenRequestClosure(ctx context.Context) (VmRequestClosure, error) {
 	row := q.db.QueryRowContext(ctx, getOpenRequestClosure)
-	var i RequestClosure
+	var i VmRequestClosure
 	err := row.Scan(
 		&i.ID,
 		&i.ClosedAt,
 		&i.ReopenedAt,
 		&i.Reason,
+	)
+	return i, err
+}
+
+const getOpenResourceChangeClosure = `-- name: GetOpenResourceChangeClosure :one
+SELECT id, closed_at, reopened_at, reason FROM resource_change_closure WHERE reopened_at IS NULL
+`
+
+func (q *Queries) GetOpenResourceChangeClosure(ctx context.Context) (ResourceChangeClosure, error) {
+	row := q.db.QueryRowContext(ctx, getOpenResourceChangeClosure)
+	var i ResourceChangeClosure
+	err := row.Scan(
+		&i.ID,
+		&i.ClosedAt,
+		&i.ReopenedAt,
+		&i.Reason,
+	)
+	return i, err
+}
+
+const getPendingResourceChange = `-- name: GetPendingResourceChange :one
+SELECT id, created_at, status, vm_hostname, requester_fingerprint, current_cores, current_ram_gb, current_disk_gb, new_cores, new_ram_gb, new_disk_gb, needs_review_reasons, processed_at, processed_note, request_reason, current_secondary_disk_gb, new_secondary_disk_gb FROM resource_change_request
+WHERE vm_hostname = $1 AND status = 'pending'
+ORDER BY created_at DESC, id DESC LIMIT 1
+`
+
+func (q *Queries) GetPendingResourceChange(ctx context.Context, vmHostname string) (ResourceChangeRequest, error) {
+	row := q.db.QueryRowContext(ctx, getPendingResourceChange, vmHostname)
+	var i ResourceChangeRequest
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.Status,
+		&i.VmHostname,
+		&i.RequesterFingerprint,
+		&i.CurrentCores,
+		&i.CurrentRamGb,
+		&i.CurrentDiskGb,
+		&i.NewCores,
+		&i.NewRamGb,
+		&i.NewDiskGb,
+		pq.Array(&i.NeedsReviewReasons),
+		&i.ProcessedAt,
+		&i.ProcessedNote,
+		&i.RequestReason,
+		&i.CurrentSecondaryDiskGb,
+		&i.NewSecondaryDiskGb,
+	)
+	return i, err
+}
+
+const getResourceChangeByID = `-- name: GetResourceChangeByID :one
+SELECT id, created_at, status, vm_hostname, requester_fingerprint, current_cores, current_ram_gb, current_disk_gb, new_cores, new_ram_gb, new_disk_gb, needs_review_reasons, processed_at, processed_note, request_reason, current_secondary_disk_gb, new_secondary_disk_gb FROM resource_change_request WHERE id = $1
+`
+
+func (q *Queries) GetResourceChangeByID(ctx context.Context, id int64) (ResourceChangeRequest, error) {
+	row := q.db.QueryRowContext(ctx, getResourceChangeByID, id)
+	var i ResourceChangeRequest
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.Status,
+		&i.VmHostname,
+		&i.RequesterFingerprint,
+		&i.CurrentCores,
+		&i.CurrentRamGb,
+		&i.CurrentDiskGb,
+		&i.NewCores,
+		&i.NewRamGb,
+		&i.NewDiskGb,
+		pq.Array(&i.NeedsReviewReasons),
+		&i.ProcessedAt,
+		&i.ProcessedNote,
+		&i.RequestReason,
+		&i.CurrentSecondaryDiskGb,
+		&i.NewSecondaryDiskGb,
 	)
 	return i, err
 }
@@ -473,18 +642,18 @@ func (q *Queries) ListPositiveSurveyHostnames(ctx context.Context, surveyid int6
 }
 
 const listRequestClosures = `-- name: ListRequestClosures :many
-SELECT id, closed_at, reopened_at, reason FROM request_closure ORDER BY closed_at DESC
+SELECT id, closed_at, reopened_at, reason FROM vm_request_closure ORDER BY closed_at DESC
 `
 
-func (q *Queries) ListRequestClosures(ctx context.Context) ([]RequestClosure, error) {
+func (q *Queries) ListRequestClosures(ctx context.Context) ([]VmRequestClosure, error) {
 	rows, err := q.db.QueryContext(ctx, listRequestClosures)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []RequestClosure{}
+	items := []VmRequestClosure{}
 	for rows.Next() {
-		var i RequestClosure
+		var i VmRequestClosure
 		if err := rows.Scan(
 			&i.ID,
 			&i.ClosedAt,
@@ -505,23 +674,68 @@ func (q *Queries) ListRequestClosures(ctx context.Context) ([]RequestClosure, er
 }
 
 const listRequestWaitlist = `-- name: ListRequestWaitlist :many
-SELECT id, closure_id, email, created_at FROM request_waitlist ORDER BY created_at
+SELECT id, closure_id, email, created_at FROM vm_request_waitlist ORDER BY created_at
 `
 
-func (q *Queries) ListRequestWaitlist(ctx context.Context) ([]RequestWaitlist, error) {
+func (q *Queries) ListRequestWaitlist(ctx context.Context) ([]VmRequestWaitlist, error) {
 	rows, err := q.db.QueryContext(ctx, listRequestWaitlist)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []RequestWaitlist{}
+	items := []VmRequestWaitlist{}
 	for rows.Next() {
-		var i RequestWaitlist
+		var i VmRequestWaitlist
 		if err := rows.Scan(
 			&i.ID,
 			&i.ClosureID,
 			&i.Email,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listResourceChanges = `-- name: ListResourceChanges :many
+SELECT id, created_at, status, vm_hostname, requester_fingerprint, current_cores, current_ram_gb, current_disk_gb, new_cores, new_ram_gb, new_disk_gb, needs_review_reasons, processed_at, processed_note, request_reason, current_secondary_disk_gb, new_secondary_disk_gb FROM resource_change_request ORDER BY created_at DESC, id DESC
+`
+
+func (q *Queries) ListResourceChanges(ctx context.Context) ([]ResourceChangeRequest, error) {
+	rows, err := q.db.QueryContext(ctx, listResourceChanges)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ResourceChangeRequest{}
+	for rows.Next() {
+		var i ResourceChangeRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.Status,
+			&i.VmHostname,
+			&i.RequesterFingerprint,
+			&i.CurrentCores,
+			&i.CurrentRamGb,
+			&i.CurrentDiskGb,
+			&i.NewCores,
+			&i.NewRamGb,
+			&i.NewDiskGb,
+			pq.Array(&i.NeedsReviewReasons),
+			&i.ProcessedAt,
+			&i.ProcessedNote,
+			&i.RequestReason,
+			&i.CurrentSecondaryDiskGb,
+			&i.NewSecondaryDiskGb,
 		); err != nil {
 			return nil, err
 		}
@@ -850,6 +1064,26 @@ func (q *Queries) ListVMRequests(ctx context.Context) ([]Request, error) {
 	return items, nil
 }
 
+const lockResourceChangeSubmissions = `-- name: LockResourceChangeSubmissions :exec
+SELECT pg_advisory_xact_lock(17018, 0)
+`
+
+// Serialize replacement even when no pending row exists yet.
+func (q *Queries) LockResourceChangeSubmissions(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, lockResourceChangeSubmissions)
+	return err
+}
+
+const lockResourceChangeVM = `-- name: LockResourceChangeVM :exec
+SELECT pg_advisory_xact_lock(17017, hashtext($1::text))
+`
+
+// Serialize submit/cancel/admin operations for one VM across instances.
+func (q *Queries) LockResourceChangeVM(ctx context.Context, vmHostname string) error {
+	_, err := q.db.ExecContext(ctx, lockResourceChangeVM, vmHostname)
+	return err
+}
+
 const markSurveyEmailSent = `-- name: MarkSurveyEmailSent :exec
 UPDATE survey_email SET email_sent = TRUE WHERE uuid = $1
 `
@@ -860,7 +1094,7 @@ func (q *Queries) MarkSurveyEmailSent(ctx context.Context, uuid string) error {
 }
 
 const reopenRequests = `-- name: ReopenRequests :execrows
-UPDATE request_closure SET reopened_at = CURRENT_TIMESTAMP WHERE reopened_at IS NULL
+UPDATE vm_request_closure SET reopened_at = CURRENT_TIMESTAMP WHERE reopened_at IS NULL
 `
 
 func (q *Queries) ReopenRequests(ctx context.Context) (int64, error) {
@@ -869,6 +1103,50 @@ func (q *Queries) ReopenRequests(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const reopenResourceChanges = `-- name: ReopenResourceChanges :execrows
+UPDATE resource_change_closure SET reopened_at = CURRENT_TIMESTAMP WHERE reopened_at IS NULL
+`
+
+func (q *Queries) ReopenResourceChanges(ctx context.Context) (int64, error) {
+	result, err := q.db.ExecContext(ctx, reopenResourceChanges)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setResourceChangeOutcome = `-- name: SetResourceChangeOutcome :execrows
+UPDATE resource_change_request
+SET status = $1, processed_at = CURRENT_TIMESTAMP, processed_note = $2
+WHERE id = $3 AND status = 'pending'
+`
+
+type SetResourceChangeOutcomeParams struct {
+	Status RcrStatus
+	Note   string
+	ID     int64
+}
+
+func (q *Queries) SetResourceChangeOutcome(ctx context.Context, arg SetResourceChangeOutcomeParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setResourceChangeOutcome, arg.Status, arg.Note, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const supersedePendingResourceChanges = `-- name: SupersedePendingResourceChanges :exec
+UPDATE resource_change_request
+SET status = 'cancelled', processed_at = CURRENT_TIMESTAMP,
+    processed_note = 'Superseded by a newer resource change request'
+WHERE vm_hostname = $1 AND status = 'pending'
+`
+
+func (q *Queries) SupersedePendingResourceChanges(ctx context.Context, vmHostname string) error {
+	_, err := q.db.ExecContext(ctx, supersedePendingResourceChanges, vmHostname)
+	return err
 }
 
 const surveyEmailExistsByUUID = `-- name: SurveyEmailExistsByUUID :one
@@ -880,6 +1158,35 @@ func (q *Queries) SurveyEmailExistsByUUID(ctx context.Context, uuid string) (boo
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const updateResourceChangeTargets = `-- name: UpdateResourceChangeTargets :execrows
+UPDATE resource_change_request
+SET new_cores = $1, new_ram_gb = $2,
+    new_disk_gb = $3, new_secondary_disk_gb = $4
+WHERE id = $5 AND status = 'pending'
+`
+
+type UpdateResourceChangeTargetsParams struct {
+	NewCores           int32
+	NewRamGb           int32
+	NewDiskGb          int32
+	NewSecondaryDiskGb int32
+	ID                 int64
+}
+
+func (q *Queries) UpdateResourceChangeTargets(ctx context.Context, arg UpdateResourceChangeTargetsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateResourceChangeTargets,
+		arg.NewCores,
+		arg.NewRamGb,
+		arg.NewDiskGb,
+		arg.NewSecondaryDiskGb,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const updateSurveyEmailResponse = `-- name: UpdateSurveyEmailResponse :exec
