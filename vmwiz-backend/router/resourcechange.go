@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
@@ -256,6 +258,14 @@ func SubmitResourceChangeRequest(body *rcrSubmitBody) (*rcrSubmitResponse, *Erro
 		return nil, &ErrorBundle{Err: fmt.Errorf("invalid secondary disk"), UserMsg: "secondaryDiskGB must be >= 0", HttpCode: http.StatusBadRequest}
 	}
 
+	if max(body.NewCores, body.NewRamGB, body.NewDiskGB, body.NewSecondaryDiskGB) > math.MaxInt32 {
+		return nil, &ErrorBundle{Err: fmt.Errorf("resource value too large"), UserMsg: "cores, ramGB, diskGB, secondaryDiskGB are too large", HttpCode: http.StatusBadRequest}
+	}
+	reason := strings.TrimSpace(body.Reason)
+	if utf8.RuneCountInString(reason) > 1000 {
+		return nil, &ErrorBundle{Err: fmt.Errorf("reason too long"), UserMsg: "The reason must be at most 1000 characters.", HttpCode: http.StatusBadRequest}
+	}
+
 	unlock, err := storage.DB.LockResourceChangeVM(body.VMHostname)
 	if err != nil {
 		return nil, SimpleError(err, "Failed to lock resource change")
@@ -306,7 +316,6 @@ func SubmitResourceChangeRequest(body *rcrSubmitBody) (*rcrSubmitResponse, *Erro
 		body.NewRamGB > currentRamGB ||
 		body.NewDiskGB > currentDiskGB ||
 		body.NewSecondaryDiskGB > currentSecondaryDiskGB
-	reason := strings.TrimSpace(body.Reason)
 	if isIncrease && reason == "" {
 		return nil, &ErrorBundle{Err: fmt.Errorf("missing reason"), UserMsg: "A reason is required when increasing any resource.", HttpCode: http.StatusBadRequest}
 	}
@@ -527,6 +536,10 @@ func EditResourceChangeRequest(id int64, cores, ramGB, diskGB, secondaryDiskGB i
 	}
 	if secondaryDiskGB < 0 {
 		return &ErrorBundle{Err: fmt.Errorf("invalid"), UserMsg: "secondaryDiskGB must be >= 0", HttpCode: http.StatusBadRequest}
+	}
+
+	if max(cores, ramGB, diskGB, secondaryDiskGB) > math.MaxInt32 {
+		return &ErrorBundle{Err: fmt.Errorf("invalid"), UserMsg: "cores, ramGB, diskGB, secondaryDiskGB are too large", HttpCode: http.StatusBadRequest}
 	}
 	rcr, unlock, eb := getLockedResourceChange(id)
 	if eb != nil {
