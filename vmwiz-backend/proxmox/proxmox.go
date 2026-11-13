@@ -1778,23 +1778,26 @@ func resizeVMDiskSlot(node string, vmid int, slot string, currentGB, targetGB in
 		return fmt.Errorf("Failed to resize VM disk %s: %v", slot, err)
 	}
 
-	var task struct {
-		Data string `json:"data"`
-	}
-	if err := json.Unmarshal(res, &task); err != nil {
-		return fmt.Errorf("Failed to resize VM disk %s: Unmarshal error: %v", slot, err)
-	}
-	if task.Data == "" {
-		return nil
-	}
-	if err := waitForNodeTask(node, task.Data); err != nil {
+	if err := waitForNodeTask(node, res); err != nil {
 		return fmt.Errorf("Failed to resize VM disk %s: %v", slot, err)
 	}
 	return nil
 }
 
+// response is the body of a call that returns a task ID, or null if it ran synchronously.
 // GET /api2/json/nodes/{node}/tasks/{upid}/status
-func waitForNodeTask(node string, upid string) error {
+func waitForNodeTask(node string, response []byte) error {
+	var started struct {
+		Data string `json:"data"`
+	}
+	if err := json.Unmarshal(response, &started); err != nil {
+		return fmt.Errorf("Reading task ID: Unmarshal error: %v", err)
+	}
+	upid := started.Data
+	if upid == "" {
+		return nil
+	}
+
 	const timeoutSeconds = 30
 	for range timeoutSeconds {
 		req, client, err := proxmoxMakeRequest(http.MethodGet, fmt.Sprintf("/api2/json/nodes/%s/tasks/%s/status", node, url.PathEscape(upid)), nil)
@@ -1849,14 +1852,17 @@ func CreateVMSecondaryDisk(node string, vmid int, sizeGB int) error {
 	form.Set(HDDSlot, fmt.Sprintf("%s:%d", HDDStorage, sizeGB))
 
 	body := []byte(form.Encode())
-	req, client, err := proxmoxMakeRequest(http.MethodPut, fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid), body)
+	req, client, err := proxmoxMakeRequest(http.MethodPost, fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid), body)
 	if err != nil {
 		return fmt.Errorf("Failed to attach secondary disk: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	_, err = proxmoxDoRequest(req, client)
+	res, err := proxmoxDoRequest(req, client)
 	if err != nil {
+		return fmt.Errorf("Failed to attach secondary disk: %v", err)
+	}
+	if err := waitForNodeTask(node, res); err != nil {
 		return fmt.Errorf("Failed to attach secondary disk: %v", err)
 	}
 	return nil
