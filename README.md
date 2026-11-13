@@ -37,7 +37,8 @@ _Admin panel_
     - [5. Modify Netcenter values inside of .backend.env](#5-modify-netcenter-values-inside-of-backendenv)
     - [6. Modify Keycloak values inside of .backend.env](#6-modify-keycloak-values-inside-of-backendenv)
     - [7. Adjust SMTP-related values in .backend.env](#7-adjust-smtp-related-values-in-backendenv)
-    - [8. Bring up the stack](#8-bring-up-the-stack)
+    - [8. (Optional) Set `SSHPORTAL_SECRET` in .backend.env](#8-optional-set-sshportal_secret-in-backendenv)
+    - [9. Bring up the stack](#9-bring-up-the-stack)
 - [Environment variables](#environment-variables)
 - [Proxmox](#proxmox)
 ---
@@ -102,7 +103,12 @@ The backend has an OpenID client to authenticate SOSETH users. To that end, adju
 VMWiz has an LDAP user such that it can use SOSETH's mail server to send emails to VM owners.\
 To that end, adjust the SMTP-related values in [.backend.env](docker/.backend.env).
 
-### 8. Bring up the stack
+### 8. (Optional) Set `SSHPORTAL_SECRET` in [.backend.env](docker/.backend.env)
+The SSH portal submits and cancels resource change requests for VM owners through the backend, and authenticates with a shared secret.\
+Set `SSHPORTAL_SECRET` to a value of at least 32 characters and configure the same value on SSH portal.\
+It can be left unset, and SSH Portal will then not be able to submit or cancel resource change requests.
+
+### 9. Bring up the stack
 `cd docker && docker compose up`\
 You should now be able to navigate to https://localhost and access the frontend UI.
 

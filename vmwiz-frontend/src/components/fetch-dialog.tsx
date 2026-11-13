@@ -91,7 +91,7 @@ interface FetchDialogProps {
 
     title: string;
     description?: string;
-    /** Body to show if the request si successfull */
+    /** Body to show if the request is successfull */
     successDescription?: React.ReactNode;
     /** Custom content rendered in the dialog on success */
     successContent?: (data: unknown) => React.ReactNode;

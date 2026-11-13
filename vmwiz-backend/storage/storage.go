@@ -76,6 +76,23 @@ func (s Survey) ToString() string {
 	return fmt.Sprintf("Survey ID: %v\nCreated date: %v", s.ID, s.Date)
 }
 
+// ToString renders a resource change request for CLI output and notifications.
+func (r ResourceChangeRequest) ToString() string {
+	return fmt.Sprintf(`ID: %d
+CreatedAt: %v
+Status: %s
+VMHostname: %s
+RequesterFingerprint: %s
+Cores: %d -> %d
+RAM (GB): %d -> %d
+Disk (GB): %d -> %d
+Secondary HDD (GB): %d -> %d
+Reason: %s
+NeedsReviewReasons: %v
+ProcessedNote: %s
+`, r.ID, r.CreatedAt, r.Status, r.VmHostname, r.RequesterFingerprint, r.CurrentCores, r.NewCores, r.CurrentRamGb, r.NewRamGb, r.CurrentDiskGb, r.NewDiskGb, r.CurrentSecondaryDiskGb, r.NewSecondaryDiskGb, r.RequestReason, r.NeedsReviewReasons, r.ProcessedNote)
+}
+
 type postgresstorage struct {
 	*Queries
 	db        *sql.DB

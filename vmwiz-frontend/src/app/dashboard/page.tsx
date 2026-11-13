@@ -1,5 +1,6 @@
 "use client";
 
+import { ResourceChangeAdmin } from "@/components/admin/resource-change-admin";
 import { useAuth } from "@/context/auth";
 import { Separator } from "@/components/ui/separator";
 import { VMDelete } from "@/components/admin/vm-delete";
@@ -89,6 +90,11 @@ export default function DashboardPage() {
                 <AnimatedHeight>
                     <SurveyAdmin />
                 </AnimatedHeight>
+            </section>
+            <Separator className="opacity-30" />
+            <section className="space-y-4">
+                <h2 className="text-lg font-semibold">Resource requests</h2>
+                <ResourceChangeAdmin />
             </section>
         </div>
     );
