@@ -169,7 +169,8 @@ func applyResourceChange(req storage.ResourceChangeRequest) (partial bool, err e
 	if err != nil {
 		return fail("read current disk configuration", err)
 	}
-	if cfg.SecondaryDiskGB() != int(req.Currentsecondarydiskgb) || (req.Currentsecondarydiskgb == 0 && cfg.Scsi3 != "") {
+	hddDone := req.Newsecondarydiskgb > 0 && cfg.SecondaryDiskGB() == int(req.Newsecondarydiskgb)
+	if !hddDone && (cfg.SecondaryDiskGB() != int(req.Currentsecondarydiskgb) || (req.Currentsecondarydiskgb == 0 && cfg.Scsi3 != "")) {
 		return false, fmt.Errorf("HDD configuration changed since submission; submit a new resource change request")
 	}
 
@@ -183,12 +184,14 @@ func applyResourceChange(req storage.ResourceChangeRequest) (partial bool, err e
 	// Secondary HDD: create on first request (current=0, new>0), or grow.
 	// Shrinks and removals are rejected at the submit boundary, so we don't
 	// need to handle them here.
-	if req.Newsecondarydiskgb > 0 && req.Currentsecondarydiskgb == 0 {
+	switch {
+	case hddDone:
+	case req.Newsecondarydiskgb > 0 && req.Currentsecondarydiskgb == 0:
 		if err := proxmox.CreateVMSecondaryDisk(vm.Node, vm.Vmid, int(req.Newsecondarydiskgb)); err != nil {
 			return fail("create secondary disk", err)
 		}
 		applied = append(applied, fmt.Sprintf("HDD 0 -> %d GB", req.Newsecondarydiskgb))
-	} else if req.Newsecondarydiskgb > req.Currentsecondarydiskgb {
+	case req.Newsecondarydiskgb > req.Currentsecondarydiskgb:
 		if err := proxmox.ResizeVMSecondaryDisk(vm.Node, vm.Vmid, int(req.Currentsecondarydiskgb), int(req.Newsecondarydiskgb)); err != nil {
 			return fail("resize secondary disk", err)
 		}
@@ -497,9 +500,9 @@ func AcceptResourceChangeRequest(id int64) *ErrorBundle {
 
 	if partial, err := applyResourceChange(*rcr); err != nil {
 		log.Printf("Failed to apply resource change request %d: %v", id, err)
-		// Nothing was changed on the VM so stay pending so the admin can retry, edit or reject.
+		// Stay pending so the admin can retry, edit or reject. The failing step itself may still have taken effect.
 		if !partial {
-			return &ErrorBundle{Err: err, UserMsg: fmt.Sprintf("Nothing was applied, the request stays pending: %v", err), HttpCode: http.StatusInternalServerError}
+			return &ErrorBundle{Err: err, UserMsg: fmt.Sprintf("No step completed, the request stays pending: %v", err), HttpCode: http.StatusInternalServerError}
 		}
 		_ = storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusFailed, err.Error())
 		_ = notifier.NotifyResourceChangeRequestFailed(*rcr, err.Error())
