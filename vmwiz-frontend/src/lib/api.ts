@@ -480,17 +480,23 @@ export async function fetchResourceChanges(): Promise<ResourceChangeListResponse
  */
 export async function acceptResourceChange(
     id: number,
+    reason: string,
     onConfirmRequired?: OnConfirmCallback,
 ): Promise<void> {
-    await fetchBackend(prepareAcceptResourceChange(id), { onConfirmRequired });
+    await fetchBackend(prepareAcceptResourceChange(id, reason), {
+        onConfirmRequired,
+    });
 }
 /** Descriptor for acceptResourceChange. */
-export function prepareAcceptResourceChange(id: number): BackendRequest {
+export function prepareAcceptResourceChange(
+    id: number,
+    reason: string,
+): BackendRequest {
     return {
         path: "/api/resourcechange/accept",
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, reason }),
     };
 }
 
@@ -500,17 +506,23 @@ export function prepareAcceptResourceChange(id: number): BackendRequest {
  */
 export async function rejectResourceChange(
     id: number,
+    reason: string,
     onConfirmRequired?: OnConfirmCallback,
 ): Promise<void> {
-    await fetchBackend(prepareRejectResourceChange(id), { onConfirmRequired });
+    await fetchBackend(prepareRejectResourceChange(id, reason), {
+        onConfirmRequired,
+    });
 }
 /** Descriptor for rejectResourceChange. */
-export function prepareRejectResourceChange(id: number): BackendRequest {
+export function prepareRejectResourceChange(
+    id: number,
+    reason: string,
+): BackendRequest {
     return {
         path: "/api/resourcechange/reject",
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, reason }),
     };
 }
 

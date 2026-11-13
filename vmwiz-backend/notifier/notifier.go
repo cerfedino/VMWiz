@@ -150,7 +150,7 @@ func notifyResourceChange(ctx context.Context, tag, body string) error {
 // SendResourceChangeAppliedEmail emails the VM owner that a resource change has
 // been applied to their VM. The change is staged in Proxmox; for memory and
 // core changes the VM must reboot before the new specs take effect.
-func SendResourceChangeAppliedEmail(req storage.ResourceChangeRequest, contacts []string, autoApproved bool) error {
+func SendResourceChangeAppliedEmail(req storage.ResourceChangeRequest, contacts []string, autoApproved bool, note string) error {
 	if len(contacts) == 0 {
 		return nil
 	}
@@ -176,5 +176,33 @@ Reason given: %s
 		req.CurrentDiskGb, req.NewDiskGb,
 		req.CurrentSecondaryDiskGb, req.NewSecondaryDiskGb,
 		req.RequestReason)
+	if note != "" {
+		body += fmt.Sprintf("Note from the admin: %s\n", note)
+	}
+	return SendEmail(subject, []byte(body), contacts)
+}
+
+func SendResourceChangeRejectedEmail(req storage.ResourceChangeRequest, contacts []string, reason string) error {
+	if len(contacts) == 0 {
+		return nil
+	}
+	subject := fmt.Sprintf("Resource change request for %s rejected", req.VmHostname)
+	body := fmt.Sprintf(`Your resource change request for %s has been rejected by an admin.
+Your VM has not been changed.
+
+Requested:
+  cores:    %d    -> %d
+  RAM:      %d GB -> %d GB
+  SSD disk: %d GB -> %d GB
+  HDD disk: %d GB -> %d GB
+
+Reason for the rejection:
+%s
+`, req.VmHostname,
+		req.CurrentCores, req.NewCores,
+		req.CurrentRamGb, req.NewRamGb,
+		req.CurrentDiskGb, req.NewDiskGb,
+		req.CurrentSecondaryDiskGb, req.NewSecondaryDiskGb,
+		reason)
 	return SendEmail(subject, []byte(body), contacts)
 }

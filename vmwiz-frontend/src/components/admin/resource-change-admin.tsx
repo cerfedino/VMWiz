@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { Check, Eye, Pencil, RefreshCw, Server, X } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { StatusBadge } from "@/components/admin/vm-request-detail-dialog";
@@ -8,6 +8,12 @@ import { FilterBar } from "@/components/admin/filter-bar";
 import { FetchDialog } from "@/components/fetch-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -203,6 +209,25 @@ export function ResourceChangeAdmin() {
     );
 }
 
+// Disabled buttons get no pointer events, so the tooltip hangs on a wrapper.
+function DisabledHint({
+    hint,
+    children,
+}: {
+    hint: string | null;
+    children: ReactElement;
+}) {
+    if (!hint) return children;
+    return (
+        <Tooltip>
+            <TooltipTrigger render={<span className="inline-flex" />}>
+                {children}
+            </TooltipTrigger>
+            <TooltipContent>{hint}</TooltipContent>
+        </Tooltip>
+    );
+}
+
 function ResourceChangeDetail({
     request,
     onClose,
@@ -218,6 +243,7 @@ function ResourceChangeDetail({
         newDiskGB: request.NewDiskGB,
         newSecondaryDiskGB: request.NewSecondaryDiskGB,
     });
+    const [reason, setReason] = useState("");
     const [action, setAction] = useState<"edit" | "accept" | "reject" | null>(
         null,
     );
@@ -241,12 +267,12 @@ function ResourceChangeDetail({
         },
         accept: {
             title: "Accept resource request",
-            request: prepareAcceptResourceChange(request.ID),
+            request: prepareAcceptResourceChange(request.ID, reason.trim()),
             successDescription: "Resource change applied.",
         },
         reject: {
             title: "Reject resource request",
-            request: prepareRejectResourceChange(request.ID),
+            request: prepareRejectResourceChange(request.ID, reason.trim()),
             successDescription: "Resource request rejected.",
         },
     };
@@ -347,6 +373,24 @@ function ResourceChangeDetail({
                                 Existing disks cannot shrink.
                             </p>
                         </div>
+                        {pending && (
+                            <label className="block space-y-1 text-xs text-muted-foreground">
+                                <span className="block font-medium text-foreground">
+                                    Reason for decision
+                                </span>
+                                <span className="block">
+                                    Emailed to the VM owner. Required to reject,
+                                    optional when accepting.
+                                </span>
+                                <Textarea
+                                    maxLength={1000}
+                                    value={reason}
+                                    onChange={(event) =>
+                                        setReason(event.target.value)
+                                    }
+                                />
+                            </label>
+                        )}
                         {request.RequesterFingerprint && (
                             <div className="space-y-1 text-xs">
                                 <p className="text-muted-foreground">
@@ -378,20 +422,33 @@ function ResourceChangeDetail({
                                 <Pencil className="size-3.5" />
                                 Save changes
                             </Button>
-                            <Button
-                                variant="destructive"
-                                onClick={() => setAction("reject")}
+                            <DisabledHint
+                                hint={
+                                    reason.trim()
+                                        ? null
+                                        : "You have to provide a reason"
+                                }
                             >
-                                <X className="size-3.5" />
-                                Reject
-                            </Button>
-                            <Button
-                                disabled={dirty}
-                                onClick={() => setAction("accept")}
+                                <Button
+                                    variant="destructive"
+                                    disabled={!reason.trim()}
+                                    onClick={() => setAction("reject")}
+                                >
+                                    <X className="size-3.5" />
+                                    Reject
+                                </Button>
+                            </DisabledHint>
+                            <DisabledHint
+                                hint={dirty ? "Save your changes first" : null}
                             >
-                                <Check className="size-3.5" />
-                                Accept
-                            </Button>
+                                <Button
+                                    disabled={dirty}
+                                    onClick={() => setAction("accept")}
+                                >
+                                    <Check className="size-3.5" />
+                                    Accept
+                                </Button>
+                            </DisabledHint>
                         </DialogFooter>
                     )}
                 </DialogContent>
@@ -403,7 +460,7 @@ function ResourceChangeDetail({
                         if (!open) setAction(null);
                     }}
                     {...actions[action]}
-                    description={`Request #${request.ID} for ${request.VMHostname}. ${action === "edit" ? "Save the modified target resources?" : action === "accept" ? "Apply the requested resources? CPU and RAM changes take effect on reboot." : "Reject this request?"}`}
+                    description={`Request #${request.ID} for ${request.VMHostname}. ${action === "edit" ? "Save the modified target resources?" : action === "accept" ? "Apply the requested resources? CPU and RAM changes take effect on reboot." : "Reject this request? The reason is emailed to the VM owner."}`}
                     proceedLabel={
                         action === "edit"
                             ? "Save"

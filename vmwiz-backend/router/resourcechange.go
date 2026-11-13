@@ -213,35 +213,34 @@ func applyResourceChange(req storage.ResourceChangeRequest) (partial bool, err e
 	return false, nil
 }
 
-// vmContacts returns the contact email addresses for a VM by reading its
-// Proxmox config description. Failures are logged and an empty slice returned
-// email notification is best-effort.
-func vmContacts(vm proxmox.PVEClusterVM) []string {
-	cfg, err := proxmox.GetNodeVMConfig(vm.Node, vm.Vmid)
-	if err != nil {
-		log.Printf("vmContacts: failed to fetch VM config for %s: %v", vm.Name, err)
+// vmOwnerContacts returns the contact addresses from the VM's Proxmox
+// description, or SMTP_RECEIVER_OVERRIDE when set. Owner email is best-effort:
+// failures are logged and give nil.
+func vmOwnerContacts(hostname string) []string {
+	vms, err := proxmox.GetAllClusterVMsByName(hostname)
+	if err != nil || vms == nil || len(*vms) == 0 {
+		log.Printf("vmOwnerContacts: VM lookup for %s failed: %v", hostname, err)
 		return nil
 	}
-	return proxmox.GetEmails(*cfg, nil)
-}
-
-// emailUserOnApply looks up the VM, extracts contact emails, and sends the
-// "resource change applied" email. Failures are logged and ignored.
-func emailUserOnApply(req storage.ResourceChangeRequest, autoApproved bool) {
-	vms, err := proxmox.GetAllClusterVMsByName(req.VmHostname)
-	if err != nil || vms == nil || len(*vms) == 0 {
-		log.Printf("emailUserOnApply: skipping email for %s: VM lookup failed: %v", req.VmHostname, err)
-		return
+	vm := (*vms)[0]
+	cfg, err := proxmox.GetNodeVMConfig(vm.Node, vm.Vmid)
+	if err != nil {
+		log.Printf("vmOwnerContacts: failed to fetch VM config for %s: %v", hostname, err)
+		return nil
 	}
-	contacts := vmContacts((*vms)[0])
+	contacts := proxmox.GetEmails(*cfg, nil)
 	if len(contacts) == 0 {
-		log.Printf("emailUserOnApply: no contacts for %s, skipping email", req.VmHostname)
-		return
+		log.Printf("vmOwnerContacts: no contacts for %s", hostname)
+		return nil
 	}
 	if config.AppConfig.SMTP_RECEIVER_OVERRIDE != "" {
-		contacts = []string{config.AppConfig.SMTP_RECEIVER_OVERRIDE}
+		return []string{config.AppConfig.SMTP_RECEIVER_OVERRIDE}
 	}
-	if err := notifier.SendResourceChangeAppliedEmail(req, contacts, autoApproved); err != nil {
+	return contacts
+}
+
+func emailUserOnApply(req storage.ResourceChangeRequest, autoApproved bool, note string) {
+	if err := notifier.SendResourceChangeAppliedEmail(req, vmOwnerContacts(req.VmHostname), autoApproved, note); err != nil {
 		log.Printf("emailUserOnApply: send email for request %d failed: %v", req.ID, err)
 	}
 }
@@ -372,7 +371,7 @@ func SubmitResourceChangeRequest(ctx context.Context, body *rcrSubmitBody) (*rcr
 		log.Printf("Failed to mark request %d as auto_approved: %v", id, err)
 	}
 	_ = notifier.NotifyResourceChangeRequestApplied(ctx, rcr, true)
-	emailUserOnApply(rcr, true)
+	emailUserOnApply(rcr, true, "")
 
 	return &rcrSubmitResponse{
 		ID:      id,
@@ -410,7 +409,15 @@ func CancelResourceChangeRequest(ctx context.Context, hostname string) (*storage
 
 // AcceptResourceChangeRequest is invoked from the admin console to apply a
 // previously-pending resource change request.
-func AcceptResourceChangeRequest(ctx context.Context, id int64) *ErrorBundle {
+func AcceptResourceChangeRequest(ctx context.Context, id int64, reason string) *ErrorBundle {
+	reason = strings.TrimSpace(reason)
+	if utf8.RuneCountInString(reason) > 1000 {
+		return &ErrorBundle{Err: fmt.Errorf("reason too long"), UserMsg: "The reason must be at most 1000 characters.", HttpCode: http.StatusBadRequest}
+	}
+	note := reason
+	if note == "" {
+		note = "accepted by admin"
+	}
 	rcr, unlock, eb := getLockedResourceChange(id)
 	if eb != nil {
 		return eb
@@ -432,12 +439,12 @@ func AcceptResourceChangeRequest(ctx context.Context, id int64) *ErrorBundle {
 		return &ErrorBundle{Err: err, UserMsg: fmt.Sprintf("Resource change partly applied: %v", err), HttpCode: http.StatusInternalServerError}
 	}
 
-	if err := storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusAccepted, "accepted by admin"); err != nil {
+	if err := storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusAccepted, note); err != nil {
 		return SimpleError(err, "Failed to update request status")
 	}
 	rcr.Status = storage.RcrStatusAccepted
 	_ = notifier.NotifyResourceChangeRequestApplied(ctx, *rcr, false)
-	emailUserOnApply(*rcr, false)
+	emailUserOnApply(*rcr, false, reason)
 	return nil
 }
 
@@ -490,7 +497,14 @@ func EditResourceChangeRequest(id int64, cores, ramGB, diskGB, secondaryDiskGB i
 	return nil
 }
 
-func RejectResourceChangeRequest(ctx context.Context, id int64) *ErrorBundle {
+func RejectResourceChangeRequest(ctx context.Context, id int64, reason string) *ErrorBundle {
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return &ErrorBundle{Err: fmt.Errorf("missing reason"), UserMsg: "A reason is required, it is sent to the VM owner.", HttpCode: http.StatusBadRequest}
+	}
+	if utf8.RuneCountInString(reason) > 1000 {
+		return &ErrorBundle{Err: fmt.Errorf("reason too long"), UserMsg: "The reason must be at most 1000 characters.", HttpCode: http.StatusBadRequest}
+	}
 	rcr, unlock, eb := getLockedResourceChange(id)
 	if eb != nil {
 		return eb
@@ -499,11 +513,14 @@ func RejectResourceChangeRequest(ctx context.Context, id int64) *ErrorBundle {
 	if rcr.Status != storage.RcrStatusPending {
 		return &ErrorBundle{Err: fmt.Errorf("not pending"), UserMsg: "Only pending resource change requests can be rejected", HttpCode: http.StatusBadRequest}
 	}
-	if err := storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusRejected, "rejected by admin"); err != nil {
+	if err := storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusRejected, reason); err != nil {
 		return SimpleError(err, "Failed to update request status")
 	}
 	rcr.Status = storage.RcrStatusRejected
 	_ = notifier.NotifyResourceChangeRequestStatusChanged(ctx, *rcr)
+	if err := notifier.SendResourceChangeRejectedEmail(*rcr, vmOwnerContacts(rcr.VmHostname), reason); err != nil {
+		log.Printf("Failed to send rejection email for request %d: %v", id, err)
+	}
 	return nil
 }
 
@@ -582,14 +599,15 @@ func addAllResourceChangeRoutes(r *mux.Router) {
 	// Admin: accept (confirmable — user must type "change spec" to confirm)
 	r.Methods("POST").Path("/api/resourcechange/accept").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("change spec", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
-			ID int `json:"id"`
+			ID     int    `json:"id"`
+			Reason string `json:"reason"`
 		}
 		var b bodyS
 		if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 			http.Error(w, "Invalid request payload", http.StatusBadRequest)
 			return
 		}
-		if eb := AcceptResourceChangeRequest(r.Context(), int64(b.ID)); eb != nil {
+		if eb := AcceptResourceChangeRequest(r.Context(), int64(b.ID), b.Reason); eb != nil {
 			http.Error(w, eb.UserMsg, eb.HttpCode)
 			return
 		}
@@ -598,14 +616,15 @@ func addAllResourceChangeRoutes(r *mux.Router) {
 	// Admin: reject (confirmable — user must type "reject" to confirm)
 	r.Methods("POST").Path("/api/resourcechange/reject").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("reject", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		type bodyS struct {
-			ID int `json:"id"`
+			ID     int    `json:"id"`
+			Reason string `json:"reason"`
 		}
 		var b bodyS
 		if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 			http.Error(w, "Invalid request payload", http.StatusBadRequest)
 			return
 		}
-		if eb := RejectResourceChangeRequest(r.Context(), int64(b.ID)); eb != nil {
+		if eb := RejectResourceChangeRequest(r.Context(), int64(b.ID), b.Reason); eb != nil {
 			http.Error(w, eb.UserMsg, eb.HttpCode)
 			return
 		}
