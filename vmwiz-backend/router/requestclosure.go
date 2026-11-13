@@ -10,6 +10,7 @@ import (
 
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/confirmation"
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/notifier"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/ratelimit"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/storage"
 	"github.com/gorilla/mux"
@@ -78,6 +79,9 @@ func addRequestClosureRoutes(r *mux.Router) {
 			return
 		}
 		log.Printf("VM requests closed: %s", body.Reason)
+		if err := notifier.NotifyVMRequestClosure(r.Context(), "VM requests closed: "+body.Reason); err != nil {
+			log.Printf("Failed to send VM request closure notification: %v", err)
+		}
 	}))))
 
 	r.Methods("POST").Path("/api/vmrequest/reopen").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("reopen", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -92,6 +96,9 @@ func addRequestClosureRoutes(r *mux.Router) {
 			return
 		}
 		log.Println("VM requests reopened")
+		if err := notifier.NotifyVMRequestClosure(r.Context(), "VM requests reopened"); err != nil {
+			log.Printf("Failed to send VM request closure notification: %v", err)
+		}
 	}))))
 
 	r.Methods("POST").Path("/api/vmrequest/waitlist").Handler(ratelimit.PerIP(20*time.Second, 1, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

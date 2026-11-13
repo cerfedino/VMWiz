@@ -628,6 +628,7 @@ func addAllResourceChangeRoutes(r *mux.Router) {
 			return
 		}
 		log.Printf("Resource change requests closed: %s", body.Reason)
+		_ = notifier.NotifyResourceChangeClosure(r.Context(), "Resource change requests closed: "+body.Reason)
 	}))))
 
 	r.Methods("POST").Path("/api/resourcechange/reopen").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("reopen", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -642,6 +643,7 @@ func addAllResourceChangeRoutes(r *mux.Router) {
 			return
 		}
 		log.Println("Resource change requests reopened")
+		_ = notifier.NotifyResourceChangeClosure(r.Context(), "Resource change requests reopened")
 	}))))
 
 	// Submit endpoint, called by the SSH portal on behalf of an

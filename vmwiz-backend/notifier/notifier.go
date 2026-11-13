@@ -81,6 +81,14 @@ func NotifyVMCreationUpdate(ctx context.Context, msg string) error {
 	return useNotifier(ctx, "vmcreation_update", msg)
 }
 
+func NotifyVMRequestClosure(ctx context.Context, msg string) error {
+	return useNotifier(ctx, "vmrequest_closure", msg)
+}
+
+func NotifyResourceChangeClosure(ctx context.Context, msg string) error {
+	return notifyResourceChange(ctx, "resourcechange_closure", msg)
+}
+
 func NotifyVMUsageSurvey(ctx context.Context, surveyId int64, msg string) error {
 	return useNotifier(ctx, "vmusagesurvey", fmt.Sprintf("VM Usage survey %v: %v", surveyId, msg))
 }

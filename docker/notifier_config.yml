@@ -10,6 +10,8 @@
 #     These endpoints get notified when an admin rejects a VM request
 #   vmrequest_edited
 #     These endpoints get notified when an admin edits a pending VM request
+#   vmrequest_closure
+#     These endpoints get notified when an admin closes or reopens VM requests
 #   vmcreation_update
 #     These endpoints get notified during the creation of a VM, e.g error/success messages
 #   vmusagesurvey
@@ -26,6 +28,8 @@
 #     Resource changes that failed to apply
 #   resourcechange_cancelled
 #     Pending resource change requests cancelled by the user
+#   resourcechange_closure
+#     An admin closed or reopened resource change requests
 
 urls:
   # The Zulip tokens are just placeholders
