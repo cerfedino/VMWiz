@@ -111,36 +111,36 @@ func SendEmail(subject string, body []byte, to []string) error {
 	return nil
 }
 
-func NotifyResourceChangeRequest(req storage.ResourceChangeRequest) error {
+func NotifyResourceChangeRequest(ctx context.Context, req storage.ResourceChangeRequest) error {
 	review := "eligible for automatic approval"
 	if len(req.NeedsReviewReasons) > 0 {
 		review = "needs admin review"
 	}
-	return notifyResourceChange("resourcechange_new", fmt.Sprintf("New resource change request %d (%s). Replaces any earlier pending request for this VM.\n```\n%v\n```", req.ID, review, req.ToString()))
+	return notifyResourceChange(ctx, "resourcechange_new", fmt.Sprintf("New resource change request %d (%s). Replaces any earlier pending request for this VM.\n```\n%v\n```", req.ID, review, req.ToString()))
 }
 
-func NotifyResourceChangeRequestApplied(req storage.ResourceChangeRequest, auto bool) error {
+func NotifyResourceChangeRequestApplied(ctx context.Context, req storage.ResourceChangeRequest, auto bool) error {
 	prefix := "approved"
 	if auto {
 		prefix = "auto-approved"
 	}
-	return notifyResourceChange("resourcechange_accepted", fmt.Sprintf("Resource change request %d %s and applied: %s -> cores=%d ram=%dGB SSD=%dGB HDD=%dGB", req.ID, prefix, req.VmHostname, req.NewCores, req.NewRamGb, req.NewDiskGb, req.NewSecondaryDiskGb))
+	return notifyResourceChange(ctx, "resourcechange_accepted", fmt.Sprintf("Resource change request %d %s and applied: %s -> cores=%d ram=%dGB SSD=%dGB HDD=%dGB", req.ID, prefix, req.VmHostname, req.NewCores, req.NewRamGb, req.NewDiskGb, req.NewSecondaryDiskGb))
 }
 
-func NotifyResourceChangeRequestFailed(req storage.ResourceChangeRequest, errMsg string) error {
-	return notifyResourceChange("resourcechange_failed", fmt.Sprintf("Resource change request %d failed to apply for %s: %s", req.ID, req.VmHostname, errMsg))
+func NotifyResourceChangeRequestFailed(ctx context.Context, req storage.ResourceChangeRequest, errMsg string) error {
+	return notifyResourceChange(ctx, "resourcechange_failed", fmt.Sprintf("Resource change request %d failed to apply for %s: %s", req.ID, req.VmHostname, errMsg))
 }
 
-func NotifyResourceChangeRequestStatusChanged(req storage.ResourceChangeRequest) error {
+func NotifyResourceChangeRequestStatusChanged(ctx context.Context, req storage.ResourceChangeRequest) error {
 	tag := "resourcechange_rejected"
 	if req.Status == storage.RcrStatusCancelled {
 		tag = "resourcechange_cancelled"
 	}
-	return notifyResourceChange(tag, fmt.Sprintf("Resource change request %d for %s: %s", req.ID, req.VmHostname, req.Status))
+	return notifyResourceChange(ctx, tag, fmt.Sprintf("Resource change request %d for %s: %s", req.ID, req.VmHostname, req.Status))
 }
 
-func notifyResourceChange(tag, body string) error {
-	err := useNotifier(context.Background(), tag, body)
+func notifyResourceChange(ctx context.Context, tag, body string) error {
+	err := useNotifier(ctx, tag, body)
 	if err != nil {
 		log.Printf("Resource change notification (%s) failed: %v", tag, err)
 	}

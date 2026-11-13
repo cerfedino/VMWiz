@@ -239,6 +239,9 @@ func emailUserOnApply(req storage.ResourceChangeRequest, autoApproved bool) {
 		log.Printf("emailUserOnApply: no contacts for %s, skipping email", req.VmHostname)
 		return
 	}
+	if config.AppConfig.SMTP_RECEIVER_OVERRIDE != "" {
+		contacts = []string{config.AppConfig.SMTP_RECEIVER_OVERRIDE}
+	}
 	if err := notifier.SendResourceChangeAppliedEmail(req, contacts, autoApproved); err != nil {
 		log.Printf("emailUserOnApply: send email for request %d failed: %v", req.ID, err)
 	}
@@ -247,7 +250,7 @@ func emailUserOnApply(req storage.ResourceChangeRequest, autoApproved bool) {
 // SubmitResourceChangeRequest handles a request from the SSH portal. It
 // fetches the current VM resources, runs the heuristic, stores the request,
 // and either auto-applies or marks it pending for human review.
-func SubmitResourceChangeRequest(body *rcrSubmitBody) (*rcrSubmitResponse, *ErrorBundle) {
+func SubmitResourceChangeRequest(ctx context.Context, body *rcrSubmitBody) (*rcrSubmitResponse, *ErrorBundle) {
 	if body.VMHostname == "" {
 		return nil, &ErrorBundle{Err: fmt.Errorf("missing vmHostname"), UserMsg: "missing vmHostname", HttpCode: http.StatusBadRequest}
 	}
@@ -349,7 +352,7 @@ func SubmitResourceChangeRequest(body *rcrSubmitBody) (*rcrSubmitResponse, *Erro
 	if err != nil {
 		return nil, SimpleError(err, "Failed to load stored resource change request")
 	}
-	_ = notifier.NotifyResourceChangeRequest(rcr)
+	_ = notifier.NotifyResourceChangeRequest(ctx, rcr)
 
 	if len(rcr.NeedsReviewReasons) > 0 {
 		return &rcrSubmitResponse{
@@ -363,13 +366,13 @@ func SubmitResourceChangeRequest(body *rcrSubmitBody) (*rcrSubmitResponse, *Erro
 	// Auto-approve path.
 	if _, err := applyResourceChange(rcr); err != nil {
 		_ = storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusFailed, err.Error())
-		_ = notifier.NotifyResourceChangeRequestFailed(rcr, err.Error())
+		_ = notifier.NotifyResourceChangeRequestFailed(ctx, rcr, err.Error())
 		return nil, SimpleError(err, "Failed to apply resource change")
 	}
 	if err := storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusAutoApproved, "auto-approved by heuristic"); err != nil {
 		log.Printf("Failed to mark request %d as auto_approved: %v", id, err)
 	}
-	_ = notifier.NotifyResourceChangeRequestApplied(rcr, true)
+	_ = notifier.NotifyResourceChangeRequestApplied(ctx, rcr, true)
 	emailUserOnApply(rcr, true)
 
 	return &rcrSubmitResponse{
@@ -381,7 +384,7 @@ func SubmitResourceChangeRequest(body *rcrSubmitBody) (*rcrSubmitResponse, *Erro
 
 // CancelResourceChangeRequest cancels the current pending resource change for
 // the given VM. Invoked by the SSH portal on behalf of the VM owner.
-func CancelResourceChangeRequest(hostname string) (*storage.ResourceChangeRequest, *ErrorBundle) {
+func CancelResourceChangeRequest(ctx context.Context, hostname string) (*storage.ResourceChangeRequest, *ErrorBundle) {
 	if hostname == "" {
 		return nil, &ErrorBundle{Err: fmt.Errorf("missing vmHostname"), UserMsg: "missing vmHostname", HttpCode: http.StatusBadRequest}
 	}
@@ -402,14 +405,14 @@ func CancelResourceChangeRequest(hostname string) (*storage.ResourceChangeReques
 		return nil, SimpleError(err, "Failed to cancel request")
 	}
 	rcr.Status = storage.RcrStatusCancelled
-	_ = notifier.NotifyResourceChangeRequestStatusChanged(*rcr)
+	_ = notifier.NotifyResourceChangeRequestStatusChanged(ctx, *rcr)
 	return rcr, nil
 }
 
 // UndoResourceChangeRequest reverts the latest applied resource change for
 // the given VM by submitting a new request that restores the prior values.
 // Returns the new request describing the revert.
-func UndoResourceChangeRequest(hostname, fingerprint string) (*storage.ResourceChangeRequest, *ErrorBundle) {
+func UndoResourceChangeRequest(ctx context.Context, hostname, fingerprint string) (*storage.ResourceChangeRequest, *ErrorBundle) {
 	if hostname == "" {
 		return nil, &ErrorBundle{Err: fmt.Errorf("missing vmHostname"), UserMsg: "missing vmHostname", HttpCode: http.StatusBadRequest}
 	}
@@ -478,25 +481,25 @@ func UndoResourceChangeRequest(hostname, fingerprint string) (*storage.ResourceC
 	if err != nil {
 		return nil, SimpleError(err, "Failed to load stored undo request")
 	}
-	_ = notifier.NotifyResourceChangeRequest(rcr)
+	_ = notifier.NotifyResourceChangeRequest(ctx, rcr)
 
 	if _, err := applyResourceChange(rcr); err != nil {
 		_ = storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusFailed, err.Error())
-		_ = notifier.NotifyResourceChangeRequestFailed(rcr, err.Error())
+		_ = notifier.NotifyResourceChangeRequestFailed(ctx, rcr, err.Error())
 		return nil, SimpleError(err, "Failed to apply undo")
 	}
 	if err := storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusAutoApproved, fmt.Sprintf("undo of request #%d", prev.ID)); err != nil {
 		log.Printf("Failed to mark undo %d as auto_approved: %v", id, err)
 	}
 	rcr.Status = storage.RcrStatusAutoApproved
-	_ = notifier.NotifyResourceChangeRequestApplied(rcr, true)
+	_ = notifier.NotifyResourceChangeRequestApplied(ctx, rcr, true)
 	emailUserOnApply(rcr, true)
 	return &rcr, nil
 }
 
 // AcceptResourceChangeRequest is invoked from the admin console to apply a
 // previously-pending resource change request.
-func AcceptResourceChangeRequest(id int64) *ErrorBundle {
+func AcceptResourceChangeRequest(ctx context.Context, id int64) *ErrorBundle {
 	rcr, unlock, eb := getLockedResourceChange(id)
 	if eb != nil {
 		return eb
@@ -514,7 +517,7 @@ func AcceptResourceChangeRequest(id int64) *ErrorBundle {
 			return &ErrorBundle{Err: err, UserMsg: fmt.Sprintf("No step completed, the request stays pending: %v", err), HttpCode: http.StatusInternalServerError}
 		}
 		_ = storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusFailed, err.Error())
-		_ = notifier.NotifyResourceChangeRequestFailed(*rcr, err.Error())
+		_ = notifier.NotifyResourceChangeRequestFailed(ctx, *rcr, err.Error())
 		return &ErrorBundle{Err: err, UserMsg: fmt.Sprintf("Resource change partly applied: %v", err), HttpCode: http.StatusInternalServerError}
 	}
 
@@ -522,7 +525,7 @@ func AcceptResourceChangeRequest(id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to update request status")
 	}
 	rcr.Status = storage.RcrStatusAccepted
-	_ = notifier.NotifyResourceChangeRequestApplied(*rcr, false)
+	_ = notifier.NotifyResourceChangeRequestApplied(ctx, *rcr, false)
 	emailUserOnApply(*rcr, false)
 	return nil
 }
@@ -576,7 +579,7 @@ func EditResourceChangeRequest(id int64, cores, ramGB, diskGB, secondaryDiskGB i
 	return nil
 }
 
-func RejectResourceChangeRequest(id int64) *ErrorBundle {
+func RejectResourceChangeRequest(ctx context.Context, id int64) *ErrorBundle {
 	rcr, unlock, eb := getLockedResourceChange(id)
 	if eb != nil {
 		return eb
@@ -589,7 +592,7 @@ func RejectResourceChangeRequest(id int64) *ErrorBundle {
 		return SimpleError(err, "Failed to update request status")
 	}
 	rcr.Status = storage.RcrStatusRejected
-	_ = notifier.NotifyResourceChangeRequestStatusChanged(*rcr)
+	_ = notifier.NotifyResourceChangeRequestStatusChanged(ctx, *rcr)
 	return nil
 }
 
@@ -640,7 +643,7 @@ func addAllResourceChangeRoutes(r *mux.Router) {
 			return
 		}
 
-		resp, eb := SubmitResourceChangeRequest(&body)
+		resp, eb := SubmitResourceChangeRequest(r.Context(), &body)
 		if eb != nil {
 			http.Error(w, eb.UserMsg, eb.HttpCode)
 			return
@@ -675,7 +678,7 @@ func addAllResourceChangeRoutes(r *mux.Router) {
 			http.Error(w, "Invalid request payload", http.StatusBadRequest)
 			return
 		}
-		if eb := AcceptResourceChangeRequest(int64(b.ID)); eb != nil {
+		if eb := AcceptResourceChangeRequest(r.Context(), int64(b.ID)); eb != nil {
 			http.Error(w, eb.UserMsg, eb.HttpCode)
 			return
 		}
@@ -691,7 +694,7 @@ func addAllResourceChangeRoutes(r *mux.Router) {
 			http.Error(w, "Invalid request payload", http.StatusBadRequest)
 			return
 		}
-		if eb := RejectResourceChangeRequest(int64(b.ID)); eb != nil {
+		if eb := RejectResourceChangeRequest(r.Context(), int64(b.ID)); eb != nil {
 			http.Error(w, eb.UserMsg, eb.HttpCode)
 			return
 		}
@@ -724,7 +727,7 @@ func addAllResourceChangeRoutes(r *mux.Router) {
 			http.Error(w, "Invalid request payload", http.StatusBadRequest)
 			return
 		}
-		rcr, eb := CancelResourceChangeRequest(body.VMHostname)
+		rcr, eb := CancelResourceChangeRequest(r.Context(), body.VMHostname)
 		if eb != nil {
 			http.Error(w, eb.UserMsg, eb.HttpCode)
 			return
@@ -740,7 +743,7 @@ func addAllResourceChangeRoutes(r *mux.Router) {
 			http.Error(w, "Invalid request payload", http.StatusBadRequest)
 			return
 		}
-		rcr, eb := UndoResourceChangeRequest(body.VMHostname, body.RequesterFingerprint)
+		rcr, eb := UndoResourceChangeRequest(r.Context(), body.VMHostname, body.RequesterFingerprint)
 		if eb != nil {
 			http.Error(w, eb.UserMsg, eb.HttpCode)
 			return
