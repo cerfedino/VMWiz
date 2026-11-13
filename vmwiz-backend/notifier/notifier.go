@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/time/rate"
 
+	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/auth"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/config"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/logger"
 	"git.sos.ethz.ch/vsos/vmwiz.vsos.ethz.ch/vmwiz-backend/storage"
@@ -31,6 +32,9 @@ var SMTP_CLIENT SMTP
 func useNotifier(ctx context.Context, tags string, body string) error {
 
 	logger.From(ctx).Info("[-] Sending notification to vmwiz-notifier")
+	if email := auth.UserEmail(ctx); email != "" {
+		body += fmt.Sprintf("\n(by %s)", email)
+	}
 	v := url.Values{}
 	v.Add("title", APPRISE_THREAD_TITLE)
 	v.Add("tags", tags)

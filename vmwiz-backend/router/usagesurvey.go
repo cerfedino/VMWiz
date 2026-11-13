@@ -125,7 +125,7 @@ func addAllPollRoutes(r *mux.Router) {
 	})))
 
 	r.Methods("POST").Path("/api/usagesurvey/create").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("create survey", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx, lg, finish := logger.Nest(context.Background(), "Create VM usage survey")
+		ctx, lg, finish := logger.Nest(context.WithoutCancel(r.Context()), "Create VM usage survey")
 		w.Header().Set("X-Log-Scope-Id", lg.ScopeID())
 		w.WriteHeader(http.StatusAccepted)
 
@@ -292,7 +292,7 @@ func addAllPollRoutes(r *mux.Router) {
 			return
 		}
 
-		ctx, lg, finish := logger.Nest(context.Background(), fmt.Sprintf("Retry unsent emails for survey %d", body.ID))
+		ctx, lg, finish := logger.Nest(context.WithoutCancel(r.Context()), fmt.Sprintf("Retry unsent emails for survey %d", body.ID))
 		w.Header().Set("X-Log-Scope-Id", lg.ScopeID())
 		w.WriteHeader(http.StatusAccepted)
 
@@ -311,7 +311,7 @@ func addAllPollRoutes(r *mux.Router) {
 			return
 		}
 
-		ctx, lg, finish := logger.Nest(context.Background(), fmt.Sprintf("Send reminders for survey %d", body.ID))
+		ctx, lg, finish := logger.Nest(context.WithoutCancel(r.Context()), fmt.Sprintf("Send reminders for survey %d", body.ID))
 		w.Header().Set("X-Log-Scope-Id", lg.ScopeID())
 		w.WriteHeader(http.StatusAccepted)
 

@@ -151,6 +151,12 @@ func replyUnauthorized(w http.ResponseWriter) {
 	http.Error(w, string(respJSON), http.StatusUnauthorized)
 }
 
+// UserEmail returns the email of the admin who made the request, or ""
+func UserEmail(ctx context.Context) string {
+	user, _ := ctx.Value("user").(KeycloakUser)
+	return user.Email
+}
+
 func checkAuthenticatedSuccess(w http.ResponseWriter, r *http.Request, next http.Handler, claims KeycloakUser) {
 	// Attach claims to the request context.
 	ctxWithClaims := context.WithValue(r.Context(), "user", claims)

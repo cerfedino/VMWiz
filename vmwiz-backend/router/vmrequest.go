@@ -317,7 +317,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			return
 		}
 
-		ctx, lg, finish := logger.Nest(context.Background(), fmt.Sprintf("Accept VM request %d", body.ID))
+		ctx, lg, finish := logger.Nest(context.WithoutCancel(r.Context()), fmt.Sprintf("Accept VM request %d", body.ID))
 		// Set the Log Scope header such that the frontend can stream the live logs immediately.
 		w.Header().Set("X-Log-Scope-Id", lg.ScopeID())
 		w.WriteHeader(http.StatusAccepted)
