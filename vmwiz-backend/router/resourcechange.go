@@ -627,7 +627,7 @@ func addAllResourceChangeRoutes(r *mux.Router) {
 			http.Error(w, "Failed to close resource change requests", http.StatusInternalServerError)
 			return
 		}
-		log.Printf("Resource change requests closed: %s", body.Reason)
+		log.Printf("Resource change requests closed by %s: %s", auth.UserEmail(r.Context()), body.Reason)
 		_ = notifier.NotifyResourceChangeClosure(r.Context(), "Resource change requests closed: "+body.Reason)
 	}))))
 
@@ -642,7 +642,7 @@ func addAllResourceChangeRoutes(r *mux.Router) {
 			http.Error(w, "Resource change requests are not closed", http.StatusBadRequest)
 			return
 		}
-		log.Println("Resource change requests reopened")
+		log.Printf("Resource change requests reopened by %s", auth.UserEmail(r.Context()))
 		_ = notifier.NotifyResourceChangeClosure(r.Context(), "Resource change requests reopened")
 	}))))
 
