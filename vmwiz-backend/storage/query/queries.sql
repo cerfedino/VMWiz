@@ -187,7 +187,7 @@ WHERE surveyId = $1 AND email_sent = FALSE;
 SELECT EXISTS(SELECT 1 FROM survey_email WHERE uuid = $1);
 
 -- name: LockResourceChangeVM :exec
--- Serialize submit/cancel/undo/admin operations for one VM across instances.
+-- Serialize submit/cancel/admin operations for one VM across instances.
 SELECT pg_advisory_xact_lock(17017, hashtext(@vm_hostname::text));
 
 -- name: LockResourceChangeSubmissions :exec

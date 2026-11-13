@@ -43,9 +43,8 @@ type rcrSubmitBody struct {
 	Reason               string `json:"reason"`
 }
 
-type rcrCancelOrUndoBody struct {
-	VMHostname           string `json:"vmHostname"`
-	RequesterFingerprint string `json:"requesterFingerprint"`
+type rcrCancelBody struct {
+	VMHostname string `json:"vmHostname"`
 }
 
 type rcrSubmitResponse struct {
@@ -409,94 +408,6 @@ func CancelResourceChangeRequest(ctx context.Context, hostname string) (*storage
 	return rcr, nil
 }
 
-// UndoResourceChangeRequest reverts the latest applied resource change for
-// the given VM by submitting a new request that restores the prior values.
-// Returns the new request describing the revert.
-func UndoResourceChangeRequest(ctx context.Context, hostname, fingerprint string) (*storage.ResourceChangeRequest, *ErrorBundle) {
-	if hostname == "" {
-		return nil, &ErrorBundle{Err: fmt.Errorf("missing vmHostname"), UserMsg: "missing vmHostname", HttpCode: http.StatusBadRequest}
-	}
-	unlock, err := storage.DB.LockResourceChangeVM(hostname)
-	if err != nil {
-		return nil, SimpleError(err, "Failed to lock resource change")
-	}
-	defer unlock()
-
-	prev, err := storage.DB.GetLatestProcessedResourceChangeRequestForHostname(hostname)
-	if err != nil {
-		return nil, SimpleError(err, "Failed to look up previous applied request")
-	}
-	if prev == nil {
-		return nil, &ErrorBundle{Err: fmt.Errorf("nothing to undo"), UserMsg: "No applied resource change to undo.", HttpCode: http.StatusNotFound}
-	}
-
-	vms, err := proxmox.GetAllClusterVMsByName(hostname)
-	if err != nil {
-		return nil, SimpleError(err, "Failed to look up VM")
-	}
-	if vms == nil || len(*vms) == 0 {
-		return nil, &ErrorBundle{Err: fmt.Errorf("VM not found"), UserMsg: "VM not found", HttpCode: http.StatusNotFound}
-	}
-	vm := (*vms)[0]
-
-	cfg, err := proxmox.GetNodeVMConfig(vm.Node, vm.Vmid)
-	if err != nil {
-		return nil, SimpleError(err, "Failed to read current VM configuration")
-	}
-	currentCores := cfg.Cores
-	currentRamGB := cfg.MemoryMB() / 1024
-	currentDiskGB := vm.Maxdisk / (1024 * 1024 * 1024)
-	currentSecondaryDiskGB := cfg.SecondaryDiskGB()
-
-	// Disk shrinks aren't supported by Proxmox; clamp the target disk to the
-	// larger of (prior current disk, current disk).
-	targetDiskGB := int(prev.CurrentDiskGb)
-	if currentDiskGB > targetDiskGB {
-		targetDiskGB = currentDiskGB
-	}
-	targetSecondaryDiskGB := int(prev.CurrentSecondaryDiskGb)
-	if currentSecondaryDiskGB > targetSecondaryDiskGB {
-		targetSecondaryDiskGB = currentSecondaryDiskGB
-	}
-
-	p := storage.CreateResourceChangeParams{
-		Status:                 storage.RcrStatusPending,
-		VmHostname:             hostname,
-		RequesterFingerprint:   fingerprint,
-		CurrentCores:           int32(currentCores),
-		CurrentRamGb:           int32(currentRamGB),
-		CurrentDiskGb:          int32(currentDiskGB),
-		CurrentSecondaryDiskGb: int32(currentSecondaryDiskGB),
-		NewCores:               prev.CurrentCores,
-		NewRamGb:               prev.CurrentRamGb,
-		NewDiskGb:              int32(targetDiskGB),
-		NewSecondaryDiskGb:     int32(targetSecondaryDiskGB),
-		RequestReason:          fmt.Sprintf("Undo of request #%d", prev.ID),
-	}
-	id, err := storage.DB.StoreResourceChangeRequest(p)
-	if err != nil {
-		return nil, SimpleError(err, "Failed to store undo request")
-	}
-	rcr, err := storage.DB.GetResourceChangeByID(context.Background(), id)
-	if err != nil {
-		return nil, SimpleError(err, "Failed to load stored undo request")
-	}
-	_ = notifier.NotifyResourceChangeRequest(ctx, rcr)
-
-	if _, err := applyResourceChange(rcr); err != nil {
-		_ = storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusFailed, err.Error())
-		_ = notifier.NotifyResourceChangeRequestFailed(ctx, rcr, err.Error())
-		return nil, SimpleError(err, "Failed to apply undo")
-	}
-	if err := storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusAutoApproved, fmt.Sprintf("undo of request #%d", prev.ID)); err != nil {
-		log.Printf("Failed to mark undo %d as auto_approved: %v", id, err)
-	}
-	rcr.Status = storage.RcrStatusAutoApproved
-	_ = notifier.NotifyResourceChangeRequestApplied(ctx, rcr, true)
-	emailUserOnApply(rcr, true)
-	return &rcr, nil
-}
-
 // AcceptResourceChangeRequest is invoked from the admin console to apply a
 // previously-pending resource change request.
 func AcceptResourceChangeRequest(ctx context.Context, id int64) *ErrorBundle {
@@ -722,7 +633,7 @@ func addAllResourceChangeRoutes(r *mux.Router) {
 
 	// SSH portal: cancel pending request for a VM
 	r.Methods("POST").Path("/api/resourcechange/cancel").Handler(sshportalAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body rcrCancelOrUndoBody
+		var body rcrCancelBody
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, "Invalid request payload", http.StatusBadRequest)
 			return
@@ -736,19 +647,4 @@ func addAllResourceChangeRoutes(r *mux.Router) {
 		_ = json.NewEncoder(w).Encode(toRcrJSON(*rcr))
 	})))
 
-	// SSH portal: undo last applied change for a VM
-	r.Methods("POST").Path("/api/resourcechange/undo").Handler(sshportalAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body rcrCancelOrUndoBody
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			http.Error(w, "Invalid request payload", http.StatusBadRequest)
-			return
-		}
-		rcr, eb := UndoResourceChangeRequest(r.Context(), body.VMHostname, body.RequesterFingerprint)
-		if eb != nil {
-			http.Error(w, eb.UserMsg, eb.HttpCode)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(toRcrJSON(*rcr))
-	})))
 }

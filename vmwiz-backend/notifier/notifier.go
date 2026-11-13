@@ -167,8 +167,7 @@ func SendResourceChangeAppliedEmail(req storage.ResourceChangeRequest, contacts 
   HDD disk: %d GB -> %d GB
 
 The new configuration is staged in Proxmox. Memory and CPU changes only
-take effect after the VM reboots. If you do not want the change to take effect,
-please undo the request now via the SSH portal.
+take effect after the VM reboots.
 
 Reason given: %s
 `, req.VmHostname, verb,

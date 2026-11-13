@@ -1051,7 +1051,7 @@ const lockResourceChangeVM = `-- name: LockResourceChangeVM :exec
 SELECT pg_advisory_xact_lock(17017, hashtext($1::text))
 `
 
-// Serialize submit/cancel/undo/admin operations for one VM across instances.
+// Serialize submit/cancel/admin operations for one VM across instances.
 func (q *Queries) LockResourceChangeVM(ctx context.Context, vmHostname string) error {
 	_, err := q.db.ExecContext(ctx, lockResourceChangeVM, vmHostname)
 	return err

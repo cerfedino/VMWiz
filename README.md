@@ -104,9 +104,9 @@ VMWiz has an LDAP user such that it can use SOSETH's mail server to send emails 
 To that end, adjust the SMTP-related values in [.backend.env](docker/.backend.env).
 
 ### 8. (Optional) Set `SSHPORTAL_SECRET` in [.backend.env](docker/.backend.env)
-The SSH portal submits, cancels and undoes resource change requests for VM owners through the backend, and authenticates with a shared secret.\
+The SSH portal submits and cancels resource change requests for VM owners through the backend, and authenticates with a shared secret.\
 Set `SSHPORTAL_SECRET` to a value of at least 32 characters and configure the same value on SSH portal.\
-It can be left unset, and SSH Portal will then not be able to submit, cancel or undo resource change requests.
+It can be left unset, and SSH Portal will then not be able to submit or cancel resource change requests.
 
 ### 9. Bring up the stack
 `cd docker && docker compose up`\
