@@ -1268,10 +1268,18 @@ func AddVMToResourcePool(vm_id int, pool string) error {
 }
 
 type PVENodeVMConfig struct {
-	Digest      string `json:"digest"`
+	Digest string `json:"digest"`
+	Cores  int    `json:"cores"`
+	// "[current=]<MiB>"
+	Memory      string `json:"memory"`
 	Scsi3       string `json:"scsi3"`
 	Description string `json:"description"`
 	Net0        string `json:"net0"`
+}
+
+func (cfg *PVENodeVMConfig) MemoryMB() int {
+	mb, _ := strconv.Atoi(strings.TrimPrefix(cfg.Memory, "current="))
+	return mb
 }
 
 func (cfg *PVENodeVMConfig) NetworkDeviceConfig() map[string]string {
@@ -1784,7 +1792,7 @@ func resizeVMDiskSlot(node string, vmid int, slot string, currentGB, targetGB in
 	return nil
 }
 
-// response is the body of a call that returns a task ID, or null if it ran synchronously.
+// response is the body of a call that returns a task ID.
 // GET /api2/json/nodes/{node}/tasks/{upid}/status
 func waitForNodeTask(node string, response []byte) error {
 	var started struct {
@@ -1795,7 +1803,7 @@ func waitForNodeTask(node string, response []byte) error {
 	}
 	upid := started.Data
 	if upid == "" {
-		return nil
+		return fmt.Errorf("No task ID in response: %s", response)
 	}
 
 	const timeoutSeconds = 30

@@ -195,7 +195,14 @@ func applyResourceChange(req storage.ResourceChangeRequest) (partial bool, err e
 		applied = append(applied, fmt.Sprintf("HDD %d -> %d GB", req.Currentsecondarydiskgb, req.Newsecondarydiskgb))
 	}
 
-	if err := proxmox.SetVMCoresAndMemory(vm.Node, vm.Vmid, int(req.Newcores), int(req.Newramgb)*1024); err != nil {
+	cores, memoryMB := 0, 0
+	if req.Newcores != req.Currentcores {
+		cores = int(req.Newcores)
+	}
+	if req.Newramgb != req.Currentramgb {
+		memoryMB = int(req.Newramgb) * 1024
+	}
+	if err := proxmox.SetVMCoresAndMemory(vm.Node, vm.Vmid, cores, memoryMB); err != nil {
 		return fail("set cores/memory", err)
 	}
 
@@ -264,17 +271,14 @@ func SubmitResourceChangeRequest(body *rcrSubmitBody) (*rcrSubmitResponse, *Erro
 	}
 	vm := (*vms)[0]
 
-	currentCores := int(vm.Maxcpu)
-	currentRamGB := vm.Maxmem / (1024 * 1024 * 1024)
-	currentDiskGB := vm.Maxdisk / (1024 * 1024 * 1024)
-
-	// Require a readable VM config; a failed lookup must not imply an empty HDD slot.
-	currentSecondaryDiskGB := 0
-	if cfg, err := proxmox.GetNodeVMConfig(vm.Node, vm.Vmid); err == nil {
-		currentSecondaryDiskGB = cfg.SecondaryDiskGB()
-	} else {
-		return nil, SimpleError(err, "Failed to read current VM disk configuration")
+	cfg, err := proxmox.GetNodeVMConfig(vm.Node, vm.Vmid)
+	if err != nil {
+		return nil, SimpleError(err, "Failed to read current VM configuration")
 	}
+	currentCores := cfg.Cores
+	currentRamGB := cfg.MemoryMB() / 1024
+	currentDiskGB := vm.Maxdisk / (1024 * 1024 * 1024)
+	currentSecondaryDiskGB := cfg.SecondaryDiskGB()
 
 	// Reject shrink/remove of an existing disk — Proxmox can't shrink, and
 	// detaching/destroying a populated disk is destructive and needs admin care.
@@ -420,13 +424,14 @@ func UndoResourceChangeRequest(hostname, fingerprint string) (*storage.ResourceC
 	}
 	vm := (*vms)[0]
 
-	currentCores := int(vm.Maxcpu)
-	currentRamGB := vm.Maxmem / (1024 * 1024 * 1024)
-	currentDiskGB := vm.Maxdisk / (1024 * 1024 * 1024)
-	currentSecondaryDiskGB := 0
-	if cfg, err := proxmox.GetNodeVMConfig(vm.Node, vm.Vmid); err == nil {
-		currentSecondaryDiskGB = cfg.SecondaryDiskGB()
+	cfg, err := proxmox.GetNodeVMConfig(vm.Node, vm.Vmid)
+	if err != nil {
+		return nil, SimpleError(err, "Failed to read current VM configuration")
 	}
+	currentCores := cfg.Cores
+	currentRamGB := cfg.MemoryMB() / 1024
+	currentDiskGB := vm.Maxdisk / (1024 * 1024 * 1024)
+	currentSecondaryDiskGB := cfg.SecondaryDiskGB()
 
 	// Disk shrinks aren't supported by Proxmox; clamp the target disk to the
 	// larger of (prior current disk, current disk).
