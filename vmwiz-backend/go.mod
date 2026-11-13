@@ -14,7 +14,7 @@ require (
 	github.com/pkg/sftp v1.13.12
 	github.com/rs/cors v1.11.1
 	github.com/seancfoley/ipaddress-go v1.8.4
-	github.com/urfave/cli/v3 v3.13.0
+	github.com/urfave/cli/v3 v3.14.0
 	golang.org/x/crypto v0.57.0
 	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e
 	golang.org/x/oauth2 v0.37.0
