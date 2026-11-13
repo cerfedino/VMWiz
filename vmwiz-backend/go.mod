@@ -11,7 +11,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.12.3
 	github.com/melbahja/goph v1.5.2
-	github.com/pkg/sftp v1.13.11
+	github.com/pkg/sftp v1.13.12
 	github.com/rs/cors v1.11.1
 	github.com/seancfoley/ipaddress-go v1.8.4
 	github.com/urfave/cli/v3 v3.13.0
