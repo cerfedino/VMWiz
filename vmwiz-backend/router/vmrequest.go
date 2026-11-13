@@ -425,6 +425,7 @@ func addVMRequestRoutes(r *mux.Router) {
 			http.Error(w, "Cannot edit a request that is not pending", http.StatusBadRequest)
 			return
 		}
+		before := request
 
 		if body.Cores_cpu != 0 {
 			request.Cores = int32(body.Cores_cpu)
@@ -463,6 +464,9 @@ func addVMRequestRoutes(r *mux.Router) {
 			log.Printf("Error updating VM request: %v", err)
 			http.Error(w, "Failed to update VM request", http.StatusInternalServerError)
 			return
+		}
+		if err := notifier.NotifyVMRequestEdited(r.Context(), before, request); err != nil {
+			log.Printf("Failed to send VM request edit notification: %v", err)
 		}
 
 	}))))

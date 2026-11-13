@@ -8,16 +8,20 @@
 #     These endpoints get notified when an admin accepts a VM request
 #   vmrequest_rejected
 #     These endpoints get notified when an admin rejects a VM request
+#   vmrequest_edited
+#     These endpoints get notified when an admin edits a pending VM request
 #   vmcreation_update
 #     These endpoints get notified during the creation of a VM, e.g error/success messages
 #   vmusagesurvey
 #     These endpoints get notified with messages regarding the VM Usage Surveys
 #   resourcechange_new
-#     New resource change requests, including requests eligible for automatic approval and undo requests
+#     New resource change requests, including requests eligible for automatic approval
 #   resourcechange_accepted
 #     Resource changes applied after admin or automatic approval
 #   resourcechange_rejected
 #     Resource change requests rejected by an admin
+#   resourcechange_edited
+#     Pending resource change requests whose requested values an admin changed
 #   resourcechange_failed
 #     Resource changes that failed to apply
 #   resourcechange_cancelled

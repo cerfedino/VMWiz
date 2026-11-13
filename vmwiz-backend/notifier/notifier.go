@@ -66,6 +66,17 @@ func NotifyVMRequestStatusChanged(ctx context.Context, req storage.Request, addi
 	return nil
 }
 
+func NotifyVMRequestEdited(ctx context.Context, before, after storage.Request) error {
+	changes := describeChanges([]fieldChange{
+		{"hostname", before.Hostname, after.Hostname},
+		{"cores", fmt.Sprint(before.Cores), fmt.Sprint(after.Cores)},
+		{"RAM", gb(before.Ramgb), gb(after.Ramgb)},
+		{"SSD", gb(before.Diskgb), gb(after.Diskgb)},
+		{"HDD", gb(before.Secondarydiskgb), gb(after.Secondarydiskgb)},
+	})
+	return useNotifier(ctx, "vmrequest_edited", fmt.Sprintf("Request %v edited: %s", after.Requestid, changes))
+}
+
 func NotifyVMCreationUpdate(ctx context.Context, msg string) error {
 	return useNotifier(ctx, "vmcreation_update", msg)
 }
@@ -133,6 +144,34 @@ func NotifyResourceChangeRequestApplied(ctx context.Context, req storage.Resourc
 
 func NotifyResourceChangeRequestFailed(ctx context.Context, req storage.ResourceChangeRequest, errMsg string) error {
 	return notifyResourceChange(ctx, "resourcechange_failed", fmt.Sprintf("Resource change request %d failed to apply for %s: %s", req.ID, req.VmHostname, errMsg))
+}
+
+type fieldChange struct{ name, old, new string }
+
+// describeChanges lists "name old -> new" for every field that differs.
+func describeChanges(fields []fieldChange) string {
+	var out []string
+	for _, f := range fields {
+		if f.old != f.new {
+			out = append(out, fmt.Sprintf("%s %s -> %s", f.name, f.old, f.new))
+		}
+	}
+	if len(out) == 0 {
+		return "no change"
+	}
+	return strings.Join(out, ", ")
+}
+
+func gb(v int32) string { return fmt.Sprintf("%d GB", v) }
+
+func NotifyResourceChangeRequestEdited(ctx context.Context, before, after storage.ResourceChangeRequest) error {
+	changes := describeChanges([]fieldChange{
+		{"cores", fmt.Sprint(before.NewCores), fmt.Sprint(after.NewCores)},
+		{"RAM", gb(before.NewRamGb), gb(after.NewRamGb)},
+		{"SSD", gb(before.NewDiskGb), gb(after.NewDiskGb)},
+		{"HDD", gb(before.NewSecondaryDiskGb), gb(after.NewSecondaryDiskGb)},
+	})
+	return notifyResourceChange(ctx, "resourcechange_edited", fmt.Sprintf("Resource change request %d for %s edited: %s", after.ID, after.VmHostname, changes))
 }
 
 func NotifyResourceChangeRequestStatusChanged(ctx context.Context, req storage.ResourceChangeRequest) error {

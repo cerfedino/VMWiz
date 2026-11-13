@@ -451,7 +451,7 @@ func AcceptResourceChangeRequest(ctx context.Context, id int64, reason string) *
 // EditResourceChangeRequest overwrites the requested target values on a
 // pending request. The edited request remains pending for admin approval.
 // Returns an error if the request is not pending.
-func EditResourceChangeRequest(id int64, cores, ramGB, diskGB, secondaryDiskGB int) *ErrorBundle {
+func EditResourceChangeRequest(ctx context.Context, id int64, cores, ramGB, diskGB, secondaryDiskGB int) *ErrorBundle {
 	if cores <= 0 || ramGB <= 0 || diskGB <= 0 {
 		return &ErrorBundle{Err: fmt.Errorf("invalid"), UserMsg: "cores, ramGB, diskGB must all be positive", HttpCode: http.StatusBadRequest}
 	}
@@ -494,6 +494,9 @@ func EditResourceChangeRequest(id int64, cores, ramGB, diskGB, secondaryDiskGB i
 	if err != nil {
 		return SimpleError(err, "Failed to update resource change request")
 	}
+	edited := *rcr
+	edited.NewCores, edited.NewRamGb, edited.NewDiskGb, edited.NewSecondaryDiskGb = int32(cores), int32(ramGB), int32(diskGB), int32(secondaryDiskGB)
+	_ = notifier.NotifyResourceChangeRequestEdited(ctx, *rcr, edited)
 	return nil
 }
 
@@ -644,7 +647,7 @@ func addAllResourceChangeRoutes(r *mux.Router) {
 			http.Error(w, "Invalid request payload", http.StatusBadRequest)
 			return
 		}
-		if eb := EditResourceChangeRequest(int64(b.ID), b.NewCores, b.NewRamGB, b.NewDiskGB, b.NewSecondaryDiskGB); eb != nil {
+		if eb := EditResourceChangeRequest(r.Context(), int64(b.ID), b.NewCores, b.NewRamGB, b.NewDiskGB, b.NewSecondaryDiskGB); eb != nil {
 			http.Error(w, eb.UserMsg, eb.HttpCode)
 			return
 		}
