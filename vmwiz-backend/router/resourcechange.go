@@ -144,35 +144,40 @@ func evaluateHeuristic(req storage.CreateResourceChangeParams, prev *storage.Res
 // applyResourceChange applies the requested cores/RAM/disk change to the VM
 // using the Proxmox HTTP API. Disk shrinks are rejected at submit and edit,
 // so only growth is handled here.
-func applyResourceChange(req storage.ResourceChangeRequest) error {
+func applyResourceChange(req storage.ResourceChangeRequest) (partial bool, err error) {
+	var applied []string
+	fail := func(step string, err error) (bool, error) {
+		if len(applied) == 0 {
+			return false, fmt.Errorf("%s: %v", step, err)
+		}
+		return true, fmt.Errorf("%s: %v (already applied: %s)", step, err, strings.Join(applied, ", "))
+	}
+
 	vms, err := proxmox.GetAllClusterVMsByName(req.Vmhostname)
 	if err != nil {
-		return fmt.Errorf("look up VM: %v", err)
+		return fail("look up VM", err)
 	}
 	if vms == nil || len(*vms) == 0 {
-		return fmt.Errorf("VM %q not found", req.Vmhostname)
+		return false, fmt.Errorf("VM %q not found", req.Vmhostname)
 	}
 	if len(*vms) > 1 {
-		return fmt.Errorf("VM %q is ambiguous (%d matches)", req.Vmhostname, len(*vms))
+		return false, fmt.Errorf("VM %q is ambiguous (%d matches)", req.Vmhostname, len(*vms))
 	}
 	vm := (*vms)[0]
 
 	cfg, err := proxmox.GetNodeVMConfig(vm.Node, vm.Vmid)
 	if err != nil {
-		return fmt.Errorf("read current disk configuration: %w", err)
+		return fail("read current disk configuration", err)
 	}
 	if cfg.SecondaryDiskGB() != int(req.Currentsecondarydiskgb) || (req.Currentsecondarydiskgb == 0 && cfg.Scsi3 != "") {
-		return fmt.Errorf("HDD configuration changed since submission; submit a new resource change request")
-	}
-
-	if err := proxmox.SetVMCoresAndMemory(vm.Node, vm.Vmid, int(req.Newcores), int(req.Newramgb)*1024); err != nil {
-		return fmt.Errorf("set cores/memory: %v", err)
+		return false, fmt.Errorf("HDD configuration changed since submission; submit a new resource change request")
 	}
 
 	if req.Newdiskgb > req.Currentdiskgb {
 		if err := proxmox.ResizeVMDisk(vm.Node, vm.Vmid, int(req.Currentdiskgb), int(req.Newdiskgb)); err != nil {
-			return fmt.Errorf("resize disk: %v", err)
+			return fail("resize disk", err)
 		}
+		applied = append(applied, fmt.Sprintf("SSD %d -> %d GB", req.Currentdiskgb, req.Newdiskgb))
 	}
 
 	// Secondary HDD: create on first request (current=0, new>0), or grow.
@@ -180,15 +185,21 @@ func applyResourceChange(req storage.ResourceChangeRequest) error {
 	// need to handle them here.
 	if req.Newsecondarydiskgb > 0 && req.Currentsecondarydiskgb == 0 {
 		if err := proxmox.CreateVMSecondaryDisk(vm.Node, vm.Vmid, int(req.Newsecondarydiskgb)); err != nil {
-			return fmt.Errorf("create secondary disk: %v", err)
+			return fail("create secondary disk", err)
 		}
+		applied = append(applied, fmt.Sprintf("HDD 0 -> %d GB", req.Newsecondarydiskgb))
 	} else if req.Newsecondarydiskgb > req.Currentsecondarydiskgb {
 		if err := proxmox.ResizeVMSecondaryDisk(vm.Node, vm.Vmid, int(req.Currentsecondarydiskgb), int(req.Newsecondarydiskgb)); err != nil {
-			return fmt.Errorf("resize secondary disk: %v", err)
+			return fail("resize secondary disk", err)
 		}
+		applied = append(applied, fmt.Sprintf("HDD %d -> %d GB", req.Currentsecondarydiskgb, req.Newsecondarydiskgb))
 	}
 
-	return nil
+	if err := proxmox.SetVMCoresAndMemory(vm.Node, vm.Vmid, int(req.Newcores), int(req.Newramgb)*1024); err != nil {
+		return fail("set cores/memory", err)
+	}
+
+	return false, nil
 }
 
 // vmContacts returns the contact email addresses for a VM by reading its
@@ -334,7 +345,7 @@ func SubmitResourceChangeRequest(body *rcrSubmitBody) (*rcrSubmitResponse, *Erro
 	}
 
 	// Auto-approve path.
-	if err := applyResourceChange(rcr); err != nil {
+	if _, err := applyResourceChange(rcr); err != nil {
 		_ = storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusFailed, err.Error())
 		_ = notifier.NotifyResourceChangeRequestFailed(rcr, err.Error())
 		return nil, SimpleError(err, "Failed to apply resource change")
@@ -452,7 +463,7 @@ func UndoResourceChangeRequest(hostname, fingerprint string) (*storage.ResourceC
 	}
 	_ = notifier.NotifyResourceChangeRequest(rcr)
 
-	if err := applyResourceChange(rcr); err != nil {
+	if _, err := applyResourceChange(rcr); err != nil {
 		_ = storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusFailed, err.Error())
 		_ = notifier.NotifyResourceChangeRequestFailed(rcr, err.Error())
 		return nil, SimpleError(err, "Failed to apply undo")
@@ -479,10 +490,15 @@ func AcceptResourceChangeRequest(id int64) *ErrorBundle {
 		return &ErrorBundle{Err: fmt.Errorf("not pending"), UserMsg: "Only pending resource change requests can be accepted", HttpCode: http.StatusBadRequest}
 	}
 
-	if err := applyResourceChange(*rcr); err != nil {
+	if partial, err := applyResourceChange(*rcr); err != nil {
+		log.Printf("Failed to apply resource change request %d: %v", id, err)
+		// Nothing was changed on the VM so stay pending so the admin can retry, edit or reject.
+		if !partial {
+			return &ErrorBundle{Err: err, UserMsg: fmt.Sprintf("Nothing was applied, the request stays pending: %v", err), HttpCode: http.StatusInternalServerError}
+		}
 		_ = storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusFailed, err.Error())
 		_ = notifier.NotifyResourceChangeRequestFailed(*rcr, err.Error())
-		return SimpleError(err, "Failed to apply resource change")
+		return &ErrorBundle{Err: err, UserMsg: fmt.Sprintf("Resource change partly applied: %v", err), HttpCode: http.StatusInternalServerError}
 	}
 
 	if err := storage.DB.MarkResourceChangeRequestProcessed(id, storage.RcrStatusAccepted, "accepted by admin"); err != nil {
