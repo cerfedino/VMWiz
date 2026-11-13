@@ -161,7 +161,7 @@ func applyResourceChange(req storage.ResourceChangeRequest) error {
 	if err != nil {
 		return fmt.Errorf("read current disk configuration: %w", err)
 	}
-	if cfg.SecondaryDiskGB() != int(req.Currentsecondarydiskgb) || (req.Currentsecondarydiskgb == 0 && cfg.Scsi1 != "") {
+	if cfg.SecondaryDiskGB() != int(req.Currentsecondarydiskgb) || (req.Currentsecondarydiskgb == 0 && cfg.Scsi3 != "") {
 		return fmt.Errorf("HDD configuration changed since submission; submit a new resource change request")
 	}
 

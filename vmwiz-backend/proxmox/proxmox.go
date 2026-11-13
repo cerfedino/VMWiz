@@ -782,14 +782,14 @@ Reinstall: %v
 		lg.Infof("\t[-] Creating secondary disk\n")
 		diskName := fmt.Sprintf("vm-%v-disk-3", VM_ID)
 
-		allocCmd := fmt.Sprintf("pvesm alloc vmnorm %v %s %vG", VM_ID, diskName, options.SecondaryDisk_GB)
+		allocCmd := fmt.Sprintf("pvesm alloc %s %v %s %vG", HDDStorage, VM_ID, diskName, options.SecondaryDisk_GB)
 		lg.Infof("\t\t> %v \n", allocCmd)
 		stdout, err = comp_ssh.Run(allocCmd)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Failed to create VM: Comp node SSH: Cannot create secondary disk: %v\nOutput:\n%s", err, stdout)
 		}
 
-		attachCmd := fmt.Sprintf("qm set %v --scsi3 vmnorm:%s", VM_ID, diskName)
+		attachCmd := fmt.Sprintf("qm set %v --%s %s:%s", VM_ID, HDDSlot, HDDStorage, diskName)
 		lg.Infof("\t\t> %v \n", attachCmd)
 		stdout, err = comp_ssh.Run(attachCmd)
 		if err != nil {
@@ -1269,7 +1269,7 @@ func AddVMToResourcePool(vm_id int, pool string) error {
 
 type PVENodeVMConfig struct {
 	Digest      string `json:"digest"`
-	Scsi1       string `json:"scsi1"`
+	Scsi3       string `json:"scsi3"`
 	Description string `json:"description"`
 	Net0        string `json:"net0"`
 }
@@ -1668,11 +1668,14 @@ func CheckAllVMs() []VMWarning {
 	return warnings
 }
 
-// HDDPool is the Ceph/Proxmox storage pool used for secondary (HDD) disks.
-const HDDPool = "vm-norm"
+// scsi1 is the swap disk (VM.conf.tmpl).
+const (
+	HDDStorage = "vmnorm"
+	HDDSlot    = "scsi3"
+)
 
 // parseDiskSizeGB extracts the size of a Proxmox disk config string in GB.
-// The string looks like "vm-norm:vm-100-disk-1,size=50G,..."; the size unit
+// The string looks like "vmnorm:vm-100-disk-3,size=50G,..."; the size unit
 // can be M, G, or T. Returns 0 if no size can be parsed.
 func parseDiskSizeGB(disk string) int {
 	for _, part := range strings.Split(disk, ",") {
@@ -1702,12 +1705,12 @@ func parseDiskSizeGB(disk string) int {
 	return 0
 }
 
-// SecondaryDiskGB returns the size in GB of scsi1, or 0 if the VM has none.
+// SecondaryDiskGB returns the size in GB of the HDD, or 0 if the VM has none.
 func (cfg *PVENodeVMConfig) SecondaryDiskGB() int {
-	if cfg.Scsi1 == "" {
+	if cfg.Scsi3 == "" {
 		return 0
 	}
-	return parseDiskSizeGB(cfg.Scsi1)
+	return parseDiskSizeGB(cfg.Scsi3)
 }
 
 // SetVMCoresAndMemory updates the cores and memory of a VM via the Proxmox
@@ -1745,10 +1748,10 @@ func ResizeVMDisk(node string, vmid int, currentGB int, targetGB int) error {
 	return resizeVMDiskSlot(node, vmid, "scsi0", currentGB, targetGB)
 }
 
-// ResizeVMSecondaryDisk grows the secondary HDD disk (scsi1) to the given
+// ResizeVMSecondaryDisk grows the secondary HDD disk to the given
 // target size in GB. Same shrink restriction as the primary disk.
 func ResizeVMSecondaryDisk(node string, vmid int, currentGB int, targetGB int) error {
-	return resizeVMDiskSlot(node, vmid, "scsi1", currentGB, targetGB)
+	return resizeVMDiskSlot(node, vmid, HDDSlot, currentGB, targetGB)
 }
 
 func resizeVMDiskSlot(node string, vmid int, slot string, currentGB, targetGB int) error {
@@ -1777,8 +1780,8 @@ func resizeVMDiskSlot(node string, vmid int, slot string, currentGB, targetGB in
 	return nil
 }
 
-// CreateVMSecondaryDisk attaches a new HDD (scsi1) to the VM with the given
-// size. Errors if scsi1 is already populated.
+// CreateVMSecondaryDisk attaches a new HDD to the VM with the given size.
+// Errors if the slot is already populated.
 func CreateVMSecondaryDisk(node string, vmid int, sizeGB int) error {
 	if sizeGB <= 0 {
 		return fmt.Errorf("Cannot create secondary disk with size %d", sizeGB)
@@ -1788,8 +1791,8 @@ func CreateVMSecondaryDisk(node string, vmid int, sizeGB int) error {
 	if err != nil {
 		return fmt.Errorf("read VM config before HDD creation: %w", err)
 	}
-	if cfg.Scsi1 != "" {
-		return fmt.Errorf("Cannot create secondary disk: scsi1 is already occupied")
+	if cfg.Scsi3 != "" {
+		return fmt.Errorf("Cannot create secondary disk: %s is already occupied", HDDSlot)
 	}
 	if cfg.Digest == "" {
 		return fmt.Errorf("Cannot create secondary disk without a VM config digest")
@@ -1797,7 +1800,7 @@ func CreateVMSecondaryDisk(node string, vmid int, sizeGB int) error {
 
 	form := url.Values{}
 	form.Set("digest", cfg.Digest)
-	form.Set("scsi1", fmt.Sprintf("%s:%d", HDDPool, sizeGB))
+	form.Set(HDDSlot, fmt.Sprintf("%s:%d", HDDStorage, sizeGB))
 
 	body := []byte(form.Encode())
 	req, client, err := proxmoxMakeRequest(http.MethodPut, fmt.Sprintf("/api2/json/nodes/%s/qemu/%d/config", node, vmid), body)
