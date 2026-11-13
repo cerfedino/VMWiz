@@ -78,9 +78,7 @@ export function ResourceChangeAdmin() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [filter, setFilter] = useState<Filter>("pending");
-    const [selected, setSelected] = useState<ResourceChangeRequest | null>(
-        null,
-    );
+    const [selectedID, setSelectedID] = useState<number | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -107,121 +105,136 @@ export function ResourceChangeAdmin() {
                 b.ID - a.ID,
         );
 
-    if (loading) return <Skeleton className="h-64 w-full" />;
+    const selected = requests.find((request) => request.ID === selectedID);
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 gap-1.5 overflow-x-auto">
-                    {filters.map((value) => (
-                        <Button
-                            key={value}
-                            variant={filter === value ? "default" : "outline"}
-                            size="xs"
-                            onClick={() => setFilter(value)}
-                        >
-                            {value[0].toUpperCase() + value.slice(1)}
-                            <Badge
-                                variant="secondary"
-                                className="ml-1.5 px-1.5 text-[0.65rem]"
-                            >
-                                {
-                                    requests.filter((request) =>
-                                        matches(request, value),
-                                    ).length
-                                }
-                            </Badge>
-                        </Button>
-                    ))}
-                </div>
-                <Button
-                    variant="outline"
-                    size="icon-sm"
-                    className="shrink-0"
-                    onClick={load}
-                    title="Refresh"
-                    aria-label="Refresh resource requests"
-                >
-                    <RefreshCw className="size-3.5" />
-                </Button>
-            </div>
-            {error ? (
-                <p role="alert" className="text-sm text-destructive">
-                    {error}
-                </p>
-            ) : visible.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-2 py-12 text-muted-foreground">
-                    <Eye className="size-8 opacity-40" />
-                    <p className="text-sm">
-                        No {filter !== "all" ? `${filter} ` : ""}resource
-                        requests found.
-                    </p>
-                </div>
+            {loading ? (
+                <Skeleton className="h-64 w-full" />
             ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Status</TableHead>
-                            <TableHead>ID</TableHead>
-                            <TableHead>Hostname</TableHead>
-                            {resources.map(({ label }) => (
-                                <TableHead key={label}>{label}</TableHead>
-                            ))}
-                            <TableHead>Created</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {visible.map((request) => (
-                            <TableRow
-                                key={request.ID}
-                                className={`font-medium cursor-pointer ${request.Status === "pending" ? "" : "opacity-60"}`}
-                                tabIndex={0}
-                                onClick={() => setSelected(request)}
-                                onKeyDown={(event) => {
-                                    if (
-                                        event.key === "Enter" ||
-                                        event.key === " "
-                                    ) {
-                                        event.preventDefault();
-                                        setSelected(request);
+                <>
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 gap-1.5 overflow-x-auto">
+                            {filters.map((value) => (
+                                <Button
+                                    key={value}
+                                    variant={
+                                        filter === value ? "default" : "outline"
                                     }
-                                }}
-                            >
-                                <TableCell>
-                                    <ResourceStatusBadge
-                                        status={request.Status}
-                                    />
-                                </TableCell>
-                                <TableCell className="font-mono text-xs">
-                                    #{request.ID}
-                                </TableCell>
-                                <TableCell>{request.VMHostname}</TableCell>
-                                {resources.map(({ key, unit }) => (
-                                    <TableCell key={key}>
-                                        {request[`Current${key}`] ===
-                                        request[`New${key}`]
-                                            ? request[`New${key}`]
-                                            : `${request[`Current${key}`]} → ${request[`New${key}`]}`}
-                                        {unit}
-                                    </TableCell>
+                                    size="xs"
+                                    onClick={() => setFilter(value)}
+                                >
+                                    {value[0].toUpperCase() + value.slice(1)}
+                                    <Badge
+                                        variant="secondary"
+                                        className="ml-1.5 px-1.5 text-[0.65rem]"
+                                    >
+                                        {
+                                            requests.filter((request) =>
+                                                matches(request, value),
+                                            ).length
+                                        }
+                                    </Badge>
+                                </Button>
+                            ))}
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="icon-sm"
+                            className="shrink-0"
+                            onClick={load}
+                            title="Refresh"
+                            aria-label="Refresh resource requests"
+                        >
+                            <RefreshCw className="size-3.5" />
+                        </Button>
+                    </div>
+                    {error ? (
+                        <p role="alert" className="text-sm text-destructive">
+                            {error}
+                        </p>
+                    ) : visible.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center gap-2 py-12 text-muted-foreground">
+                            <Eye className="size-8 opacity-40" />
+                            <p className="text-sm">
+                                No {filter !== "all" ? `${filter} ` : ""}
+                                resource requests found.
+                            </p>
+                        </div>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>ID</TableHead>
+                                    <TableHead>Hostname</TableHead>
+                                    {resources.map(({ label }) => (
+                                        <TableHead key={label}>
+                                            {label}
+                                        </TableHead>
+                                    ))}
+                                    <TableHead>Created</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {visible.map((request) => (
+                                    <TableRow
+                                        key={request.ID}
+                                        className={`font-medium cursor-pointer ${request.Status === "pending" ? "" : "opacity-60"}`}
+                                        tabIndex={0}
+                                        onClick={() =>
+                                            setSelectedID(request.ID)
+                                        }
+                                        onKeyDown={(event) => {
+                                            if (
+                                                event.key === "Enter" ||
+                                                event.key === " "
+                                            ) {
+                                                event.preventDefault();
+                                                setSelectedID(request.ID);
+                                            }
+                                        }}
+                                    >
+                                        <TableCell>
+                                            <ResourceStatusBadge
+                                                status={request.Status}
+                                            />
+                                        </TableCell>
+                                        <TableCell className="font-mono text-xs">
+                                            #{request.ID}
+                                        </TableCell>
+                                        <TableCell>
+                                            {request.VMHostname}
+                                        </TableCell>
+                                        {resources.map(({ key, unit }) => (
+                                            <TableCell key={key}>
+                                                {request[`Current${key}`] ===
+                                                request[`New${key}`]
+                                                    ? request[`New${key}`]
+                                                    : `${request[`Current${key}`]} → ${request[`New${key}`]}`}
+                                                {unit}
+                                            </TableCell>
+                                        ))}
+                                        <TableCell className="text-muted-foreground">
+                                            {formatDate(request.CreatedAt)}
+                                        </TableCell>
+                                    </TableRow>
                                 ))}
-                                <TableCell className="text-muted-foreground">
-                                    {formatDate(request.CreatedAt)}
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                            </TableBody>
+                        </Table>
+                    )}
+                </>
             )}
             {selected && (
                 <ResourceChangeDetail
                     key={selected.ID}
                     request={selected}
-                    onClose={() => setSelected(null)}
+                    onClose={() => setSelectedID(null)}
                     onSuccess={() => {
-                        setSelected(null);
+                        setSelectedID(null);
                         void load();
                     }}
+                    onError={() => void load()}
                 />
             )}
         </div>
@@ -232,10 +245,12 @@ function ResourceChangeDetail({
     request,
     onClose,
     onSuccess,
+    onError,
 }: {
     request: ResourceChangeRequest;
     onClose: () => void;
     onSuccess: () => void;
+    onError: () => void;
 }) {
     const [fields, setFields] = useState<ResourceChangeEditFields>({
         newCores: request.NewCores,
@@ -347,7 +362,11 @@ function ResourceChangeDetail({
                                                     ? request[`Current${key}`]
                                                     : 1
                                             }
-                                            value={fields[`new${key}`]}
+                                            value={
+                                                pending
+                                                    ? fields[`new${key}`]
+                                                    : request[`New${key}`]
+                                            }
                                             onChange={(event) =>
                                                 setFields({
                                                     ...fields,
@@ -433,6 +452,7 @@ function ResourceChangeDetail({
                         action === "reject" ? "destructive" : "default"
                     }
                     onSuccess={onSuccess}
+                    onError={onError}
                 />
             )}
         </>
