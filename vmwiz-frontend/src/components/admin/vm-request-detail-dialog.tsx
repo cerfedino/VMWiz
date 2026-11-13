@@ -10,6 +10,7 @@ import {
     prepareEditVMRequest,
 } from "@/lib/api";
 import type {
+    ResourceChangeStatus,
     VMRequest,
     VMRequestStatus,
     VMRequestEditFields,
@@ -39,7 +40,11 @@ import {
     User,
 } from "lucide-react";
 
-export function StatusBadge({ status }: { status: VMRequestStatus }) {
+export function StatusBadge({
+    status,
+}: {
+    status: VMRequestStatus | ResourceChangeStatus;
+}) {
     switch (status) {
         case "pending":
             return (
@@ -69,6 +74,12 @@ export function StatusBadge({ status }: { status: VMRequestStatus }) {
                     Hold
                 </Badge>
             );
+        case "auto_approved":
+            return <Badge variant="secondary">Auto-approved</Badge>;
+        case "failed":
+            return <Badge variant="destructive">Failed</Badge>;
+        case "cancelled":
+            return <Badge variant="secondary">Cancelled</Badge>;
     }
 }
 

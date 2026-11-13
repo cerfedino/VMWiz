@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Check, Eye, Pencil, RefreshCw, Server, X } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { StatusBadge } from "@/components/admin/vm-request-detail-dialog";
+import { FilterBar } from "@/components/admin/filter-bar";
 import { FetchDialog } from "@/components/fetch-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,7 +26,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { ResourceChangeRequest, ResourceChangeStatus } from "@/lib/types/api";
+import { ResourceChangeRequest } from "@/lib/types/api";
 import {
     fetchResourceChanges,
     prepareAcceptResourceChange,
@@ -41,15 +41,15 @@ const resources = [
     { label: "SSD", key: "DiskGB", unit: " GB" },
     { label: "HDD", key: "SecondaryDiskGB", unit: " GB" },
 ] as const;
-const filters = [
-    "all",
-    "pending",
-    "accepted",
-    "rejected",
-    "failed",
-    "cancelled",
+const filterOptions = [
+    { value: "all", label: "All" },
+    { value: "pending", label: "Pending" },
+    { value: "accepted", label: "Accepted" },
+    { value: "rejected", label: "Rejected" },
+    { value: "failed", label: "Failed" },
+    { value: "cancelled", label: "Cancelled" },
 ] as const;
-type Filter = (typeof filters)[number];
+type Filter = (typeof filterOptions)[number]["value"];
 
 function matches(request: ResourceChangeRequest, filter: Filter) {
     return (
@@ -59,34 +59,16 @@ function matches(request: ResourceChangeRequest, filter: Filter) {
     );
 }
 
-function ResourceStatusBadge({ status }: { status: ResourceChangeStatus }) {
-    if (status === "pending" || status === "accepted" || status === "rejected")
-        return <StatusBadge status={status} />;
-    return (
-        <Badge variant={status === "failed" ? "destructive" : "secondary"}>
-            {status === "auto_approved"
-                ? "Auto-approved"
-                : status === "failed"
-                  ? "Failed"
-                  : "Cancelled"}
-        </Badge>
-    );
-}
-
 export function ResourceChangeAdmin() {
     const [requests, setRequests] = useState<ResourceChangeRequest[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const [filter, setFilter] = useState<Filter>("pending");
     const [selectedID, setSelectedID] = useState<number | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
-        setError(null);
         try {
             setRequests(await fetchResourceChanges());
-        } catch (error) {
-            setError(error instanceof Error ? error.message : String(error));
         } finally {
             setLoading(false);
         }
@@ -105,6 +87,12 @@ export function ResourceChangeAdmin() {
                 b.ID - a.ID,
         );
 
+    const counts = Object.fromEntries(
+        filterOptions.map(({ value }) => [
+            value,
+            requests.filter((request) => matches(request, value)).length,
+        ]),
+    ) as Record<Filter, number>;
     const selected = requests.find((request) => request.ID === selectedID);
 
     return (
@@ -114,30 +102,12 @@ export function ResourceChangeAdmin() {
             ) : (
                 <>
                     <div className="flex items-center justify-between gap-3">
-                        <div className="flex min-w-0 gap-1.5 overflow-x-auto">
-                            {filters.map((value) => (
-                                <Button
-                                    key={value}
-                                    variant={
-                                        filter === value ? "default" : "outline"
-                                    }
-                                    size="xs"
-                                    onClick={() => setFilter(value)}
-                                >
-                                    {value[0].toUpperCase() + value.slice(1)}
-                                    <Badge
-                                        variant="secondary"
-                                        className="ml-1.5 px-1.5 text-[0.65rem]"
-                                    >
-                                        {
-                                            requests.filter((request) =>
-                                                matches(request, value),
-                                            ).length
-                                        }
-                                    </Badge>
-                                </Button>
-                            ))}
-                        </div>
+                        <FilterBar
+                            options={filterOptions}
+                            filter={filter}
+                            onFilterChange={setFilter}
+                            counts={counts}
+                        />
                         <Button
                             variant="outline"
                             size="icon-sm"
@@ -149,11 +119,7 @@ export function ResourceChangeAdmin() {
                             <RefreshCw className="size-3.5" />
                         </Button>
                     </div>
-                    {error ? (
-                        <p role="alert" className="text-sm text-destructive">
-                            {error}
-                        </p>
-                    ) : visible.length === 0 ? (
+                    {visible.length === 0 ? (
                         <div className="flex flex-col items-center justify-center gap-2 py-12 text-muted-foreground">
                             <Eye className="size-8 opacity-40" />
                             <p className="text-sm">
@@ -196,7 +162,7 @@ export function ResourceChangeAdmin() {
                                         }}
                                     >
                                         <TableCell>
-                                            <ResourceStatusBadge
+                                            <StatusBadge
                                                 status={request.Status}
                                             />
                                         </TableCell>
@@ -230,11 +196,7 @@ export function ResourceChangeAdmin() {
                     key={selected.ID}
                     request={selected}
                     onClose={() => setSelectedID(null)}
-                    onSuccess={() => {
-                        setSelectedID(null);
-                        void load();
-                    }}
-                    onError={() => void load()}
+                    onChange={() => void load()}
                 />
             )}
         </div>
@@ -244,13 +206,11 @@ export function ResourceChangeAdmin() {
 function ResourceChangeDetail({
     request,
     onClose,
-    onSuccess,
-    onError,
+    onChange,
 }: {
     request: ResourceChangeRequest;
     onClose: () => void;
-    onSuccess: () => void;
-    onError: () => void;
+    onChange: () => void;
 }) {
     const [fields, setFields] = useState<ResourceChangeEditFields>({
         newCores: request.NewCores,
@@ -277,14 +237,17 @@ function ResourceChangeDetail({
         edit: {
             title: "Save changes",
             request: prepareEditResourceChange(request.ID, fields),
+            successDescription: "Changes saved.",
         },
         accept: {
             title: "Accept resource request",
             request: prepareAcceptResourceChange(request.ID),
+            successDescription: "Resource change applied.",
         },
         reject: {
             title: "Reject resource request",
             request: prepareRejectResourceChange(request.ID),
+            successDescription: "Resource request rejected.",
         },
     };
 
@@ -299,7 +262,7 @@ function ResourceChangeDetail({
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
                         <div className="flex items-center gap-3">
-                            <ResourceStatusBadge status={request.Status} />
+                            <StatusBadge status={request.Status} />
                             <DialogTitle>
                                 Resource request #{request.ID}
                             </DialogTitle>
@@ -451,8 +414,8 @@ function ResourceChangeDetail({
                     proceedVariant={
                         action === "reject" ? "destructive" : "default"
                     }
-                    onSuccess={onSuccess}
-                    onError={onError}
+                    onSuccess={onChange}
+                    onError={onChange}
                 />
             )}
         </>

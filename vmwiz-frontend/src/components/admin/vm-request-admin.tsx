@@ -16,7 +16,6 @@ import {
     TableHead,
     TableCell,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Eye, RefreshCw } from "lucide-react";
@@ -24,6 +23,7 @@ import {
     StatusBadge,
     RequestDetailDialog,
 } from "@/components/admin/vm-request-detail-dialog";
+import { FilterBar } from "@/components/admin/filter-bar";
 
 type StatusFilter = "all" | VMRequestStatus;
 
@@ -51,44 +51,12 @@ function sortRequests(requests: VMRequest[]): VMRequest[] {
         .reverse();
 }
 
-/** Set of buttons to filter by request status */
-function FilterBar({
-    filter,
-    onFilterChange,
-    counts,
-}: {
-    filter: StatusFilter;
-    onFilterChange: (f: StatusFilter) => void;
-    counts: Record<StatusFilter, number>;
-}) {
-    const options: { value: StatusFilter; label: string }[] = [
-        { value: "all", label: "All" },
-        { value: "pending", label: "Pending" },
-        { value: "accepted", label: "Accepted" },
-        { value: "rejected", label: "Rejected" },
-    ];
-
-    return (
-        <div className="flex min-w-0 gap-1.5 overflow-x-auto">
-            {options.map(({ value, label }) => (
-                <Button
-                    key={value}
-                    variant={filter === value ? "default" : "outline"}
-                    size="xs"
-                    onClick={() => onFilterChange(value)}
-                >
-                    {label}
-                    <Badge
-                        variant="secondary"
-                        className="ml-1.5 px-1.5 text-[0.65rem]"
-                    >
-                        {counts[value]}
-                    </Badge>
-                </Button>
-            ))}
-        </div>
-    );
-}
+const filterOptions: { value: StatusFilter; label: string }[] = [
+    { value: "all", label: "All" },
+    { value: "pending", label: "Pending" },
+    { value: "accepted", label: "Accepted" },
+    { value: "rejected", label: "Rejected" },
+];
 
 function LoadingSkeleton() {
     return <Skeleton className="h-64 w-full" />;
@@ -164,6 +132,7 @@ export function VMRequestAdmin() {
                 <>
                     <div className="flex items-center justify-between gap-3">
                         <FilterBar
+                            options={filterOptions}
                             filter={filter}
                             onFilterChange={setFilter}
                             counts={counts}
