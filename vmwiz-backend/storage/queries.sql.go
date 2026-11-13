@@ -275,37 +275,6 @@ func (q *Queries) FinishLogScope(ctx context.Context, arg FinishLogScopeParams) 
 	return err
 }
 
-const getLatestAppliedResourceChange = `-- name: GetLatestAppliedResourceChange :one
-SELECT id, created_at, status, vm_hostname, requester_fingerprint, current_cores, current_ram_gb, current_disk_gb, new_cores, new_ram_gb, new_disk_gb, needs_review_reasons, processed_at, processed_note, request_reason, current_secondary_disk_gb, new_secondary_disk_gb FROM resource_change_request
-WHERE vm_hostname = $1 AND status IN ('auto_approved', 'accepted')
-ORDER BY created_at DESC, id DESC LIMIT 1
-`
-
-func (q *Queries) GetLatestAppliedResourceChange(ctx context.Context, vmHostname string) (ResourceChangeRequest, error) {
-	row := q.db.QueryRowContext(ctx, getLatestAppliedResourceChange, vmHostname)
-	var i ResourceChangeRequest
-	err := row.Scan(
-		&i.ID,
-		&i.CreatedAt,
-		&i.Status,
-		&i.VmHostname,
-		&i.RequesterFingerprint,
-		&i.CurrentCores,
-		&i.CurrentRamGb,
-		&i.CurrentDiskGb,
-		&i.NewCores,
-		&i.NewRamGb,
-		&i.NewDiskGb,
-		pq.Array(&i.NeedsReviewReasons),
-		&i.ProcessedAt,
-		&i.ProcessedNote,
-		&i.RequestReason,
-		&i.CurrentSecondaryDiskGb,
-		&i.NewSecondaryDiskGb,
-	)
-	return i, err
-}
-
 const getLatestSurveyID = `-- name: GetLatestSurveyID :one
 SELECT id FROM survey ORDER BY date DESC LIMIT 1
 `

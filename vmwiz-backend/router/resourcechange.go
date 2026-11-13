@@ -22,17 +22,6 @@ import (
 
 // Routes under /api/resourcechange/*
 
-// Heuristic thresholds. A request that *results* in a configuration above any
-// of these requires human review. The double-RAM and recent-request rules also
-// apply.
-const (
-	rcrThresholdCores    = 8
-	rcrThresholdRamGB    = 4 //currently extra low, maybe like 6/8 in the future
-	rcrThresholdSSDGB    = 30
-	rcrThresholdHDDGB    = 50
-	rcrRecentRequestSpan = 7 * 24 * time.Hour
-)
-
 type rcrSubmitBody struct {
 	VMHostname           string `json:"vmHostname"`
 	RequesterFingerprint string `json:"requesterFingerprint"`
@@ -105,40 +94,22 @@ func toRcrJSON(r storage.ResourceChangeRequest) rcrJSON {
 	return out
 }
 
-// evaluateHeuristic returns the list of reasons (if any) that prevent
-// auto-approval. Empty list => safe to auto-approve.
-func evaluateHeuristic(req storage.CreateResourceChangeParams, prev *storage.ResourceChangeRequest) []string {
-	// Pure downgrade or no-op: always auto-approve, no thresholds apply.
-	if req.NewCores <= req.CurrentCores &&
-		req.NewRamGb <= req.CurrentRamGb &&
-		req.NewDiskGb <= req.CurrentDiskGb &&
-		req.NewSecondaryDiskGb <= req.CurrentSecondaryDiskGb {
-		return []string{}
-	}
-
+// evaluateHeuristic lists every resource the request increases. Any increase
+// needs an admin; decreases and no-ops are applied right away.
+func evaluateHeuristic(req storage.CreateResourceChangeParams) []string {
 	reasons := []string{}
-
-	if req.NewCores > rcrThresholdCores {
-		reasons = append(reasons, fmt.Sprintf("requested %d cores exceeds threshold of %d", req.NewCores, rcrThresholdCores))
+	if req.NewCores > req.CurrentCores {
+		reasons = append(reasons, fmt.Sprintf("cores increase from %d to %d", req.CurrentCores, req.NewCores))
 	}
-	if req.NewRamGb > rcrThresholdRamGB {
-		reasons = append(reasons, fmt.Sprintf("requested %d GB RAM exceeds threshold of %d GB", req.NewRamGb, rcrThresholdRamGB))
+	if req.NewRamGb > req.CurrentRamGb {
+		reasons = append(reasons, fmt.Sprintf("RAM increase from %d GB to %d GB", req.CurrentRamGb, req.NewRamGb))
 	}
-	if req.NewDiskGb > rcrThresholdSSDGB {
-		reasons = append(reasons, fmt.Sprintf("requested %d GB SSD storage exceeds threshold of %d GB", req.NewDiskGb, rcrThresholdSSDGB))
+	if req.NewDiskGb > req.CurrentDiskGb {
+		reasons = append(reasons, fmt.Sprintf("SSD increase from %d GB to %d GB", req.CurrentDiskGb, req.NewDiskGb))
 	}
-	if req.NewSecondaryDiskGb > rcrThresholdHDDGB {
-		reasons = append(reasons, fmt.Sprintf("requested %d GB HDD storage exceeds threshold of %d GB", req.NewSecondaryDiskGb, rcrThresholdHDDGB))
+	if req.NewSecondaryDiskGb > req.CurrentSecondaryDiskGb {
+		reasons = append(reasons, fmt.Sprintf("HDD increase from %d GB to %d GB", req.CurrentSecondaryDiskGb, req.NewSecondaryDiskGb))
 	}
-	if req.CurrentRamGb > 0 && req.NewRamGb > 2*req.CurrentRamGb {
-		reasons = append(reasons, fmt.Sprintf("RAM increase from %d GB to %d GB is more than double", req.CurrentRamGb, req.NewRamGb))
-	}
-	if prev != nil && time.Since(prev.CreatedAt) < rcrRecentRequestSpan {
-		reasons = append(reasons, fmt.Sprintf("previous resource change request (#%d) was less than a week ago", prev.ID))
-	}
-
-	// these heuristics probably should be improved in the future
-
 	return reasons
 }
 
@@ -319,20 +290,6 @@ func SubmitResourceChangeRequest(ctx context.Context, body *rcrSubmitBody) (*rcr
 		}
 	}
 
-	// Require a justification for any upward change.
-	isIncrease := body.NewCores > currentCores ||
-		body.NewRamGB > currentRamGB ||
-		body.NewDiskGB > currentDiskGB ||
-		body.NewSecondaryDiskGB > currentSecondaryDiskGB
-	if isIncrease && reason == "" {
-		return nil, &ErrorBundle{Err: fmt.Errorf("missing reason"), UserMsg: "A reason is required when increasing any resource.", HttpCode: http.StatusBadRequest}
-	}
-
-	prev, err := storage.DB.GetLatestProcessedResourceChangeRequestForHostname(body.VMHostname)
-	if err != nil {
-		return nil, SimpleError(err, "Failed to look up previous requests")
-	}
-
 	p := storage.CreateResourceChangeParams{
 		Status:                 storage.RcrStatusPending,
 		VmHostname:             body.VMHostname,
@@ -347,7 +304,10 @@ func SubmitResourceChangeRequest(ctx context.Context, body *rcrSubmitBody) (*rcr
 		NewSecondaryDiskGb:     int32(body.NewSecondaryDiskGB),
 		RequestReason:          reason,
 	}
-	p.NeedsReviewReasons = evaluateHeuristic(p, prev)
+	p.NeedsReviewReasons = evaluateHeuristic(p)
+	if len(p.NeedsReviewReasons) > 0 && reason == "" {
+		return nil, &ErrorBundle{Err: fmt.Errorf("missing reason"), UserMsg: "A reason is required when increasing any resource.", HttpCode: http.StatusBadRequest}
+	}
 
 	id, err := storage.DB.StoreResourceChangeRequest(p)
 	if err != nil {

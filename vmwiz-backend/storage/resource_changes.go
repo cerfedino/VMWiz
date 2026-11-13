@@ -52,18 +52,6 @@ func (s *postgresstorage) StoreResourceChangeRequest(p CreateResourceChangeParam
 	return id, nil
 }
 
-// Returns nil without error when the VM has no applied request yet.
-func (s *postgresstorage) GetLatestProcessedResourceChangeRequestForHostname(hostname string) (*ResourceChangeRequest, error) {
-	row, err := s.Queries.GetLatestAppliedResourceChange(context.Background(), hostname)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &row, nil
-}
-
 // Returns nil without error when the VM has no pending request.
 func (s *postgresstorage) GetLatestPendingResourceChangeRequestForHostname(hostname string) (*ResourceChangeRequest, error) {
 	row, err := s.Queries.GetPendingResourceChange(context.Background(), hostname)
