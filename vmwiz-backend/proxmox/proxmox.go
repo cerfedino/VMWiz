@@ -1314,7 +1314,8 @@ func GetNodeVMConfig(node string, vmid int) (*PVENodeVMConfig, error) {
 	type vmConfig struct {
 		Data PVENodeVMConfig `json:"data"`
 	}
-	var config vmConfig
+	// Proxmox defaults for keys the config does not set.
+	config := vmConfig{Data: PVENodeVMConfig{Cores: 1, Memory: "512"}}
 	err = json.Unmarshal(body, &config)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get VM config: %v", err.Error())
