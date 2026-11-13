@@ -90,7 +90,7 @@ Secondary HDD (GB): %d -> %d
 Reason: %s
 NeedsReviewReasons: %v
 ProcessedNote: %s
-`, r.ID, r.Createdat, r.Status, r.Vmhostname, r.Requesterfingerprint, r.Currentcores, r.Newcores, r.Currentramgb, r.Newramgb, r.Currentdiskgb, r.Newdiskgb, r.Currentsecondarydiskgb, r.Newsecondarydiskgb, r.Requestreason, r.Needsreviewreasons, r.Processednote)
+`, r.ID, r.CreatedAt, r.Status, r.VmHostname, r.RequesterFingerprint, r.CurrentCores, r.NewCores, r.CurrentRamGb, r.NewRamGb, r.CurrentDiskGb, r.NewDiskGb, r.CurrentSecondaryDiskGb, r.NewSecondaryDiskGb, r.RequestReason, r.NeedsReviewReasons, r.ProcessedNote)
 }
 
 type postgresstorage struct {

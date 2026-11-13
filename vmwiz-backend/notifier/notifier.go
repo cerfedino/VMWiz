@@ -113,7 +113,7 @@ func SendEmail(subject string, body []byte, to []string) error {
 
 func NotifyResourceChangeRequest(req storage.ResourceChangeRequest) error {
 	review := "eligible for automatic approval"
-	if len(req.Needsreviewreasons) > 0 {
+	if len(req.NeedsReviewReasons) > 0 {
 		review = "needs admin review"
 	}
 	return notifyResourceChange("resourcechange_new", fmt.Sprintf("New resource change request %d (%s). Replaces any earlier pending request for this VM.\n```\n%v\n```", req.ID, review, req.ToString()))
@@ -124,11 +124,11 @@ func NotifyResourceChangeRequestApplied(req storage.ResourceChangeRequest, auto 
 	if auto {
 		prefix = "auto-approved"
 	}
-	return notifyResourceChange("resourcechange_accepted", fmt.Sprintf("Resource change request %d %s and applied: %s -> cores=%d ram=%dGB SSD=%dGB HDD=%dGB", req.ID, prefix, req.Vmhostname, req.Newcores, req.Newramgb, req.Newdiskgb, req.Newsecondarydiskgb))
+	return notifyResourceChange("resourcechange_accepted", fmt.Sprintf("Resource change request %d %s and applied: %s -> cores=%d ram=%dGB SSD=%dGB HDD=%dGB", req.ID, prefix, req.VmHostname, req.NewCores, req.NewRamGb, req.NewDiskGb, req.NewSecondaryDiskGb))
 }
 
 func NotifyResourceChangeRequestFailed(req storage.ResourceChangeRequest, errMsg string) error {
-	return notifyResourceChange("resourcechange_failed", fmt.Sprintf("Resource change request %d failed to apply for %s: %s", req.ID, req.Vmhostname, errMsg))
+	return notifyResourceChange("resourcechange_failed", fmt.Sprintf("Resource change request %d failed to apply for %s: %s", req.ID, req.VmHostname, errMsg))
 }
 
 func NotifyResourceChangeRequestStatusChanged(req storage.ResourceChangeRequest) error {
@@ -136,7 +136,7 @@ func NotifyResourceChangeRequestStatusChanged(req storage.ResourceChangeRequest)
 	if req.Status == storage.RcrStatusCancelled {
 		tag = "resourcechange_cancelled"
 	}
-	return notifyResourceChange(tag, fmt.Sprintf("Resource change request %d for %s: %s", req.ID, req.Vmhostname, req.Status))
+	return notifyResourceChange(tag, fmt.Sprintf("Resource change request %d for %s: %s", req.ID, req.VmHostname, req.Status))
 }
 
 func notifyResourceChange(tag, body string) error {
@@ -158,7 +158,7 @@ func SendResourceChangeAppliedEmail(req storage.ResourceChangeRequest, contacts 
 	if autoApproved {
 		verb = "automatically approved"
 	}
-	subject := fmt.Sprintf("Resource change applied to %s", req.Vmhostname)
+	subject := fmt.Sprintf("Resource change applied to %s", req.VmHostname)
 	body := fmt.Sprintf(`Your resource change request for %s has been %s.
 
   cores:    %d -> %d
@@ -171,11 +171,11 @@ take effect after the VM reboots. If you do not want the change to take effect,
 please undo the request now via the SSH portal.
 
 Reason given: %s
-`, req.Vmhostname, verb,
-		req.Currentcores, req.Newcores,
-		req.Currentramgb, req.Newramgb,
-		req.Currentdiskgb, req.Newdiskgb,
-		req.Currentsecondarydiskgb, req.Newsecondarydiskgb,
-		req.Requestreason)
+`, req.VmHostname, verb,
+		req.CurrentCores, req.NewCores,
+		req.CurrentRamGb, req.NewRamGb,
+		req.CurrentDiskGb, req.NewDiskGb,
+		req.CurrentSecondaryDiskGb, req.NewSecondaryDiskGb,
+		req.RequestReason)
 	return SendEmail(subject, []byte(body), contacts)
 }

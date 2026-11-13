@@ -1,27 +1,27 @@
 CREATE TYPE rcr_status AS ENUM ('pending', 'auto_approved', 'accepted', 'rejected', 'failed', 'cancelled');
 
 CREATE TABLE resource_change_request (
-  id BIGSERIAL PRIMARY KEY,
-  createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  status rcr_status NOT NULL DEFAULT 'pending',
-  vmHostname text NOT NULL,
-  requesterFingerprint text NOT NULL DEFAULT '',
-  currentCores int NOT NULL,
-  currentRamGB int NOT NULL,
-  currentDiskGB int NOT NULL,
-  newCores int NOT NULL,
-  newRamGB int NOT NULL,
-  newDiskGB int NOT NULL,
-  needsReviewReasons text[] NOT NULL DEFAULT '{}',
-  processedAt TIMESTAMP,
-  processedNote text NOT NULL DEFAULT '',
-  requestReason text NOT NULL DEFAULT '',
-  currentSecondaryDiskGB int NOT NULL DEFAULT 0,
-  newSecondaryDiskGB int NOT NULL DEFAULT 0
+  id                        BIGSERIAL PRIMARY KEY,
+  created_at                TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  status                    rcr_status NOT NULL DEFAULT 'pending',
+  vm_hostname               TEXT NOT NULL,
+  requester_fingerprint     TEXT NOT NULL DEFAULT '',
+  current_cores             INT NOT NULL,
+  current_ram_gb            INT NOT NULL,
+  current_disk_gb           INT NOT NULL,
+  new_cores                 INT NOT NULL,
+  new_ram_gb                INT NOT NULL,
+  new_disk_gb               INT NOT NULL,
+  needs_review_reasons      TEXT[] NOT NULL DEFAULT '{}',
+  processed_at              TIMESTAMP WITH TIME ZONE,
+  processed_note            TEXT NOT NULL DEFAULT '',
+  request_reason            TEXT NOT NULL DEFAULT '',
+  current_secondary_disk_gb INT NOT NULL DEFAULT 0,
+  new_secondary_disk_gb     INT NOT NULL DEFAULT 0
 );
 
 CREATE INDEX idx_resource_change_request_hostname_created
-    ON resource_change_request (vmHostname, createdAt DESC);
+    ON resource_change_request (vm_hostname, created_at DESC);
 
 CREATE UNIQUE INDEX resource_change_request_one_pending_per_vm
-    ON resource_change_request (vmHostname) WHERE status = 'pending';
+    ON resource_change_request (vm_hostname) WHERE status = 'pending';

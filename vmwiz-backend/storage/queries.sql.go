@@ -109,10 +109,10 @@ func (q *Queries) CreateRequestWaitlistEntry(ctx context.Context, arg CreateRequ
 
 const createResourceChange = `-- name: CreateResourceChange :one
 INSERT INTO resource_change_request (
-    status, vmHostname, requesterFingerprint,
-    currentCores, currentRamGB, currentDiskGB, currentSecondaryDiskGB,
-    newCores, newRamGB, newDiskGB, newSecondaryDiskGB,
-    needsReviewReasons, requestReason
+    status, vm_hostname, requester_fingerprint,
+    current_cores, current_ram_gb, current_disk_gb, current_secondary_disk_gb,
+    new_cores, new_ram_gb, new_disk_gb, new_secondary_disk_gb,
+    needs_review_reasons, request_reason
 ) VALUES (
     $1, $2, $3,
     $4, $5, $6, $7,
@@ -265,9 +265,9 @@ func (q *Queries) FinishLogScope(ctx context.Context, arg FinishLogScopeParams) 
 }
 
 const getLatestAppliedResourceChange = `-- name: GetLatestAppliedResourceChange :one
-SELECT id, createdat, status, vmhostname, requesterfingerprint, currentcores, currentramgb, currentdiskgb, newcores, newramgb, newdiskgb, needsreviewreasons, processedat, processednote, requestreason, currentsecondarydiskgb, newsecondarydiskgb FROM resource_change_request
-WHERE vmHostname = $1 AND status IN ('auto_approved', 'accepted')
-ORDER BY createdAt DESC, id DESC LIMIT 1
+SELECT id, created_at, status, vm_hostname, requester_fingerprint, current_cores, current_ram_gb, current_disk_gb, new_cores, new_ram_gb, new_disk_gb, needs_review_reasons, processed_at, processed_note, request_reason, current_secondary_disk_gb, new_secondary_disk_gb FROM resource_change_request
+WHERE vm_hostname = $1 AND status IN ('auto_approved', 'accepted')
+ORDER BY created_at DESC, id DESC LIMIT 1
 `
 
 func (q *Queries) GetLatestAppliedResourceChange(ctx context.Context, vmHostname string) (ResourceChangeRequest, error) {
@@ -275,22 +275,22 @@ func (q *Queries) GetLatestAppliedResourceChange(ctx context.Context, vmHostname
 	var i ResourceChangeRequest
 	err := row.Scan(
 		&i.ID,
-		&i.Createdat,
+		&i.CreatedAt,
 		&i.Status,
-		&i.Vmhostname,
-		&i.Requesterfingerprint,
-		&i.Currentcores,
-		&i.Currentramgb,
-		&i.Currentdiskgb,
-		&i.Newcores,
-		&i.Newramgb,
-		&i.Newdiskgb,
-		pq.Array(&i.Needsreviewreasons),
-		&i.Processedat,
-		&i.Processednote,
-		&i.Requestreason,
-		&i.Currentsecondarydiskgb,
-		&i.Newsecondarydiskgb,
+		&i.VmHostname,
+		&i.RequesterFingerprint,
+		&i.CurrentCores,
+		&i.CurrentRamGb,
+		&i.CurrentDiskGb,
+		&i.NewCores,
+		&i.NewRamGb,
+		&i.NewDiskGb,
+		pq.Array(&i.NeedsReviewReasons),
+		&i.ProcessedAt,
+		&i.ProcessedNote,
+		&i.RequestReason,
+		&i.CurrentSecondaryDiskGb,
+		&i.NewSecondaryDiskGb,
 	)
 	return i, err
 }
@@ -350,9 +350,9 @@ func (q *Queries) GetOpenRequestClosure(ctx context.Context) (RequestClosure, er
 }
 
 const getPendingResourceChange = `-- name: GetPendingResourceChange :one
-SELECT id, createdat, status, vmhostname, requesterfingerprint, currentcores, currentramgb, currentdiskgb, newcores, newramgb, newdiskgb, needsreviewreasons, processedat, processednote, requestreason, currentsecondarydiskgb, newsecondarydiskgb FROM resource_change_request
-WHERE vmHostname = $1 AND status = 'pending'
-ORDER BY createdAt DESC, id DESC LIMIT 1
+SELECT id, created_at, status, vm_hostname, requester_fingerprint, current_cores, current_ram_gb, current_disk_gb, new_cores, new_ram_gb, new_disk_gb, needs_review_reasons, processed_at, processed_note, request_reason, current_secondary_disk_gb, new_secondary_disk_gb FROM resource_change_request
+WHERE vm_hostname = $1 AND status = 'pending'
+ORDER BY created_at DESC, id DESC LIMIT 1
 `
 
 func (q *Queries) GetPendingResourceChange(ctx context.Context, vmHostname string) (ResourceChangeRequest, error) {
@@ -360,28 +360,28 @@ func (q *Queries) GetPendingResourceChange(ctx context.Context, vmHostname strin
 	var i ResourceChangeRequest
 	err := row.Scan(
 		&i.ID,
-		&i.Createdat,
+		&i.CreatedAt,
 		&i.Status,
-		&i.Vmhostname,
-		&i.Requesterfingerprint,
-		&i.Currentcores,
-		&i.Currentramgb,
-		&i.Currentdiskgb,
-		&i.Newcores,
-		&i.Newramgb,
-		&i.Newdiskgb,
-		pq.Array(&i.Needsreviewreasons),
-		&i.Processedat,
-		&i.Processednote,
-		&i.Requestreason,
-		&i.Currentsecondarydiskgb,
-		&i.Newsecondarydiskgb,
+		&i.VmHostname,
+		&i.RequesterFingerprint,
+		&i.CurrentCores,
+		&i.CurrentRamGb,
+		&i.CurrentDiskGb,
+		&i.NewCores,
+		&i.NewRamGb,
+		&i.NewDiskGb,
+		pq.Array(&i.NeedsReviewReasons),
+		&i.ProcessedAt,
+		&i.ProcessedNote,
+		&i.RequestReason,
+		&i.CurrentSecondaryDiskGb,
+		&i.NewSecondaryDiskGb,
 	)
 	return i, err
 }
 
 const getResourceChangeByID = `-- name: GetResourceChangeByID :one
-SELECT id, createdat, status, vmhostname, requesterfingerprint, currentcores, currentramgb, currentdiskgb, newcores, newramgb, newdiskgb, needsreviewreasons, processedat, processednote, requestreason, currentsecondarydiskgb, newsecondarydiskgb FROM resource_change_request WHERE id = $1
+SELECT id, created_at, status, vm_hostname, requester_fingerprint, current_cores, current_ram_gb, current_disk_gb, new_cores, new_ram_gb, new_disk_gb, needs_review_reasons, processed_at, processed_note, request_reason, current_secondary_disk_gb, new_secondary_disk_gb FROM resource_change_request WHERE id = $1
 `
 
 func (q *Queries) GetResourceChangeByID(ctx context.Context, id int64) (ResourceChangeRequest, error) {
@@ -389,22 +389,22 @@ func (q *Queries) GetResourceChangeByID(ctx context.Context, id int64) (Resource
 	var i ResourceChangeRequest
 	err := row.Scan(
 		&i.ID,
-		&i.Createdat,
+		&i.CreatedAt,
 		&i.Status,
-		&i.Vmhostname,
-		&i.Requesterfingerprint,
-		&i.Currentcores,
-		&i.Currentramgb,
-		&i.Currentdiskgb,
-		&i.Newcores,
-		&i.Newramgb,
-		&i.Newdiskgb,
-		pq.Array(&i.Needsreviewreasons),
-		&i.Processedat,
-		&i.Processednote,
-		&i.Requestreason,
-		&i.Currentsecondarydiskgb,
-		&i.Newsecondarydiskgb,
+		&i.VmHostname,
+		&i.RequesterFingerprint,
+		&i.CurrentCores,
+		&i.CurrentRamGb,
+		&i.CurrentDiskGb,
+		&i.NewCores,
+		&i.NewRamGb,
+		&i.NewDiskGb,
+		pq.Array(&i.NeedsReviewReasons),
+		&i.ProcessedAt,
+		&i.ProcessedNote,
+		&i.RequestReason,
+		&i.CurrentSecondaryDiskGb,
+		&i.NewSecondaryDiskGb,
 	)
 	return i, err
 }
@@ -679,7 +679,7 @@ func (q *Queries) ListRequestWaitlist(ctx context.Context) ([]RequestWaitlist, e
 }
 
 const listResourceChanges = `-- name: ListResourceChanges :many
-SELECT id, createdat, status, vmhostname, requesterfingerprint, currentcores, currentramgb, currentdiskgb, newcores, newramgb, newdiskgb, needsreviewreasons, processedat, processednote, requestreason, currentsecondarydiskgb, newsecondarydiskgb FROM resource_change_request ORDER BY createdAt DESC, id DESC
+SELECT id, created_at, status, vm_hostname, requester_fingerprint, current_cores, current_ram_gb, current_disk_gb, new_cores, new_ram_gb, new_disk_gb, needs_review_reasons, processed_at, processed_note, request_reason, current_secondary_disk_gb, new_secondary_disk_gb FROM resource_change_request ORDER BY created_at DESC, id DESC
 `
 
 func (q *Queries) ListResourceChanges(ctx context.Context) ([]ResourceChangeRequest, error) {
@@ -693,22 +693,22 @@ func (q *Queries) ListResourceChanges(ctx context.Context) ([]ResourceChangeRequ
 		var i ResourceChangeRequest
 		if err := rows.Scan(
 			&i.ID,
-			&i.Createdat,
+			&i.CreatedAt,
 			&i.Status,
-			&i.Vmhostname,
-			&i.Requesterfingerprint,
-			&i.Currentcores,
-			&i.Currentramgb,
-			&i.Currentdiskgb,
-			&i.Newcores,
-			&i.Newramgb,
-			&i.Newdiskgb,
-			pq.Array(&i.Needsreviewreasons),
-			&i.Processedat,
-			&i.Processednote,
-			&i.Requestreason,
-			&i.Currentsecondarydiskgb,
-			&i.Newsecondarydiskgb,
+			&i.VmHostname,
+			&i.RequesterFingerprint,
+			&i.CurrentCores,
+			&i.CurrentRamGb,
+			&i.CurrentDiskGb,
+			&i.NewCores,
+			&i.NewRamGb,
+			&i.NewDiskGb,
+			pq.Array(&i.NeedsReviewReasons),
+			&i.ProcessedAt,
+			&i.ProcessedNote,
+			&i.RequestReason,
+			&i.CurrentSecondaryDiskGb,
+			&i.NewSecondaryDiskGb,
 		); err != nil {
 			return nil, err
 		}
@@ -1080,7 +1080,7 @@ func (q *Queries) ReopenRequests(ctx context.Context) (int64, error) {
 
 const setResourceChangeOutcome = `-- name: SetResourceChangeOutcome :execrows
 UPDATE resource_change_request
-SET status = $1, processedAt = CURRENT_TIMESTAMP, processedNote = $2
+SET status = $1, processed_at = CURRENT_TIMESTAMP, processed_note = $2
 WHERE id = $3 AND status = 'pending'
 `
 
@@ -1100,9 +1100,9 @@ func (q *Queries) SetResourceChangeOutcome(ctx context.Context, arg SetResourceC
 
 const supersedePendingResourceChanges = `-- name: SupersedePendingResourceChanges :exec
 UPDATE resource_change_request
-SET status = 'cancelled', processedAt = CURRENT_TIMESTAMP,
-    processedNote = 'Superseded by a newer resource change request'
-WHERE vmHostname = $1 AND status = 'pending'
+SET status = 'cancelled', processed_at = CURRENT_TIMESTAMP,
+    processed_note = 'Superseded by a newer resource change request'
+WHERE vm_hostname = $1 AND status = 'pending'
 `
 
 func (q *Queries) SupersedePendingResourceChanges(ctx context.Context, vmHostname string) error {
@@ -1123,8 +1123,8 @@ func (q *Queries) SurveyEmailExistsByUUID(ctx context.Context, uuid string) (boo
 
 const updateResourceChangeTargets = `-- name: UpdateResourceChangeTargets :execrows
 UPDATE resource_change_request
-SET newCores = $1, newRamGB = $2,
-    newDiskGB = $3, newSecondaryDiskGB = $4
+SET new_cores = $1, new_ram_gb = $2,
+    new_disk_gb = $3, new_secondary_disk_gb = $4
 WHERE id = $5 AND status = 'pending'
 `
 

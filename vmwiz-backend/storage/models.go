@@ -145,22 +145,22 @@ type RequestWaitlist struct {
 
 type ResourceChangeRequest struct {
 	ID                     int64
-	Createdat              time.Time
+	CreatedAt              time.Time
 	Status                 RcrStatus
-	Vmhostname             string
-	Requesterfingerprint   string
-	Currentcores           int32
-	Currentramgb           int32
-	Currentdiskgb          int32
-	Newcores               int32
-	Newramgb               int32
-	Newdiskgb              int32
-	Needsreviewreasons     []string
-	Processedat            sql.NullTime
-	Processednote          string
-	Requestreason          string
-	Currentsecondarydiskgb int32
-	Newsecondarydiskgb     int32
+	VmHostname             string
+	RequesterFingerprint   string
+	CurrentCores           int32
+	CurrentRamGb           int32
+	CurrentDiskGb          int32
+	NewCores               int32
+	NewRamGb               int32
+	NewDiskGb              int32
+	NeedsReviewReasons     []string
+	ProcessedAt            sql.NullTime
+	ProcessedNote          string
+	RequestReason          string
+	CurrentSecondaryDiskGb int32
+	NewSecondaryDiskGb     int32
 }
 
 type Survey struct {

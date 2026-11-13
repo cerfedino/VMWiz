@@ -80,24 +80,24 @@ type rcrJSON struct {
 func toRcrJSON(r storage.ResourceChangeRequest) rcrJSON {
 	out := rcrJSON{
 		ID:                     r.ID,
-		CreatedAt:              r.Createdat.Format(time.RFC3339),
+		CreatedAt:              r.CreatedAt.Format(time.RFC3339),
 		Status:                 string(r.Status),
-		VMHostname:             r.Vmhostname,
-		RequesterFingerprint:   r.Requesterfingerprint,
-		CurrentCores:           r.Currentcores,
-		CurrentRamGB:           r.Currentramgb,
-		CurrentDiskGB:          r.Currentdiskgb,
-		CurrentSecondaryDiskGB: r.Currentsecondarydiskgb,
-		NewCores:               r.Newcores,
-		NewRamGB:               r.Newramgb,
-		NewDiskGB:              r.Newdiskgb,
-		NewSecondaryDiskGB:     r.Newsecondarydiskgb,
-		NeedsReviewReasons:     r.Needsreviewreasons,
-		ProcessedNote:          r.Processednote,
-		RequestReason:          r.Requestreason,
+		VMHostname:             r.VmHostname,
+		RequesterFingerprint:   r.RequesterFingerprint,
+		CurrentCores:           r.CurrentCores,
+		CurrentRamGB:           r.CurrentRamGb,
+		CurrentDiskGB:          r.CurrentDiskGb,
+		CurrentSecondaryDiskGB: r.CurrentSecondaryDiskGb,
+		NewCores:               r.NewCores,
+		NewRamGB:               r.NewRamGb,
+		NewDiskGB:              r.NewDiskGb,
+		NewSecondaryDiskGB:     r.NewSecondaryDiskGb,
+		NeedsReviewReasons:     r.NeedsReviewReasons,
+		ProcessedNote:          r.ProcessedNote,
+		RequestReason:          r.RequestReason,
 	}
-	if r.Processedat.Valid {
-		s := r.Processedat.Time.Format(time.RFC3339)
+	if r.ProcessedAt.Valid {
+		s := r.ProcessedAt.Time.Format(time.RFC3339)
 		out.ProcessedAt = &s
 	}
 	if out.NeedsReviewReasons == nil {
@@ -134,7 +134,7 @@ func evaluateHeuristic(req storage.CreateResourceChangeParams, prev *storage.Res
 	if req.CurrentRamGb > 0 && req.NewRamGb > 2*req.CurrentRamGb {
 		reasons = append(reasons, fmt.Sprintf("RAM increase from %d GB to %d GB is more than double", req.CurrentRamGb, req.NewRamGb))
 	}
-	if prev != nil && time.Since(prev.Createdat) < rcrRecentRequestSpan {
+	if prev != nil && time.Since(prev.CreatedAt) < rcrRecentRequestSpan {
 		reasons = append(reasons, fmt.Sprintf("previous resource change request (#%d) was less than a week ago", prev.ID))
 	}
 
@@ -155,15 +155,15 @@ func applyResourceChange(req storage.ResourceChangeRequest) (partial bool, err e
 		return true, fmt.Errorf("%s: %v (already applied: %s)", step, err, strings.Join(applied, ", "))
 	}
 
-	vms, err := proxmox.GetAllClusterVMsByName(req.Vmhostname)
+	vms, err := proxmox.GetAllClusterVMsByName(req.VmHostname)
 	if err != nil {
 		return fail("look up VM", err)
 	}
 	if vms == nil || len(*vms) == 0 {
-		return false, fmt.Errorf("VM %q not found", req.Vmhostname)
+		return false, fmt.Errorf("VM %q not found", req.VmHostname)
 	}
 	if len(*vms) > 1 {
-		return false, fmt.Errorf("VM %q is ambiguous (%d matches)", req.Vmhostname, len(*vms))
+		return false, fmt.Errorf("VM %q is ambiguous (%d matches)", req.VmHostname, len(*vms))
 	}
 	vm := (*vms)[0]
 
@@ -171,16 +171,16 @@ func applyResourceChange(req storage.ResourceChangeRequest) (partial bool, err e
 	if err != nil {
 		return fail("read current disk configuration", err)
 	}
-	hddDone := req.Newsecondarydiskgb > 0 && cfg.SecondaryDiskGB() == int(req.Newsecondarydiskgb)
-	if !hddDone && (cfg.SecondaryDiskGB() != int(req.Currentsecondarydiskgb) || (req.Currentsecondarydiskgb == 0 && cfg.Scsi3 != "")) {
+	hddDone := req.NewSecondaryDiskGb > 0 && cfg.SecondaryDiskGB() == int(req.NewSecondaryDiskGb)
+	if !hddDone && (cfg.SecondaryDiskGB() != int(req.CurrentSecondaryDiskGb) || (req.CurrentSecondaryDiskGb == 0 && cfg.Scsi3 != "")) {
 		return false, fmt.Errorf("HDD configuration changed since submission; submit a new resource change request")
 	}
 
-	if req.Newdiskgb > req.Currentdiskgb {
-		if err := proxmox.ResizeVMDisk(vm.Node, vm.Vmid, int(req.Currentdiskgb), int(req.Newdiskgb)); err != nil {
+	if req.NewDiskGb > req.CurrentDiskGb {
+		if err := proxmox.ResizeVMDisk(vm.Node, vm.Vmid, int(req.CurrentDiskGb), int(req.NewDiskGb)); err != nil {
 			return fail("resize disk", err)
 		}
-		applied = append(applied, fmt.Sprintf("SSD %d -> %d GB", req.Currentdiskgb, req.Newdiskgb))
+		applied = append(applied, fmt.Sprintf("SSD %d -> %d GB", req.CurrentDiskGb, req.NewDiskGb))
 	}
 
 	// Secondary HDD: create on first request (current=0, new>0), or grow.
@@ -188,24 +188,24 @@ func applyResourceChange(req storage.ResourceChangeRequest) (partial bool, err e
 	// need to handle them here.
 	switch {
 	case hddDone:
-	case req.Newsecondarydiskgb > 0 && req.Currentsecondarydiskgb == 0:
-		if err := proxmox.CreateVMSecondaryDisk(vm.Node, vm.Vmid, int(req.Newsecondarydiskgb)); err != nil {
+	case req.NewSecondaryDiskGb > 0 && req.CurrentSecondaryDiskGb == 0:
+		if err := proxmox.CreateVMSecondaryDisk(vm.Node, vm.Vmid, int(req.NewSecondaryDiskGb)); err != nil {
 			return fail("create secondary disk", err)
 		}
-		applied = append(applied, fmt.Sprintf("HDD 0 -> %d GB", req.Newsecondarydiskgb))
-	case req.Newsecondarydiskgb > req.Currentsecondarydiskgb:
-		if err := proxmox.ResizeVMSecondaryDisk(vm.Node, vm.Vmid, int(req.Currentsecondarydiskgb), int(req.Newsecondarydiskgb)); err != nil {
+		applied = append(applied, fmt.Sprintf("HDD 0 -> %d GB", req.NewSecondaryDiskGb))
+	case req.NewSecondaryDiskGb > req.CurrentSecondaryDiskGb:
+		if err := proxmox.ResizeVMSecondaryDisk(vm.Node, vm.Vmid, int(req.CurrentSecondaryDiskGb), int(req.NewSecondaryDiskGb)); err != nil {
 			return fail("resize secondary disk", err)
 		}
-		applied = append(applied, fmt.Sprintf("HDD %d -> %d GB", req.Currentsecondarydiskgb, req.Newsecondarydiskgb))
+		applied = append(applied, fmt.Sprintf("HDD %d -> %d GB", req.CurrentSecondaryDiskGb, req.NewSecondaryDiskGb))
 	}
 
 	cores, memoryMB := 0, 0
-	if req.Newcores != req.Currentcores {
-		cores = int(req.Newcores)
+	if req.NewCores != req.CurrentCores {
+		cores = int(req.NewCores)
 	}
-	if req.Newramgb != req.Currentramgb {
-		memoryMB = int(req.Newramgb) * 1024
+	if req.NewRamGb != req.CurrentRamGb {
+		memoryMB = int(req.NewRamGb) * 1024
 	}
 	if err := proxmox.SetVMCoresAndMemory(vm.Node, vm.Vmid, cores, memoryMB); err != nil {
 		return fail("set cores/memory", err)
@@ -229,14 +229,14 @@ func vmContacts(vm proxmox.PVEClusterVM) []string {
 // emailUserOnApply looks up the VM, extracts contact emails, and sends the
 // "resource change applied" email. Failures are logged and ignored.
 func emailUserOnApply(req storage.ResourceChangeRequest, autoApproved bool) {
-	vms, err := proxmox.GetAllClusterVMsByName(req.Vmhostname)
+	vms, err := proxmox.GetAllClusterVMsByName(req.VmHostname)
 	if err != nil || vms == nil || len(*vms) == 0 {
-		log.Printf("emailUserOnApply: skipping email for %s: VM lookup failed: %v", req.Vmhostname, err)
+		log.Printf("emailUserOnApply: skipping email for %s: VM lookup failed: %v", req.VmHostname, err)
 		return
 	}
 	contacts := vmContacts((*vms)[0])
 	if len(contacts) == 0 {
-		log.Printf("emailUserOnApply: no contacts for %s, skipping email", req.Vmhostname)
+		log.Printf("emailUserOnApply: no contacts for %s, skipping email", req.VmHostname)
 		return
 	}
 	if err := notifier.SendResourceChangeAppliedEmail(req, contacts, autoApproved); err != nil {
@@ -351,11 +351,11 @@ func SubmitResourceChangeRequest(body *rcrSubmitBody) (*rcrSubmitResponse, *Erro
 	}
 	_ = notifier.NotifyResourceChangeRequest(rcr)
 
-	if len(rcr.Needsreviewreasons) > 0 {
+	if len(rcr.NeedsReviewReasons) > 0 {
 		return &rcrSubmitResponse{
 			ID:                 id,
 			Status:             string(storage.RcrStatusPending),
-			NeedsReviewReasons: rcr.Needsreviewreasons,
+			NeedsReviewReasons: rcr.NeedsReviewReasons,
 			Message:            "Request stored, replacing any earlier pending request for this VM. An admin must approve it before it takes effect.",
 		}, nil
 	}
@@ -447,11 +447,11 @@ func UndoResourceChangeRequest(hostname, fingerprint string) (*storage.ResourceC
 
 	// Disk shrinks aren't supported by Proxmox; clamp the target disk to the
 	// larger of (prior current disk, current disk).
-	targetDiskGB := int(prev.Currentdiskgb)
+	targetDiskGB := int(prev.CurrentDiskGb)
 	if currentDiskGB > targetDiskGB {
 		targetDiskGB = currentDiskGB
 	}
-	targetSecondaryDiskGB := int(prev.Currentsecondarydiskgb)
+	targetSecondaryDiskGB := int(prev.CurrentSecondaryDiskGb)
 	if currentSecondaryDiskGB > targetSecondaryDiskGB {
 		targetSecondaryDiskGB = currentSecondaryDiskGB
 	}
@@ -464,8 +464,8 @@ func UndoResourceChangeRequest(hostname, fingerprint string) (*storage.ResourceC
 		CurrentRamGb:           int32(currentRamGB),
 		CurrentDiskGb:          int32(currentDiskGB),
 		CurrentSecondaryDiskGb: int32(currentSecondaryDiskGB),
-		NewCores:               prev.Currentcores,
-		NewRamGb:               prev.Currentramgb,
+		NewCores:               prev.CurrentCores,
+		NewRamGb:               prev.CurrentRamGb,
 		NewDiskGb:              int32(targetDiskGB),
 		NewSecondaryDiskGb:     int32(targetSecondaryDiskGB),
 		RequestReason:          fmt.Sprintf("Undo of request #%d", prev.ID),
@@ -549,17 +549,17 @@ func EditResourceChangeRequest(id int64, cores, ramGB, diskGB, secondaryDiskGB i
 	if rcr.Status != storage.RcrStatusPending {
 		return &ErrorBundle{Err: fmt.Errorf("not pending"), UserMsg: "Only pending resource change requests can be edited", HttpCode: http.StatusBadRequest}
 	}
-	if rcr.Currentsecondarydiskgb > 0 && secondaryDiskGB < int(rcr.Currentsecondarydiskgb) {
+	if rcr.CurrentSecondaryDiskGb > 0 && secondaryDiskGB < int(rcr.CurrentSecondaryDiskGb) {
 		return &ErrorBundle{
 			Err:      fmt.Errorf("HDD shrink not supported"),
-			UserMsg:  fmt.Sprintf("Cannot shrink an existing %d GB HDD via edit.", rcr.Currentsecondarydiskgb),
+			UserMsg:  fmt.Sprintf("Cannot shrink an existing %d GB HDD via edit.", rcr.CurrentSecondaryDiskGb),
 			HttpCode: http.StatusBadRequest,
 		}
 	}
-	if diskGB < int(rcr.Currentdiskgb) {
+	if diskGB < int(rcr.CurrentDiskGb) {
 		return &ErrorBundle{
 			Err:      fmt.Errorf("SSD shrink not supported"),
-			UserMsg:  fmt.Sprintf("Cannot shrink the %d GB SSD via edit.", rcr.Currentdiskgb),
+			UserMsg:  fmt.Sprintf("Cannot shrink the %d GB SSD via edit.", rcr.CurrentDiskGb),
 			HttpCode: http.StatusBadRequest,
 		}
 	}
@@ -600,7 +600,7 @@ func getLockedResourceChange(id int64) (*storage.ResourceChangeRequest, func(), 
 	if err != nil {
 		return nil, nil, SimpleError(err, "Failed to fetch resource change request")
 	}
-	unlock, err := storage.DB.LockResourceChangeVM(rcr.Vmhostname)
+	unlock, err := storage.DB.LockResourceChangeVM(rcr.VmHostname)
 	if err != nil {
 		return nil, nil, SimpleError(err, "Failed to lock resource change")
 	}
