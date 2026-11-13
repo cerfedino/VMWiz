@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strconv"
@@ -99,7 +100,9 @@ func (c *Config) Init() error {
 	c.KEYCLOAK_RESTRICT_AUTH_TO_GROUPS = strings.Split(os.Getenv("KEYCLOAK_RESTRICT_AUTH_TO_GROUPS"), ",")
 	c.SSHPORTAL_SECRET = os.Getenv("SSHPORTAL_SECRET")
 
-	if c.SSHPORTAL_SECRET != "" && len(c.SSHPORTAL_SECRET) < 32 {
+	if c.SSHPORTAL_SECRET == "" {
+		log.Printf("Warning: SSHPORTAL_SECRET is not set")
+	} else if len(c.SSHPORTAL_SECRET) < 32 {
 		return fmt.Errorf("Failed to parse config: SSHPORTAL_SECRET: must be at least 32 characters, value has %v", len(c.SSHPORTAL_SECRET))
 	}
 	c.AUTH_SKIP = os.Getenv("AUTH_SKIP") == "true"
