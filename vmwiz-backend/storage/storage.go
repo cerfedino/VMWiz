@@ -165,7 +165,7 @@ func (s *postgresstorage) Init() error {
 }
 
 // Returns the open closure, or nil while VM requests are accepted.
-func (s *postgresstorage) CurrentRequestClosure(ctx context.Context) (*RequestClosure, error) {
+func (s *postgresstorage) CurrentRequestClosure(ctx context.Context) (*VmRequestClosure, error) {
 	closure, err := s.Queries.GetOpenRequestClosure(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil

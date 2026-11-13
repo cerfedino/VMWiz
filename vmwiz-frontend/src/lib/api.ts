@@ -429,6 +429,36 @@ export function prepareReopenRequests(): BackendRequest {
     };
 }
 
+/** Fetches whether new resource change requests are currently accepted, and the reason if not. */
+export async function fetchResourceChangeClosure(): Promise<RequestClosure> {
+    const { data } = await fetchBackend<RequestClosure>({
+        path: "/api/resourcechange/closure",
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+    });
+    return data;
+}
+
+/** Stops accepting new resource change requests; `reason` is shown to VM owners in the SSH portal. */
+export function prepareCloseResourceChanges(reason: string): BackendRequest {
+    return {
+        path: "/api/resourcechange/close",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+    };
+}
+
+/** Ends the current closure and accepts resource change requests again. */
+export function prepareReopenResourceChanges(): BackendRequest {
+    return {
+        path: "/api/resourcechange/reopen",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+    };
+}
+
 /** Adds an email to the current closure's waitlist. */
 export function prepareJoinWaitlist(email: string): BackendRequest {
     return {

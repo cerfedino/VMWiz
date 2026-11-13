@@ -125,7 +125,7 @@ export interface VMRequestEditBody {
     storage_gb?: number;
 }
 
-/** GET /api/vmrequest/closure */
+/** GET /api/vmrequest/closure and GET /api/resourcechange/closure */
 export interface RequestClosure {
     closed: boolean;
     reason?: string;

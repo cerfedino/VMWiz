@@ -249,6 +249,13 @@ func emailUserOnApply(req storage.ResourceChangeRequest, autoApproved bool, note
 // fetches the current VM resources, runs the heuristic, stores the request,
 // and either auto-applies or marks it pending for human review.
 func SubmitResourceChangeRequest(ctx context.Context, body *rcrSubmitBody) (*rcrSubmitResponse, *ErrorBundle) {
+	closure, err := storage.DB.CurrentResourceChangeClosure(ctx)
+	if err != nil {
+		return nil, SimpleError(err, "Failed to get resource change closure")
+	}
+	if closure != nil {
+		return nil, &ErrorBundle{Err: fmt.Errorf("resource changes closed"), UserMsg: "Resource change requests are currently closed: " + closure.Reason, HttpCode: http.StatusServiceUnavailable}
+	}
 	if body.VMHostname == "" {
 		return nil, &ErrorBundle{Err: fmt.Errorf("missing vmHostname"), UserMsg: "missing vmHostname", HttpCode: http.StatusBadRequest}
 	}
@@ -563,6 +570,79 @@ func sshportalAuth(next http.Handler) http.Handler {
 }
 
 func addAllResourceChangeRoutes(r *mux.Router) {
+
+	r.Methods("GET").Path("/api/resourcechange/closure").HandlerFunc(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		closure, err := storage.DB.CurrentResourceChangeClosure(r.Context())
+		if err != nil {
+			log.Printf("Failed to get resource change closure: %v", err)
+			http.Error(w, "Failed to get resource change closure", http.StatusInternalServerError)
+			return
+		}
+
+		type response struct {
+			Closed   bool      `json:"closed"`
+			Reason   string    `json:"reason,omitempty"`
+			ClosedAt time.Time `json:"closedAt,omitzero"`
+		}
+		resp := response{Closed: closure != nil}
+		if closure != nil {
+			resp.Reason = closure.Reason
+			resp.ClosedAt = closure.ClosedAt
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+
+	r.Methods("POST").Path("/api/resourcechange/close").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("close", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		type bodyS struct {
+			Reason string `json:"reason"`
+		}
+		var body bodyS
+		err := json.NewDecoder(r.Body).Decode(&body)
+		if err != nil {
+			log.Printf("Error decoding JSON: %v", err)
+			http.Error(w, "Invalid request payload", http.StatusBadRequest)
+			return
+		}
+		body.Reason = strings.TrimSpace(body.Reason)
+		if body.Reason == "" {
+			http.Error(w, "A reason is required", http.StatusBadRequest)
+			return
+		}
+
+		closure, err := storage.DB.CurrentResourceChangeClosure(r.Context())
+		if err != nil {
+			log.Printf("Failed to get resource change closure: %v", err)
+			http.Error(w, "Failed to get resource change closure", http.StatusInternalServerError)
+			return
+		}
+		if closure != nil {
+			http.Error(w, "Resource change requests are already closed", http.StatusBadRequest)
+			return
+		}
+
+		_, err = storage.DB.CreateResourceChangeClosure(r.Context(), body.Reason)
+		if err != nil {
+			log.Printf("Failed to close resource change requests: %v", err)
+			http.Error(w, "Failed to close resource change requests", http.StatusInternalServerError)
+			return
+		}
+		log.Printf("Resource change requests closed: %s", body.Reason)
+	}))))
+
+	r.Methods("POST").Path("/api/resourcechange/reopen").Subrouter().NewRoute().Handler(auth.CheckAuthenticated(confirmation.ConfirmMiddleware("reopen", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reopened, err := storage.DB.ReopenResourceChanges(r.Context())
+		if err != nil {
+			log.Printf("Failed to reopen resource change requests: %v", err)
+			http.Error(w, "Failed to reopen resource change requests", http.StatusInternalServerError)
+			return
+		}
+		if reopened == 0 {
+			http.Error(w, "Resource change requests are not closed", http.StatusBadRequest)
+			return
+		}
+		log.Println("Resource change requests reopened")
+	}))))
 
 	// Submit endpoint, called by the SSH portal on behalf of an
 	// authenticated VM owner. Authenticated via shared bearer token.

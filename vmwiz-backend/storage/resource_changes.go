@@ -97,3 +97,15 @@ func (s *postgresstorage) MarkResourceChangeRequestProcessed(id int64, status Rc
 	}
 	return nil
 }
+
+// Returns the open closure, or nil while resource change requests are accepted.
+func (s *postgresstorage) CurrentResourceChangeClosure(ctx context.Context) (*ResourceChangeClosure, error) {
+	closure, err := s.Queries.GetOpenResourceChangeClosure(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &closure, nil
+}

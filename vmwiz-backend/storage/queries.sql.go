@@ -83,7 +83,7 @@ func (q *Queries) CreateLogScope(ctx context.Context, arg CreateLogScopeParams) 
 }
 
 const createRequestClosure = `-- name: CreateRequestClosure :one
-INSERT INTO request_closure (reason) VALUES ($1) RETURNING id
+INSERT INTO vm_request_closure (reason) VALUES ($1) RETURNING id
 `
 
 func (q *Queries) CreateRequestClosure(ctx context.Context, reason string) (int64, error) {
@@ -94,7 +94,7 @@ func (q *Queries) CreateRequestClosure(ctx context.Context, reason string) (int6
 }
 
 const createRequestWaitlistEntry = `-- name: CreateRequestWaitlistEntry :exec
-INSERT INTO request_waitlist (closure_id, email) VALUES ($1, $2) ON CONFLICT DO NOTHING
+INSERT INTO vm_request_waitlist (closure_id, email) VALUES ($1, $2) ON CONFLICT DO NOTHING
 `
 
 type CreateRequestWaitlistEntryParams struct {
@@ -153,6 +153,17 @@ func (q *Queries) CreateResourceChange(ctx context.Context, arg CreateResourceCh
 		pq.Array(arg.NeedsReviewReasons),
 		arg.RequestReason,
 	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createResourceChangeClosure = `-- name: CreateResourceChangeClosure :one
+INSERT INTO resource_change_closure (reason) VALUES ($1) RETURNING id
+`
+
+func (q *Queries) CreateResourceChangeClosure(ctx context.Context, reason string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, createResourceChangeClosure, reason)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
@@ -334,12 +345,28 @@ func (q *Queries) GetLogScopeStatus(ctx context.Context, id string) (GetLogScope
 }
 
 const getOpenRequestClosure = `-- name: GetOpenRequestClosure :one
-SELECT id, closed_at, reopened_at, reason FROM request_closure WHERE reopened_at IS NULL
+SELECT id, closed_at, reopened_at, reason FROM vm_request_closure WHERE reopened_at IS NULL
 `
 
-func (q *Queries) GetOpenRequestClosure(ctx context.Context) (RequestClosure, error) {
+func (q *Queries) GetOpenRequestClosure(ctx context.Context) (VmRequestClosure, error) {
 	row := q.db.QueryRowContext(ctx, getOpenRequestClosure)
-	var i RequestClosure
+	var i VmRequestClosure
+	err := row.Scan(
+		&i.ID,
+		&i.ClosedAt,
+		&i.ReopenedAt,
+		&i.Reason,
+	)
+	return i, err
+}
+
+const getOpenResourceChangeClosure = `-- name: GetOpenResourceChangeClosure :one
+SELECT id, closed_at, reopened_at, reason FROM resource_change_closure WHERE reopened_at IS NULL
+`
+
+func (q *Queries) GetOpenResourceChangeClosure(ctx context.Context) (ResourceChangeClosure, error) {
+	row := q.db.QueryRowContext(ctx, getOpenResourceChangeClosure)
+	var i ResourceChangeClosure
 	err := row.Scan(
 		&i.ID,
 		&i.ClosedAt,
@@ -615,18 +642,18 @@ func (q *Queries) ListPositiveSurveyHostnames(ctx context.Context, surveyid int6
 }
 
 const listRequestClosures = `-- name: ListRequestClosures :many
-SELECT id, closed_at, reopened_at, reason FROM request_closure ORDER BY closed_at DESC
+SELECT id, closed_at, reopened_at, reason FROM vm_request_closure ORDER BY closed_at DESC
 `
 
-func (q *Queries) ListRequestClosures(ctx context.Context) ([]RequestClosure, error) {
+func (q *Queries) ListRequestClosures(ctx context.Context) ([]VmRequestClosure, error) {
 	rows, err := q.db.QueryContext(ctx, listRequestClosures)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []RequestClosure{}
+	items := []VmRequestClosure{}
 	for rows.Next() {
-		var i RequestClosure
+		var i VmRequestClosure
 		if err := rows.Scan(
 			&i.ID,
 			&i.ClosedAt,
@@ -647,18 +674,18 @@ func (q *Queries) ListRequestClosures(ctx context.Context) ([]RequestClosure, er
 }
 
 const listRequestWaitlist = `-- name: ListRequestWaitlist :many
-SELECT id, closure_id, email, created_at FROM request_waitlist ORDER BY created_at
+SELECT id, closure_id, email, created_at FROM vm_request_waitlist ORDER BY created_at
 `
 
-func (q *Queries) ListRequestWaitlist(ctx context.Context) ([]RequestWaitlist, error) {
+func (q *Queries) ListRequestWaitlist(ctx context.Context) ([]VmRequestWaitlist, error) {
 	rows, err := q.db.QueryContext(ctx, listRequestWaitlist)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []RequestWaitlist{}
+	items := []VmRequestWaitlist{}
 	for rows.Next() {
-		var i RequestWaitlist
+		var i VmRequestWaitlist
 		if err := rows.Scan(
 			&i.ID,
 			&i.ClosureID,
@@ -1067,11 +1094,23 @@ func (q *Queries) MarkSurveyEmailSent(ctx context.Context, uuid string) error {
 }
 
 const reopenRequests = `-- name: ReopenRequests :execrows
-UPDATE request_closure SET reopened_at = CURRENT_TIMESTAMP WHERE reopened_at IS NULL
+UPDATE vm_request_closure SET reopened_at = CURRENT_TIMESTAMP WHERE reopened_at IS NULL
 `
 
 func (q *Queries) ReopenRequests(ctx context.Context) (int64, error) {
 	result, err := q.db.ExecContext(ctx, reopenRequests)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const reopenResourceChanges = `-- name: ReopenResourceChanges :execrows
+UPDATE resource_change_closure SET reopened_at = CURRENT_TIMESTAMP WHERE reopened_at IS NULL
+`
+
+func (q *Queries) ReopenResourceChanges(ctx context.Context) (int64, error) {
+	result, err := q.db.ExecContext(ctx, reopenResourceChanges)
 	if err != nil {
 		return 0, err
 	}

@@ -129,18 +129,11 @@ type Request struct {
 	Secondarydiskgb  int32
 }
 
-type RequestClosure struct {
+type ResourceChangeClosure struct {
 	ID         int64
 	ClosedAt   time.Time
 	ReopenedAt sql.NullTime
 	Reason     string
-}
-
-type RequestWaitlist struct {
-	ID        int64
-	ClosureID int64
-	Email     string
-	CreatedAt time.Time
 }
 
 type ResourceChangeRequest struct {
@@ -178,4 +171,18 @@ type SurveyEmail struct {
 	EmailSent         bool
 	StillUsed         sql.NullBool
 	ExternalRecipient string
+}
+
+type VmRequestClosure struct {
+	ID         int64
+	ClosedAt   time.Time
+	ReopenedAt sql.NullTime
+	Reason     string
+}
+
+type VmRequestWaitlist struct {
+	ID        int64
+	ClosureID int64
+	Email     string
+	CreatedAt time.Time
 }

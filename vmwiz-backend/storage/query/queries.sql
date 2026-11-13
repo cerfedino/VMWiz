@@ -42,22 +42,22 @@ UPDATE request SET requestStatus = $2 WHERE requestID = $1;
 
 
 -- name: GetOpenRequestClosure :one
-SELECT * FROM request_closure WHERE reopened_at IS NULL;
+SELECT * FROM vm_request_closure WHERE reopened_at IS NULL;
 
 -- name: CreateRequestClosure :one
-INSERT INTO request_closure (reason) VALUES ($1) RETURNING id;
+INSERT INTO vm_request_closure (reason) VALUES ($1) RETURNING id;
 
 -- name: ReopenRequests :execrows
-UPDATE request_closure SET reopened_at = CURRENT_TIMESTAMP WHERE reopened_at IS NULL;
+UPDATE vm_request_closure SET reopened_at = CURRENT_TIMESTAMP WHERE reopened_at IS NULL;
 
 -- name: CreateRequestWaitlistEntry :exec
-INSERT INTO request_waitlist (closure_id, email) VALUES ($1, $2) ON CONFLICT DO NOTHING;
+INSERT INTO vm_request_waitlist (closure_id, email) VALUES ($1, $2) ON CONFLICT DO NOTHING;
 
 -- name: ListRequestClosures :many
-SELECT * FROM request_closure ORDER BY closed_at DESC;
+SELECT * FROM vm_request_closure ORDER BY closed_at DESC;
 
 -- name: ListRequestWaitlist :many
-SELECT * FROM request_waitlist ORDER BY created_at;
+SELECT * FROM vm_request_waitlist ORDER BY created_at;
 
 
 
@@ -239,3 +239,13 @@ WHERE id = @id AND status = 'pending';
 UPDATE resource_change_request
 SET status = @status, processed_at = CURRENT_TIMESTAMP, processed_note = @note
 WHERE id = @id AND status = 'pending';
+
+
+-- name: GetOpenResourceChangeClosure :one
+SELECT * FROM resource_change_closure WHERE reopened_at IS NULL;
+
+-- name: CreateResourceChangeClosure :one
+INSERT INTO resource_change_closure (reason) VALUES ($1) RETURNING id;
+
+-- name: ReopenResourceChanges :execrows
+UPDATE resource_change_closure SET reopened_at = CURRENT_TIMESTAMP WHERE reopened_at IS NULL;
