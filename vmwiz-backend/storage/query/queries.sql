@@ -219,11 +219,6 @@ SELECT * FROM resource_change_request WHERE id = @id;
 -- name: ListResourceChanges :many
 SELECT * FROM resource_change_request ORDER BY created_at DESC, id DESC;
 
--- name: GetLatestAppliedResourceChange :one
-SELECT * FROM resource_change_request
-WHERE vm_hostname = @vm_hostname AND status IN ('auto_approved', 'accepted')
-ORDER BY created_at DESC, id DESC LIMIT 1;
-
 -- name: GetPendingResourceChange :one
 SELECT * FROM resource_change_request
 WHERE vm_hostname = @vm_hostname AND status = 'pending'
