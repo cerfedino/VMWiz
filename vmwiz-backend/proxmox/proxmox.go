@@ -1773,11 +1773,57 @@ func resizeVMDiskSlot(node string, vmid int, slot string, currentGB, targetGB in
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	_, err = proxmoxDoRequest(req, client)
+	res, err := proxmoxDoRequest(req, client)
 	if err != nil {
 		return fmt.Errorf("Failed to resize VM disk %s: %v", slot, err)
 	}
+
+	var task struct {
+		Data string `json:"data"`
+	}
+	if err := json.Unmarshal(res, &task); err != nil {
+		return fmt.Errorf("Failed to resize VM disk %s: Unmarshal error: %v", slot, err)
+	}
+	if task.Data == "" {
+		return nil
+	}
+	if err := waitForNodeTask(node, task.Data); err != nil {
+		return fmt.Errorf("Failed to resize VM disk %s: %v", slot, err)
+	}
 	return nil
+}
+
+// GET /api2/json/nodes/{node}/tasks/{upid}/status
+func waitForNodeTask(node string, upid string) error {
+	const timeoutSeconds = 30
+	for range timeoutSeconds {
+		req, client, err := proxmoxMakeRequest(http.MethodGet, fmt.Sprintf("/api2/json/nodes/%s/tasks/%s/status", node, url.PathEscape(upid)), nil)
+		if err != nil {
+			return fmt.Errorf("Waiting for task '%v': %v", upid, err)
+		}
+		body, err := proxmoxDoRequest(req, client)
+		if err != nil {
+			return fmt.Errorf("Waiting for task '%v': %v", upid, err)
+		}
+
+		var task struct {
+			Data struct {
+				Status     string `json:"status"`
+				Exitstatus string `json:"exitstatus"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(body, &task); err != nil {
+			return fmt.Errorf("Waiting for task '%v': Unmarshal error: %v", upid, err)
+		}
+		if task.Data.Status == "stopped" {
+			if task.Data.Exitstatus != "OK" {
+				return fmt.Errorf("Task '%v' failed: %v", upid, task.Data.Exitstatus)
+			}
+			return nil
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return fmt.Errorf("Task '%v' still running after %vs", upid, timeoutSeconds)
 }
 
 // CreateVMSecondaryDisk attaches a new HDD to the VM with the given size.
