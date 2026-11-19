@@ -16,6 +16,7 @@ import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { FetchDialog } from "@/components/fetch-dialog";
 import {
     fetchBackend,
@@ -29,7 +30,7 @@ import type {
     VMRequestValidationErrors,
 } from "@/lib/types/api";
 import { cn, isInstitutionalEmail } from "@/lib/utils";
-import { Plus, Minus, RotateCcw, Lock } from "lucide-react";
+import { AlertTriangle, Plus, Minus, RotateCcw, Lock } from "lucide-react";
 
 function FieldError({ message }: { message?: string }) {
     if (!message) return null;
@@ -307,6 +308,7 @@ function VMSpecSection() {
                         }
                         onBlur={syncToUrl}
                         aria-invalid={!!errors.ramGB}
+                        aria-describedby="ram-availability"
                     />
                     <Slider
                         className="flex-1 [&_[data-slot=slider-range]]:bg-orange-500 [&_[data-slot=slider-thumb]]:border-orange-500 [&_[data-slot=slider-thumb]]:ring-orange-500/50"
@@ -321,6 +323,26 @@ function VMSpecSection() {
                     />
                 </div>
                 <FieldError message={errors.ramGB} />
+                <Alert className="border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100">
+                    <AlertTriangle aria-hidden="true" />
+                    <AlertTitle>Limited RAM availability</AlertTitle>
+                    <AlertDescription
+                        id="ram-availability"
+                        className="text-pretty leading-relaxed text-amber-900 dark:text-amber-200 [&_p:not(:last-child)]:mb-2"
+                    >
+                        <p>
+                            We are currently low on available Memory and will
+                            review requests for more than 2 GB
+                            closely. Without a clear justification, we will
+                            likely decline your request.
+                        </p>
+                        <p>
+                            We will also likely decline requests for large
+                            amounts of memory, such as to host a Minecraft
+                            server, even with a strong justification.
+                        </p>
+                    </AlertDescription>
+                </Alert>
             </div>
 
             {/* Disk Space */}
