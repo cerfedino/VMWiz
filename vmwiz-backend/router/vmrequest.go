@@ -67,18 +67,24 @@ func AcceptVMRequest(ctx context.Context, id int64) *ErrorBundle {
 
 SSH Portal
 ----------
-Use the SSH portal to start, reboot, or shut down your VM, open its serial
-console. The portal works even if the VM is unreachable.
+Use the SSH portal to start, reboot, or shut down your VM, open its
+serial console. The portal works even if the VM is unreachable.
+
 
     ssh %s@sshportal.sos.ethz.ch
 
-Use the key you registered for the VM. On your first connection, verify the portal's host key
-fingerprint against the SSH portal guide before accepting it. To keep using the sshportal add any changes to your ssh keys there as well!
+Use the key you registered for the VM. On your first connection,
+verify the portal's host key fingerprint against the SSH portal guide
+(linked below) before accepting it. To keep using the SSH portal add
+any changes to your authorized_keys there as well!
 
-More features like ressource requests are in the works, for up to date documentation:
+More features (such as resource requests) are in the works, for up to
+date documentation visit:
 
-https://wiki.sos.ethz.ch/vsos/publicuserguides/landing
-(You can find this by just going to sos.ethz.ch and clicking yourself through)
+https://wiki.sos.ethz.ch/vsos/publicuserguides/guides/sshportal
+
+You can also find this by just going to https://sos.ethz.ch and
+clicking yourself through.
 `, summaryText, vmName)
 	err = notifier.SendEmail("VSOS VM Creation", []byte(emailBody), []string{request.Email, config.AppConfig.SMTP_REPLYTO})
 	if err != nil {
