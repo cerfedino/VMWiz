@@ -88,7 +88,7 @@ func StartServer() error {
 	// }
 
 	// _, _, err = proxmox.CreateVM(proxmox.VMCreationOptions{
-	// 	Template:     proxmox.IMAGE_UBUNTU_24_04,
+	// 	Template:     proxmox.IMAGE_UBUNTU_26_04,
 	// 	FQDN:         "vmwiz-test.vsos.ethz.ch",
 	// 	Reinstall:    false,
 	// 	Cores_CPU:    5,

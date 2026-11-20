@@ -224,7 +224,7 @@ export const DEFAULT_FORM_VALUES: VMRequestFormData = {
     isOrganization: false,
     orgName: "",
     hostname: "",
-    image: "Ubuntu 24.04 - Noble Numbat",
+    image: "Ubuntu 26.04 - Resolute Raccoon",
     cores: 2,
     ramGB: 2,
     diskGB: 15,
@@ -235,7 +235,7 @@ export const DEFAULT_FORM_VALUES: VMRequestFormData = {
 };
 
 export const DEFAULT_ALLOWED_VALUES: VMRequestAllowedValues = {
-    image: ["Ubuntu 24.04 - Noble Numbat", "Debian 13 - Trixie"],
+    image: ["Ubuntu 26.04 - Resolute Raccoon", "Debian 13 - Trixie"],
     cores: { min: 1, max: 8 },
     ramGB: { min: 2, max: 16 },
     diskGB: { min: 15, max: 100 },
