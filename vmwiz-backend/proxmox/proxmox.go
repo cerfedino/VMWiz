@@ -339,7 +339,7 @@ type VMCreationOptions struct {
 }
 
 const (
-	IMAGE_UBUNTU_24_04 = "Ubuntu 24.04 - Noble Numbat"
+	IMAGE_UBUNTU_26_04 = "Ubuntu 26.04 - Resolute Raccoon"
 	IMAGE_DEBIAN_13    = "Debian 13 - Trixie"
 )
 
@@ -429,8 +429,8 @@ func CreateVM(ctx context.Context, options VMCreationOptions) (_ *PVENodeVM, _ *
 		options.Template = "trixie"
 		ssh_user = "debian"
 		first_boot_line = "Cloud-init .* finished"
-	case IMAGE_UBUNTU_24_04:
-		options.Template = "noble"
+	case IMAGE_UBUNTU_26_04:
+		options.Template = "resolute"
 		ssh_user = "ubuntu"
 		first_boot_line = "Cloud-init .* finished"
 	default:
@@ -494,7 +494,7 @@ func CreateVM(ctx context.Context, options VMCreationOptions) (_ *PVENodeVM, _ *
 	lg.Info("[-] Preparing apt sources for VM")
 	var SOURCES_LIST string
 	switch options.Template {
-	case "trixie", "bookworm":
+	case "trixie":
 		SOURCES_LIST = fmt.Sprintf(`
 		deb http://ftp.ch.debian.org/debian %v main
 		#deb-src http://ftp.ch.debian.org/debian %v main
@@ -504,7 +504,7 @@ func CreateVM(ctx context.Context, options VMCreationOptions) (_ *PVENodeVM, _ *
 
 		deb http://security.debian.org/ %v-security main
 		#deb-src http://security.debian.org/ %v-security main`, options.Template, options.Template, options.Template, options.Template, options.Template, options.Template)
-	case "jammy", "noble":
+	case "resolute":
 		SOURCES_LIST = ""
 	default:
 		return nil, nil, fmt.Errorf("Failed to create VM: Unknown template %v", options.Template)
